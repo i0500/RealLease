@@ -246,7 +246,7 @@ export class MockSheetsService {
     spreadsheetId: string,
     range: string,
     values: any[],
-    valueInputOption: 'RAW' | 'USER_ENTERED' = 'USER_ENTERED'
+    _valueInputOption?: 'RAW' | 'USER_ENTERED'
   ): Promise<any> {
     await this.delay(250)
 
@@ -280,9 +280,9 @@ export class MockSheetsService {
     spreadsheetId: string,
     range: string,
     values: any[],
-    valueInputOption: 'RAW' | 'USER_ENTERED' = 'USER_ENTERED'
+    _valueInputOption?: 'RAW' | 'USER_ENTERED'
   ): Promise<any> {
-    return this.writeRange(spreadsheetId, range, [values], valueInputOption)
+    return this.writeRange(spreadsheetId, range, [values])
   }
 
   async batchUpdate(spreadsheetId: string, requests: any[]): Promise<any> {
