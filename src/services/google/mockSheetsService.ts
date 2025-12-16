@@ -215,7 +215,7 @@ export class MockSheetsService {
     spreadsheetId: string,
     range: string,
     values: any[][],
-    _valueInputOption: 'RAW' | 'USER_ENTERED' = 'USER_ENTERED'
+    _valueInputOption?: 'RAW' | 'USER_ENTERED'
   ): Promise<any> {
     await this.delay(250)
 

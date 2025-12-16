@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSheetsStore } from '@/stores/sheets'
 import { NCard, NStatistic, NSpin, NAlert, NEmpty } from 'naive-ui'
 
+const router = useRouter()
 const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
 const sheetsStore = useSheetsStore()

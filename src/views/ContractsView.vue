@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatCurrency } from '@/utils/formatUtils'
@@ -28,6 +29,7 @@ import {
   useDialog
 } from 'naive-ui'
 
+const router = useRouter()
 const contractsStore = useContractsStore()
 const sheetsStore = useSheetsStore()
 const message = useMessage()
