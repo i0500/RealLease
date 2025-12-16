@@ -1,0 +1,9 @@
+# RealLease - 부동산 임대차 관리 시스템
+# https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+
+# 비공개 앱이므로 검색 엔진 크롤링 차단
+# User-agent: *
+# Disallow: /

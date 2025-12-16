@@ -1,0 +1,42 @@
+export function formatCurrency(amount: number): string {
+  if (amount >= 100000000) {
+    const billions = amount / 100000000
+    return `${billions}억`
+  } else if (amount >= 10000) {
+    const thousands = amount / 10000
+    return `${thousands}만`
+  }
+  return amount.toString()
+}
+
+export function formatPhoneNumber(phone: string): string {
+  const cleaned = phone.replace(/\D/g, '')
+
+  if (cleaned.length === 11) {
+    return cleaned.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
+  } else if (cleaned.length === 10) {
+    return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+  }
+
+  return phone
+}
+
+export function extractSpreadsheetId(url: string): string | null {
+  const patterns = [
+    /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/,
+    /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)\/edit/
+  ]
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match && match[1]) {
+      return match[1]
+    }
+  }
+
+  return null
+}
+
+export function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+}
