@@ -44,6 +44,15 @@ export const useSheetsStore = defineStore('sheets', () => {
     }
   }
 
+  // Helper: Date 객체를 ISO 문자열로 변환하여 저장 가능한 형태로 만들기
+  function serializeSheetsForStorage(sheets: SheetConfig[]) {
+    return sheets.map(sheet => ({
+      ...sheet,
+      createdAt: sheet.createdAt.toISOString(),
+      lastSynced: sheet.lastSynced?.toISOString()
+    }))
+  }
+
   async function addSheet(name: string, sheetUrl: string, tabName?: string) {
     try {
       isLoading.value = true
@@ -67,7 +76,10 @@ export const useSheetsStore = defineStore('sheets', () => {
       }
 
       sheets.value.push(newSheet)
-      await storageService.set(STORAGE_KEY, sheets.value)
+
+      // 저장 가능한 형태로 직렬화
+      const serialized = serializeSheetsForStorage(sheets.value)
+      await storageService.set(STORAGE_KEY, serialized)
 
       // 첫 시트라면 현재 시트로 설정
       if (sheets.value.length === 1) {
@@ -95,7 +107,10 @@ export const useSheetsStore = defineStore('sheets', () => {
       }
 
       sheets.value.splice(index, 1)
-      await storageService.set(STORAGE_KEY, sheets.value)
+
+      // 저장 가능한 형태로 직렬화
+      const serialized = serializeSheetsForStorage(sheets.value)
+      await storageService.set(STORAGE_KEY, serialized)
 
       // 현재 시트가 삭제되었다면 다른 시트로 변경
       if (currentSheetId.value === sheetId) {
@@ -114,7 +129,10 @@ export const useSheetsStore = defineStore('sheets', () => {
     const sheet = sheets.value.find(s => s.id === sheetId)
     if (sheet) {
       sheet.lastSynced = new Date()
-      await storageService.set(STORAGE_KEY, sheets.value)
+
+      // 저장 가능한 형태로 직렬화
+      const serialized = serializeSheetsForStorage(sheets.value)
+      await storageService.set(STORAGE_KEY, serialized)
     }
   }
 
