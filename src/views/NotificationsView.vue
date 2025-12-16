@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useContractsStore } from '@/stores/contracts'
@@ -8,6 +8,7 @@ import { formatDate } from '@/utils/dateUtils'
 import type { Notification } from '@/types/notification'
 import {
   NCard,
+  NIcon,
   NButton,
   NSpace,
   NSelect,
@@ -21,6 +22,7 @@ import {
   useMessage,
   useDialog
 } from 'naive-ui'
+import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
 
 const router = useRouter()
 const notificationsStore = useNotificationsStore()
@@ -140,15 +142,17 @@ function isRead(notificationId: string) {
   <div class="notifications-view">
     <div class="header mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold">알림 센터</h1>
+        <h1 class="text-2xl font-bold" style="color: #2c3e50;">알림 센터</h1>
         <n-space>
           <n-badge :value="notificationsStore.unreadCount" :max="99">
             <n-button type="primary" @click="handleMarkAllAsRead">
               전체 읽음 처리
             </n-button>
           </n-badge>
-          <n-button @click="router.push('/')">
-            <template #icon>🏠</template>
+          <n-button @click="router.push('/')" secondary>
+            <template #icon>
+              <n-icon><HomeIcon /></n-icon>
+            </template>
             메인 화면
           </n-button>
         </n-space>

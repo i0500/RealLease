@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
@@ -18,6 +18,7 @@ import {
   NEmpty,
   NTag,
   NModal,
+  NIcon,
   NForm,
   NFormItem,
   NInputNumber,
@@ -28,6 +29,7 @@ import {
   useMessage,
   useDialog
 } from 'naive-ui'
+import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
 
 const router = useRouter()
 const contractsStore = useContractsStore()
@@ -397,9 +399,11 @@ import { h } from 'vue'
   <div class="contracts-view">
     <div class="header mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold">계약 관리</h1>
-        <n-button @click="() => router.push('/')">
-          <template #icon>🏠</template>
+        <h1 class="text-2xl font-bold" style="color: #2c3e50;">계약 관리</h1>
+        <n-button @click="() => router.push('/')" secondary>
+          <template #icon>
+            <n-icon><HomeIcon /></n-icon>
+          </template>
           메인 화면
         </n-button>
       </div>

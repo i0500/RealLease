@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSheetsStore } from '@/stores/sheets'
-import { NCard, NStatistic, NSpin, NAlert, NEmpty } from 'naive-ui'
+import { NCard, NStatistic, NSpin, NAlert, NEmpty, NButton, NIcon } from 'naive-ui'
+import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
 
 const router = useRouter()
 const contractsStore = useContractsStore()
@@ -33,9 +34,11 @@ onMounted(async () => {
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">대시보드</h1>
-      <n-button @click="router.push('/')">
-        <template #icon>🏠</template>
+      <h1 class="text-2xl font-bold" style="color: #2c3e50;">대시보드</h1>
+      <n-button @click="router.push('/')" secondary>
+        <template #icon>
+          <n-icon><HomeIcon /></n-icon>
+        </template>
         메인 화면
       </n-button>
     </div>
@@ -59,31 +62,19 @@ onMounted(async () => {
       <!-- 통계 카드 -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <n-card>
-          <n-statistic label="전체 계약">
-            <template #prefix>📊</template>
-            {{ stats.total }}
-          </n-statistic>
+          <n-statistic label="전체 계약" :value="stats.total" />
         </n-card>
 
         <n-card>
-          <n-statistic label="진행중 계약">
-            <template #prefix>✅</template>
-            {{ stats.active }}
-          </n-statistic>
+          <n-statistic label="진행중 계약" :value="stats.active" />
         </n-card>
 
         <n-card>
-          <n-statistic label="만료된 계약">
-            <template #prefix>⏰</template>
-            {{ stats.expired }}
-          </n-statistic>
+          <n-statistic label="만료된 계약" :value="stats.expired" />
         </n-card>
 
         <n-card>
-          <n-statistic label="미확인 알림">
-            <template #prefix>🔔</template>
-            {{ stats.notifications }}
-          </n-statistic>
+          <n-statistic label="미확인 알림" :value="stats.notifications" />
         </n-card>
       </div>
 

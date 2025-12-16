@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSheetsStore } from '@/stores/sheets'
@@ -13,6 +13,7 @@ import {
   NInput,
   NSpace,
   NList,
+  NIcon,
   NListItem,
   NThing,
   NTag,
@@ -26,6 +27,11 @@ import {
   useMessage,
   useDialog
 } from 'naive-ui'
+import {
+  HomeOutline as HomeIcon,
+  AddOutline as AddIcon,
+  RefreshOutline as RefreshIcon
+} from '@vicons/ionicons5'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -167,10 +173,12 @@ function copySheetUrl(url: string) {
   <div class="settings-view">
     <!-- Navigation Header -->
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">설정</h1>
+      <h1 class="text-2xl font-bold" style="color: #2c3e50;">설정</h1>
       <n-space>
-        <n-button @click="router.push('/')">
-          <template #icon>🏠</template>
+        <n-button @click="router.push('/')" secondary>
+          <template #icon>
+            <n-icon><HomeIcon /></n-icon>
+          </template>
           메인 화면
         </n-button>
       </n-space>
@@ -195,7 +203,9 @@ function copySheetUrl(url: string) {
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-semibold">구글 시트 관리</h2>
           <n-button type="primary" @click="handleAddSheet">
-            <template #icon>➕</template>
+            <template #icon>
+              <n-icon><AddIcon /></n-icon>
+            </template>
             시트 추가
           </n-button>
         </div>
@@ -275,7 +285,9 @@ function copySheetUrl(url: string) {
                   :loading="syncingSheetId === sheet.id"
                   @click="handleSyncSheet(sheet)"
                 >
-                  <template #icon>🔄</template>
+                  <template #icon>
+                    <n-icon><RefreshIcon /></n-icon>
+                  </template>
                   동기화
                 </n-button>
                 <n-button

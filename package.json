@@ -13,6 +13,7 @@
     "serve": "vite preview --port 4173"
   },
   "dependencies": {
+    "@vicons/ionicons5": "^0.13.0",
     "@vueuse/core": "^14.1.0",
     "date-fns": "^4.1.0",
     "localforage": "^1.10.0",

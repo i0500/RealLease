@@ -20,7 +20,6 @@ export const useAuthStore = defineStore('auth', () => {
       const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
 
       if (isDevMode) {
-        console.log('🔧 개발 모드: Google 인증 건너뛰기')
         isInitialized.value = true
         return
       }
@@ -58,7 +57,6 @@ export const useAuthStore = defineStore('auth', () => {
       const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
 
       if (isDevMode) {
-        console.log('🔧 개발 모드: 테스트 계정으로 로그인')
         // 개발 모드에서는 더미 사용자 생성
         user.value = {
           email: 'test@reallease.dev',
