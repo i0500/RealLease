@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, h } from 'vue'
+import { computed, onMounted, h, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSheetsStore } from '@/stores/sheets'
 import {
@@ -23,13 +23,25 @@ const router = useRouter()
 const sheetsStore = useSheetsStore()
 
 const hasSheets = computed(() => sheetsStore.sheetCount > 0)
+const isMobile = ref(false)
 
 onMounted(() => {
   // 시트가 있으면 대시보드로, 없으면 시트 추가 안내
   if (hasSheets.value) {
     router.replace({ name: 'dashboard' })
   }
+
+  // 모바일 화면 감지 (768px 이하)
+  const checkMobile = () => {
+    isMobile.value = window.innerWidth < 768
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
 })
+
+function handleCollapse(collapsed: boolean) {
+  isMobile.value = collapsed
+}
 
 function renderIcon(icon: any) {
   return () => h(NIcon, null, { default: () => h(icon) })
@@ -69,9 +81,12 @@ function handleMenuSelect(key: string) {
       bordered
       show-trigger
       collapse-mode="width"
-      :collapsed-width="64"
+      :collapsed-width="0"
       :width="240"
       :native-scrollbar="false"
+      :collapsed="isMobile"
+      breakpoint="md"
+      @update:collapsed="handleCollapse"
       style="background-color: #2c3e50;"
     >
       <div class="px-4 py-6" style="background-color: #1a252f;">
@@ -93,61 +108,64 @@ function handleMenuSelect(key: string) {
     <n-layout>
       <n-layout-header
         bordered
-        class="px-6 py-4"
+        class="px-4 py-3 md:px-6 md:py-4"
         style="background-color: #ffffff; border-bottom: 1px solid #e1e8ed;"
       >
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold" style="color: #2c3e50;">
+          <h2 class="text-base md:text-lg font-semibold" style="color: #2c3e50;">
             임대차 관리 시스템
           </h2>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1 md:gap-2">
             <n-button
               text
               @click="router.push({ name: 'notifications' })"
               style="color: #5a6c7d;"
+              size="small"
             >
               <template #icon>
                 <n-icon><NotificationIcon /></n-icon>
               </template>
-              알림
+              <span class="hidden sm:inline">알림</span>
             </n-button>
             <n-button
               text
               @click="router.push({ name: 'settings' })"
               style="color: #5a6c7d;"
+              size="small"
             >
               <template #icon>
                 <n-icon><SettingsIcon /></n-icon>
               </template>
-              설정
+              <span class="hidden sm:inline">설정</span>
             </n-button>
           </div>
         </div>
       </n-layout-header>
 
-      <n-layout-content class="p-6">
+      <n-layout-content class="p-4 md:p-6">
         <div v-if="!hasSheets" class="flex items-center justify-center" style="min-height: 400px;">
-          <div class="text-center max-w-md">
+          <div class="text-center max-w-md px-4">
             <div
-              class="w-24 h-24 mx-auto mb-6 flex items-center justify-center rounded-lg"
+              class="w-20 h-20 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 flex items-center justify-center rounded-lg"
               style="background-color: #ecf0f1;"
             >
-              <n-icon size="48" style="color: #7f8c8d;">
+              <n-icon size="40" style="color: #7f8c8d;">
                 <DocumentTextOutline />
               </n-icon>
             </div>
-            <h2 class="text-2xl font-semibold mb-3" style="color: #2c3e50;">
+            <h2 class="text-xl md:text-2xl font-semibold mb-2 md:mb-3" style="color: #2c3e50;">
               시트 연결이 필요합니다
             </h2>
-            <p class="text-sm mb-6" style="color: #7f8c8d; line-height: 1.6;">
+            <p class="text-xs md:text-sm mb-4 md:mb-6" style="color: #7f8c8d; line-height: 1.6;">
               구글 스프레드시트를 연결하여<br />
               임대차 계약 관리를 시작하세요
             </p>
             <n-button
               type="primary"
-              size="large"
+              size="medium"
               @click="router.push({ name: 'settings' })"
-              style="min-width: 160px;"
+              class="w-full sm:w-auto"
+              style="min-width: 140px;"
             >
               시트 연결하기
             </n-button>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, h } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -33,13 +33,13 @@ onMounted(async () => {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold" style="color: #2c3e50;">대시보드</h1>
-      <n-button @click="router.push('/')" secondary>
+    <div class="flex items-center justify-between mb-4 md:mb-6">
+      <h1 class="text-xl md:text-2xl font-bold" style="color: #2c3e50;">대시보드</h1>
+      <n-button @click="router.push('/')" secondary size="small">
         <template #icon>
           <n-icon><HomeIcon /></n-icon>
         </template>
-        메인 화면
+        <span class="hidden sm:inline ml-1">메인 화면</span>
       </n-button>
     </div>
 
@@ -60,7 +60,7 @@ onMounted(async () => {
       </n-alert>
 
       <!-- 통계 카드 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
         <n-card>
           <n-statistic label="전체 계약" :value="stats.total" />
         </n-card>
