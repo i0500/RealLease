@@ -53,11 +53,17 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
 
+  // 인증이 필요한 페이지인데 인증되지 않은 경우
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    console.log('🔒 인증 필요 → 로그인 페이지로 이동')
     next({ name: 'auth' })
-  } else if (to.name === 'auth' && authStore.isAuthenticated) {
-    next({ name: 'home' })
-  } else {
+  }
+  // 로그인 페이지인데 이미 인증된 경우 → 대시보드로
+  else if (to.name === 'auth' && authStore.isAuthenticated) {
+    console.log('✅ 이미 로그인됨 → 대시보드로 이동')
+    next({ name: 'dashboard' })
+  }
+  else {
     next()
   }
 })
