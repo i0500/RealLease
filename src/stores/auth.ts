@@ -82,13 +82,21 @@ export const useAuthStore = defineStore('auth', () => {
 
       await authService.signIn()
 
-      // TODO: Google People API로 실제 사용자 정보 가져오기
-      user.value = {
-        email: 'user@example.com',
-        name: 'User'
+      // 실제 Google 사용자 정보 가져오기
+      const userInfo = await authService.getUserInfo()
+      if (userInfo) {
+        user.value = userInfo
+        saveUserToStorage(user.value)
+        console.log('🔐 로그인 성공:', user.value)
+      } else {
+        // fallback: 사용자 정보를 가져오지 못한 경우
+        user.value = {
+          email: 'user@example.com',
+          name: 'User'
+        }
+        saveUserToStorage(user.value)
+        console.warn('⚠️ 사용자 정보를 가져오지 못했습니다. 기본값 사용')
       }
-      saveUserToStorage(user.value)
-      console.log('🔐 로그인 성공:', user.value)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to sign in'
       console.error('Sign in error:', err)

@@ -70,6 +70,34 @@ export class AuthService {
     })
   }
 
+  async getUserInfo(): Promise<{ email: string; name: string } | null> {
+    const token = this.getAccessToken()
+    if (!token) {
+      return null
+    }
+
+    try {
+      const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get user info')
+      }
+
+      const data = await response.json()
+      return {
+        email: data.email || 'user@example.com',
+        name: data.name || data.given_name || 'User'
+      }
+    } catch (error) {
+      console.error('Get user info error:', error)
+      return null
+    }
+  }
+
   async signOut(): Promise<void> {
     const token = this.getToken()
     if (token && window.google?.accounts?.oauth2) {
