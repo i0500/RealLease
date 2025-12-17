@@ -35,15 +35,37 @@ onMounted(async () => {
   <div>
     <div class="flex items-center justify-between mb-4 md:mb-6">
       <h1 class="text-xl md:text-2xl font-bold" style="color: #2c3e50;">대시보드</h1>
-      <n-button @click="router.push('/')" secondary size="small">
+      <n-button @click="router.push({ name: 'settings' })" secondary size="small">
         <template #icon>
           <n-icon><HomeIcon /></n-icon>
         </template>
-        <span class="hidden sm:inline ml-1">메인 화면</span>
+        <span class="hidden sm:inline ml-1">설정</span>
       </n-button>
     </div>
 
-    <div v-if="contractsStore.isLoading" class="text-center py-10">
+    <!-- No sheets message -->
+    <div v-if="!sheetsStore.currentSheet" class="flex items-center justify-center" style="min-height: 400px;">
+      <div class="text-center max-w-md px-4">
+        <h2 class="text-xl md:text-2xl font-semibold mb-2 md:mb-3" style="color: #2c3e50;">
+          시트 연결이 필요합니다
+        </h2>
+        <p class="text-xs md:text-sm mb-4 md:mb-6" style="color: #7f8c8d; line-height: 1.6;">
+          구글 스프레드시트를 연결하여<br />
+          임대차 계약 관리를 시작하세요
+        </p>
+        <n-button
+          type="primary"
+          size="medium"
+          @click="router.push({ name: 'settings' })"
+          class="w-full sm:w-auto"
+          style="min-width: 140px;"
+        >
+          시트 연결하기
+        </n-button>
+      </div>
+    </div>
+
+    <div v-else-if="contractsStore.isLoading" class="text-center py-10">
       <n-spin size="large" />
       <p class="mt-4 text-gray-600">데이터를 불러오는 중...</p>
     </div>

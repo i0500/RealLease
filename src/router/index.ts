@@ -6,39 +6,45 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
       component: () => import('@/views/HomeView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'home',
+          redirect: { name: 'dashboard' }
+        },
+        {
+          path: 'dashboard',
+          name: 'dashboard',
+          component: () => import('@/views/DashboardView.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'contracts',
+          name: 'contracts',
+          component: () => import('@/views/ContractsView.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'notifications',
+          name: 'notifications',
+          component: () => import('@/views/NotificationsView.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: () => import('@/views/SettingsView.vue'),
+          meta: { requiresAuth: true }
+        }
+      ]
     },
     {
       path: '/auth',
       name: 'auth',
       component: () => import('@/views/AuthView.vue'),
       meta: { requiresAuth: false }
-    },
-    {
-      path: '/dashboard',
-      name: 'dashboard',
-      component: () => import('@/views/DashboardView.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/contracts',
-      name: 'contracts',
-      component: () => import('@/views/ContractsView.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/notifications',
-      name: 'notifications',
-      component: () => import('@/views/NotificationsView.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/settings',
-      name: 'settings',
-      component: () => import('@/views/SettingsView.vue'),
-      meta: { requiresAuth: true }
     }
   ]
 })

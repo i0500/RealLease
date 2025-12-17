@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, h, ref } from 'vue'
+import { onMounted, h, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useSheetsStore } from '@/stores/sheets'
 import {
   NLayout,
   NLayoutHeader,
@@ -20,17 +19,9 @@ import {
 import type { MenuOption } from 'naive-ui'
 
 const router = useRouter()
-const sheetsStore = useSheetsStore()
-
-const hasSheets = computed(() => sheetsStore.sheetCount > 0)
 const isMobile = ref(false)
 
 onMounted(() => {
-  // 시트가 있으면 대시보드로, 없으면 시트 추가 안내
-  if (hasSheets.value) {
-    router.replace({ name: 'dashboard' })
-  }
-
   // 모바일 화면 감지 (768px 이하)
   const checkMobile = () => {
     isMobile.value = window.innerWidth < 768
@@ -143,35 +134,7 @@ function handleMenuSelect(key: string) {
       </n-layout-header>
 
       <n-layout-content class="p-4 md:p-6">
-        <div v-if="!hasSheets" class="flex items-center justify-center" style="min-height: 400px;">
-          <div class="text-center max-w-md px-4">
-            <div
-              class="w-20 h-20 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 flex items-center justify-center rounded-lg"
-              style="background-color: #ecf0f1;"
-            >
-              <n-icon size="40" style="color: #7f8c8d;">
-                <DocumentTextOutline />
-              </n-icon>
-            </div>
-            <h2 class="text-xl md:text-2xl font-semibold mb-2 md:mb-3" style="color: #2c3e50;">
-              시트 연결이 필요합니다
-            </h2>
-            <p class="text-xs md:text-sm mb-4 md:mb-6" style="color: #7f8c8d; line-height: 1.6;">
-              구글 스프레드시트를 연결하여<br />
-              임대차 계약 관리를 시작하세요
-            </p>
-            <n-button
-              type="primary"
-              size="medium"
-              @click="router.push({ name: 'settings' })"
-              class="w-full sm:w-auto"
-              style="min-width: 140px;"
-            >
-              시트 연결하기
-            </n-button>
-          </div>
-        </div>
-        <router-view v-else />
+        <router-view />
       </n-layout-content>
     </n-layout>
   </n-layout>

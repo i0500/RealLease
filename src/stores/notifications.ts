@@ -49,6 +49,14 @@ export const useNotificationsStore = defineStore('notifications', () => {
     }
   }
 
+  // Helper: Date 객체를 ISO 문자열로 변환하여 저장 가능한 형태로 만들기
+  function serializeNotificationsForStorage(notifications: Notification[]) {
+    return notifications.map(notification => ({
+      ...notification,
+      createdAt: notification.createdAt.toISOString()
+    }))
+  }
+
   async function checkNotifications() {
     try {
       isLoading.value = true
@@ -74,8 +82,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
         ...uniqueNotifications
       ]
 
-      // 저장
-      await storageService.set(STORAGE_KEY, notifications.value)
+      // 저장 가능한 형태로 직렬화
+      const serialized = serializeNotificationsForStorage(notifications.value)
+      await storageService.set(STORAGE_KEY, serialized)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to check notifications'
       console.error('Check notifications error:', err)
@@ -99,7 +108,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
   async function clearNotification(notificationId: string) {
     notifications.value = notifications.value.filter(n => n.id !== notificationId)
     readNotificationIds.value.delete(notificationId)
-    await storageService.set(STORAGE_KEY, notifications.value)
+
+    // 저장 가능한 형태로 직렬화
+    const serialized = serializeNotificationsForStorage(notifications.value)
+    await storageService.set(STORAGE_KEY, serialized)
     await saveReadNotifications()
   }
 
