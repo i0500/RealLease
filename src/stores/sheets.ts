@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { sheetsService } from '@/services/google/sheetsService'
 import { storageService } from '@/services/storageService'
 import type { SheetConfig } from '@/types'
-import { generateId, extractSpreadsheetId } from '@/utils/formatUtils'
+import { generateId, extractSpreadsheetId, extractGid } from '@/utils/formatUtils'
 
 const STORAGE_KEY = 'sheet_configs'
 
@@ -54,17 +54,36 @@ export const useSheetsStore = defineStore('sheets', () => {
   }
 
   async function addSheet(name: string, sheetUrl: string, tabName?: string) {
+    console.log('➕ [SheetsStore.addSheet] 시작', {
+      name,
+      sheetUrl,
+      tabName,
+      timestamp: new Date().toISOString()
+    })
+
     try {
       isLoading.value = true
       error.value = null
 
+      console.log('🔍 [SheetsStore.addSheet] URL에서 Spreadsheet ID 추출 중...')
       const spreadsheetId = extractSpreadsheetId(sheetUrl)
+
       if (!spreadsheetId) {
+        console.error('❌ [SheetsStore.addSheet] 유효하지 않은 Google Sheets URL:', sheetUrl)
         throw new Error('Invalid Google Sheets URL')
       }
 
+      console.log('✅ [SheetsStore.addSheet] Spreadsheet ID 추출 완료:', spreadsheetId)
+
+      // gid 추출 (탭 ID)
+      const extractedGid = extractGid(sheetUrl)
+      const gid = extractedGid === null ? undefined : extractedGid
+      console.log('🔢 [SheetsStore.addSheet] gid 추출 완료:', gid || 'auto-detect (모든 탭 자동 탐색)')
+
       // 시트 접근 가능 여부 확인
+      console.log('🔐 [SheetsStore.addSheet] 시트 접근 권한 확인 중...')
       await sheetsService.getSpreadsheetMetadata(spreadsheetId)
+      console.log('✅ [SheetsStore.addSheet] 시트 접근 가능 확인')
 
       const newSheet: SheetConfig = {
         id: generateId(),
@@ -72,24 +91,35 @@ export const useSheetsStore = defineStore('sheets', () => {
         sheetUrl,
         spreadsheetId,
         tabName,
+        gid,
         createdAt: new Date()
       }
+
+      console.log('📋 [SheetsStore.addSheet] 새 시트 설정 생성:', {
+        id: newSheet.id,
+        name: newSheet.name,
+        spreadsheetId: newSheet.spreadsheetId,
+        tabName: newSheet.tabName || '(기본 탭)'
+      })
 
       sheets.value.push(newSheet)
 
       // 저장 가능한 형태로 직렬화
       const serialized = serializeSheetsForStorage(sheets.value)
       await storageService.set(STORAGE_KEY, serialized)
+      console.log('💾 [SheetsStore.addSheet] LocalStorage에 저장 완료')
 
       // 첫 시트라면 현재 시트로 설정
       if (sheets.value.length === 1) {
         currentSheetId.value = newSheet.id
+        console.log('🎯 [SheetsStore.addSheet] 첫 시트로 자동 선택됨')
       }
 
+      console.log('🎉 [SheetsStore.addSheet] 시트 추가 완료!')
       return newSheet
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to add sheet'
-      console.error('Add sheet error:', err)
+      console.error('❌ [SheetsStore.addSheet] 오류:', err)
       throw err
     } finally {
       isLoading.value = false

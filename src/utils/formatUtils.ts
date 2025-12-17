@@ -37,6 +37,20 @@ export function extractSpreadsheetId(url: string): string | null {
   return null
 }
 
+export function extractGid(url: string): string | null {
+  // URL에서 gid 파라미터 추출
+  // 예: gid=1247490017 또는 #gid=1247490017
+  const gidPattern = /[?&#]gid=([0-9]+)/
+  const match = url.match(gidPattern)
+
+  if (match && match[1]) {
+    return match[1]
+  }
+
+  // gid가 없으면 null 반환 (자동 탐색 모드)
+  return null
+}
+
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 }

@@ -152,6 +152,48 @@ function copySheetUrl(url: string) {
   navigator.clipboard.writeText(url)
   message.success('URL이 복사되었습니다')
 }
+
+function handleResetApp() {
+  dialog.error({
+    title: '⚠️ 앱 데이터 초기화',
+    content: '모든 로컬 데이터(로그인 정보, 시트 설정, 캐시)가 삭제됩니다. 계속하시겠습니까?',
+    positiveText: '초기화',
+    negativeText: '취소',
+    onPositiveClick: () => {
+      try {
+        console.log('🔄 앱 데이터 초기화 시작...')
+
+        // LocalStorage 완전 클리어
+        localStorage.clear()
+        console.log('✅ localStorage 클리어 완료')
+
+        // 세션 스토리지도 클리어
+        sessionStorage.clear()
+        console.log('✅ sessionStorage 클리어 완료')
+
+        // IndexedDB도 클리어 (PWA 캐시)
+        if ('indexedDB' in window) {
+          indexedDB.databases().then((databases) => {
+            databases.forEach((db) => {
+              if (db.name) {
+                indexedDB.deleteDatabase(db.name)
+                console.log(`✅ IndexedDB "${db.name}" 삭제 완료`)
+              }
+            })
+          })
+        }
+
+        console.log('🎉 모든 데이터 초기화 완료! 즉시 새로고침...')
+
+        // 즉시 페이지 리로드 (딜레이 제거하여 데이터 재저장 방지)
+        location.reload()
+      } catch (error) {
+        console.error('❌ 데이터 초기화 실패:', error)
+        message.error('데이터 초기화에 실패했습니다')
+      }
+    }
+  })
+}
 </script>
 
 <template>
@@ -284,6 +326,17 @@ function copySheetUrl(url: string) {
         <p class="text-sm text-gray-600">
           부동산 임대차 관리 시스템 - 구글 스프레드시트와 연동하여 임대차 계약을 관리합니다.
         </p>
+
+        <n-divider />
+
+        <div>
+          <p class="text-sm text-gray-600 mb-2">
+            <strong>문제 해결:</strong> 데이터가 제대로 표시되지 않거나 개발 모드 데이터가 보이는 경우
+          </p>
+          <n-button type="error" @click="handleResetApp">
+            🔄 앱 데이터 초기화
+          </n-button>
+        </div>
       </n-space>
     </n-card>
 

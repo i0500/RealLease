@@ -33,33 +33,49 @@ export const useContractsStore = defineStore('contracts', () => {
   })
 
   async function loadContracts(sheetId: string) {
+    console.log('🎬 [ContractsStore.loadContracts] 시작', {
+      sheetId,
+      timestamp: new Date().toISOString()
+    })
+
     try {
       isLoading.value = true
       error.value = null
 
       const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
       if (!sheet) {
+        console.error('❌ [ContractsStore.loadContracts] 시트를 찾을 수 없음:', sheetId)
         throw new Error('Sheet not found')
       }
 
-      console.log('📊 계약 데이터 로딩 시작:', {
-        sheetId,
+      console.log('📋 [ContractsStore.loadContracts] 시트 정보:', {
+        sheetId: sheet.id,
+        sheetName: sheet.name,
         spreadsheetId: sheet.spreadsheetId,
         sheetUrl: sheet.sheetUrl,
-        tabName: sheet.tabName
+        tabName: sheet.tabName || '(첫 번째 탭)',
+        createdAt: sheet.createdAt,
+        lastSynced: sheet.lastSynced
       })
 
       // 시트 데이터 읽기 (A1:Z1000 범위)
       const range = sheet.tabName ? `${sheet.tabName}!A1:Z1000` : 'A1:Z1000'
-      const data = await sheetsService.readRange(sheet.spreadsheetId, range)
+      console.log('📖 [ContractsStore.loadContracts] 데이터 읽기 시작:', {
+        range,
+        gid: sheet.gid || 'auto-detect (모든 탭 자동 탐색)'
+      })
 
-      console.log('📥 시트 데이터 수신:', {
-        rowCount: data.length,
-        firstRow: data[0],
+      const data = await sheetsService.readRange(sheet.spreadsheetId, range, sheet.gid)
+
+      console.log('📥 [ContractsStore.loadContracts] 시트 데이터 수신 완료:', {
+        totalRows: data.length,
+        headerRow: data[0],
+        dataRows: data.length - 1,
         sampleData: data.slice(0, 3)
       })
 
       if (data.length === 0) {
+        console.warn('⚠️ [ContractsStore.loadContracts] 빈 데이터')
         contracts.value = []
         return
       }
@@ -68,20 +84,51 @@ export const useContractsStore = defineStore('contracts', () => {
       const _headers = data[0]!
       const rows = data.slice(1)
 
+      console.log('🔄 [ContractsStore.loadContracts] 데이터 파싱 시작:', {
+        headerColumns: _headers.length,
+        dataRowsCount: rows.length
+      })
+
       const parsedContracts: RentalContract[] = rows.map((row, index) => {
-        return parseRowToContract(row, _headers, sheetId, index + 2)
+        const contract = parseRowToContract(row, _headers, sheetId, index + 2)
+        if (contract && index < 2) {
+          console.log(`📝 [ContractsStore.loadContracts] 샘플 계약 ${index + 1}:`, {
+            id: contract.id,
+            tenant: contract.tenant.name,
+            property: `${contract.property.address} ${contract.property.unit}`,
+            type: contract.contract.type,
+            status: contract.contract.status
+          })
+        }
+        return contract
       }).filter(c => c !== null) as RentalContract[]
 
+      console.log('✅ [ContractsStore.loadContracts] 파싱 완료:', {
+        parsedCount: parsedContracts.length,
+        activeCount: parsedContracts.filter(c => c.contract.status === 'active').length,
+        expiredCount: parsedContracts.filter(c => c.contract.status === 'expired').length
+      })
+
       // 기존 계약 중 현재 시트의 계약 제거 후 새 데이터 추가
+      const beforeCount = contracts.value.length
       contracts.value = [
         ...contracts.value.filter(c => c.sheetId !== sheetId),
         ...parsedContracts
       ]
+      const afterCount = contracts.value.length
+
+      console.log('💾 [ContractsStore.loadContracts] 스토어 업데이트:', {
+        beforeCount,
+        afterCount,
+        addedCount: parsedContracts.length
+      })
 
       await sheetsStore.updateLastSynced(sheetId)
+
+      console.log('🎉 [ContractsStore.loadContracts] 완료!')
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load contracts'
-      console.error('Load contracts error:', err)
+      console.error('❌ [ContractsStore.loadContracts] 오류:', err)
       throw err
     } finally {
       isLoading.value = false

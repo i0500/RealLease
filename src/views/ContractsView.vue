@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatCurrency } from '@/utils/formatUtils'
@@ -32,6 +32,7 @@ import {
 import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
 
 const router = useRouter()
+const route = useRoute()
 const contractsStore = useContractsStore()
 const sheetsStore = useSheetsStore()
 const message = useMessage()
@@ -46,7 +47,9 @@ const filterStatus = ref<'all' | 'active' | 'expired' | 'terminated'>('all')
 
 // Modal state
 const showContractModal = ref(false)
+const showDetailModal = ref(false)
 const editingContract = ref<RentalContract | null>(null)
+const viewingContract = ref<RentalContract | null>(null)
 const contractForm = ref({
   tenant: { name: '', phone: '', email: '', idNumber: '' },
   property: { address: '', type: '', unit: '' },
@@ -91,6 +94,23 @@ onMounted(async () => {
       message.error('계약 정보를 불러오는데 실패했습니다')
     }
   }
+
+  // Handle query parameters from dashboard navigation
+  const { status, id } = route.query
+
+  // Apply status filter if provided
+  if (status && (status === 'active' || status === 'expired')) {
+    filterStatus.value = status
+  }
+
+  // Open detail modal if contract id is provided
+  if (id && typeof id === 'string') {
+    const contract = contractsStore.contracts.find(c => c.id === id)
+    if (contract) {
+      viewingContract.value = contract
+      showDetailModal.value = true
+    }
+  }
 })
 
 // Filtered contracts
@@ -126,7 +146,17 @@ const columns = [
   {
     title: '임차인',
     key: 'tenant.name',
-    render: (row: RentalContract) => row.tenant.name
+    render: (row: RentalContract) => {
+      return h(
+        'a',
+        {
+          href: 'javascript:void(0)',
+          onClick: () => handleView(row),
+          style: 'color: #18a058; cursor: pointer; text-decoration: underline;'
+        },
+        row.tenant.name
+      )
+    }
   },
   {
     title: '물건지',
@@ -234,6 +264,25 @@ function handleAdd() {
   editingContract.value = null
   resetForm()
   showContractModal.value = true
+}
+
+function handleView(contract: RentalContract) {
+  viewingContract.value = contract
+  showDetailModal.value = true
+}
+
+function handleEditFromDetail() {
+  if (viewingContract.value) {
+    showDetailModal.value = false
+    handleEdit(viewingContract.value)
+  }
+}
+
+function handleDeleteFromDetail() {
+  if (viewingContract.value) {
+    showDetailModal.value = false
+    handleDelete(viewingContract.value)
+  }
 }
 
 function handleEdit(contract: RentalContract) {
@@ -499,6 +548,8 @@ import { h } from 'vue'
         :key="contract.id"
         hoverable
         class="contract-card"
+        style="cursor: pointer"
+        @click="handleView(contract)"
       >
         <template #header>
           <div class="flex items-center justify-between">
@@ -567,15 +618,186 @@ import { h } from 'vue'
         </div>
 
         <template #footer>
-          <n-space justify="end">
-            <n-button size="small" @click="handleEdit(contract)">수정</n-button>
-            <n-button size="small" type="error" @click="handleDelete(contract)">
-              삭제
-            </n-button>
-          </n-space>
+          <div class="text-sm text-gray-500 text-center">클릭하여 상세정보 보기</div>
         </template>
       </n-card>
     </div>
+
+    <!-- 계약 상세보기 모달 -->
+    <n-modal
+      v-model:show="showDetailModal"
+      preset="card"
+      title="계약 상세정보"
+      style="width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto"
+      :segmented="{ content: true }"
+    >
+      <div v-if="viewingContract" class="contract-detail">
+        <!-- 상태 표시 -->
+        <div class="flex items-center justify-between mb-6 p-4 rounded" style="background-color: #f5f7fa;">
+          <div>
+            <h2 class="text-2xl font-bold mb-2">{{ viewingContract.tenant.name }}</h2>
+            <p class="text-sm text-gray-600">{{ viewingContract.property.address }}</p>
+          </div>
+          <n-tag
+            :type="
+              viewingContract.contract.status === 'active'
+                ? 'success'
+                : viewingContract.contract.status === 'expired'
+                ? 'error'
+                : 'warning'
+            "
+            size="large"
+          >
+            {{
+              viewingContract.contract.status === 'active'
+                ? '진행중'
+                : viewingContract.contract.status === 'expired'
+                ? '만료'
+                : '해지'
+            }}
+          </n-tag>
+        </div>
+
+        <!-- 임차인 정보 -->
+        <div class="detail-section">
+          <h3 class="section-title">👤 임차인 정보</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">이름</span>
+              <span class="value">{{ viewingContract.tenant.name }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">연락처</span>
+              <span class="value">{{ viewingContract.tenant.phone }}</span>
+            </div>
+            <div v-if="viewingContract.tenant.email" class="detail-item">
+              <span class="label">이메일</span>
+              <span class="value">{{ viewingContract.tenant.email }}</span>
+            </div>
+            <div v-if="viewingContract.tenant.idNumber" class="detail-item">
+              <span class="label">주민번호</span>
+              <span class="value">{{ viewingContract.tenant.idNumber }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 물건 정보 -->
+        <div class="detail-section">
+          <h3 class="section-title">🏠 물건 정보</h3>
+          <div class="detail-grid">
+            <div class="detail-item full-width">
+              <span class="label">주소</span>
+              <span class="value">{{ viewingContract.property.address }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">물건유형</span>
+              <span class="value">{{ viewingContract.property.type }}</span>
+            </div>
+            <div v-if="viewingContract.property.unit" class="detail-item">
+              <span class="label">호수</span>
+              <span class="value">{{ viewingContract.property.unit }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 계약 정보 -->
+        <div class="detail-section">
+          <h3 class="section-title">📝 계약 정보</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">계약구분</span>
+              <span class="value font-bold">
+                {{ viewingContract.contract.type === 'jeonse' ? '전세' : '월세' }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="label">계약유형</span>
+              <span class="value">
+                {{
+                  viewingContract.contract.contractType === 'new'
+                    ? '신규'
+                    : viewingContract.contract.contractType === 'renewal'
+                    ? '갱신'
+                    : '변경'
+                }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="label">보증금</span>
+              <span class="value font-bold text-blue-600">
+                {{ formatCurrency(viewingContract.contract.deposit) }}
+              </span>
+            </div>
+            <div v-if="viewingContract.contract.monthlyRent" class="detail-item">
+              <span class="label">월세</span>
+              <span class="value font-bold text-green-600">
+                {{ formatCurrency(viewingContract.contract.monthlyRent) }}
+              </span>
+            </div>
+            <div class="detail-item full-width">
+              <span class="label">계약기간</span>
+              <span class="value">
+                {{ formatDate(viewingContract.contract.startDate) }} ~
+                {{ formatDate(viewingContract.contract.endDate) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HUG 보증 정보 -->
+        <div v-if="viewingContract.hug?.guaranteed" class="detail-section">
+          <h3 class="section-title">🛡️ HUG 전세보증 정보</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">보증금액</span>
+              <span class="value">{{ formatCurrency(viewingContract.hug.amount) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">보험번호</span>
+              <span class="value">{{ viewingContract.hug.insuranceNumber || '-' }}</span>
+            </div>
+            <div class="detail-item full-width">
+              <span class="label">보증기간</span>
+              <span class="value">
+                {{ formatDate(viewingContract.hug.startDate) }} ~
+                {{ formatDate(viewingContract.hug.endDate) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 부동산 정보 -->
+        <div v-if="viewingContract.realtor" class="detail-section">
+          <h3 class="section-title">🏢 부동산 정보</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">상호</span>
+              <span class="value">{{ viewingContract.realtor.name }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">연락처</span>
+              <span class="value">{{ viewingContract.realtor.phone }}</span>
+            </div>
+            <div v-if="viewingContract.realtor.address" class="detail-item full-width">
+              <span class="label">주소</span>
+              <span class="value">{{ viewingContract.realtor.address }}</span>
+            </div>
+            <div v-if="viewingContract.realtor.fee" class="detail-item">
+              <span class="label">중개수수료</span>
+              <span class="value">{{ formatCurrency(viewingContract.realtor.fee) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showDetailModal = false">닫기</n-button>
+          <n-button type="primary" @click="handleEditFromDetail">수정</n-button>
+          <n-button type="error" @click="handleDeleteFromDetail">삭제</n-button>
+        </n-space>
+      </template>
+    </n-modal>
 
     <!-- Contract Modal -->
     <n-modal
@@ -748,6 +970,69 @@ import { h } from 'vue'
 
   .info-row .value {
     font-size: 13px;
+  }
+}
+
+/* 상세보기 모달 스타일 */
+.contract-detail {
+  font-size: 14px;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-item .label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.detail-item .value {
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 400;
+}
+
+@media (max-width: 768px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title {
+    font-size: 15px;
   }
 }
 </style>
