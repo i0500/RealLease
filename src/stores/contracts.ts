@@ -42,9 +42,22 @@ export const useContractsStore = defineStore('contracts', () => {
         throw new Error('Sheet not found')
       }
 
+      console.log('📊 계약 데이터 로딩 시작:', {
+        sheetId,
+        spreadsheetId: sheet.spreadsheetId,
+        sheetUrl: sheet.sheetUrl,
+        tabName: sheet.tabName
+      })
+
       // 시트 데이터 읽기 (A1:Z1000 범위)
       const range = sheet.tabName ? `${sheet.tabName}!A1:Z1000` : 'A1:Z1000'
       const data = await sheetsService.readRange(sheet.spreadsheetId, range)
+
+      console.log('📥 시트 데이터 수신:', {
+        rowCount: data.length,
+        firstRow: data[0],
+        sampleData: data.slice(0, 3)
+      })
 
       if (data.length === 0) {
         contracts.value = []
