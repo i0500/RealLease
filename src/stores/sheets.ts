@@ -77,13 +77,24 @@ export const useSheetsStore = defineStore('sheets', () => {
 
       // gid 추출 (탭 ID)
       const extractedGid = extractGid(sheetUrl)
-      const gid = extractedGid === null ? undefined : extractedGid
-      console.log('🔢 [SheetsStore.addSheet] gid 추출 완료:', gid || 'auto-detect (모든 탭 자동 탐색)')
+      console.log('🔢 [SheetsStore.addSheet] URL에서 gid 추출:', extractedGid || '없음')
 
-      // 시트 접근 가능 여부 확인
+      // 시트 접근 가능 여부 확인 및 실제 gid 가져오기
       console.log('🔐 [SheetsStore.addSheet] 시트 접근 권한 확인 중...')
-      await sheetsService.getSpreadsheetMetadata(spreadsheetId)
+      const metadata = await sheetsService.getSpreadsheetMetadata(spreadsheetId)
       console.log('✅ [SheetsStore.addSheet] 시트 접근 가능 확인')
+
+      // metadata에서 실제 첫 번째 시트의 gid 가져오기
+      let gid = extractedGid === null ? undefined : extractedGid
+      if (!gid && metadata.sheets && metadata.sheets.length > 0) {
+        const firstSheet = metadata.sheets[0]
+        const firstSheetGid = firstSheet?.properties?.sheetId?.toString()
+        if (firstSheetGid) {
+          gid = firstSheetGid
+          console.log('📋 [SheetsStore.addSheet] metadata에서 첫 번째 시트 gid 추출:', gid)
+        }
+      }
+      console.log('🔢 [SheetsStore.addSheet] 최종 gid:', gid || 'auto-detect (모든 탭 자동 탐색)')
 
       const newSheet: SheetConfig = {
         id: generateId(),
