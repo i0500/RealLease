@@ -20,18 +20,24 @@ import type { MenuOption } from 'naive-ui'
 
 const router = useRouter()
 const isMobile = ref(false)
+const sidebarCollapsed = ref(false)
 
 onMounted(() => {
   // 모바일 화면 감지 (768px 이하)
   const checkMobile = () => {
-    isMobile.value = window.innerWidth < 768
+    const mobile = window.innerWidth < 768
+    isMobile.value = mobile
+    // 모바일에서는 기본적으로 사이드바 숨김
+    if (mobile) {
+      sidebarCollapsed.value = true
+    }
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
 
 function handleCollapse(collapsed: boolean) {
-  isMobile.value = collapsed
+  sidebarCollapsed.value = collapsed
 }
 
 function renderIcon(icon: any) {
@@ -67,7 +73,7 @@ function handleMenuSelect(key: string) {
 </script>
 
 <template>
-  <n-layout has-sider class="min-h-screen" style="background-color: #f5f7fa;">
+  <n-layout has-sider style="min-height: 100vh; height: 100vh; background-color: #f5f7fa;">
     <n-layout-sider
       bordered
       show-trigger
@@ -75,10 +81,11 @@ function handleMenuSelect(key: string) {
       :collapsed-width="0"
       :width="240"
       :native-scrollbar="false"
-      :collapsed="isMobile"
+      :collapsed="sidebarCollapsed"
+      :default-collapsed="isMobile"
       breakpoint="md"
       @update:collapsed="handleCollapse"
-      style="background-color: #2c3e50;"
+      style="background-color: #2c3e50; height: 100vh;"
     >
       <div class="px-4 py-6" style="background-color: #1a252f;">
         <h1 class="text-xl font-bold" style="color: #ffffff; letter-spacing: 0.5px;">
@@ -96,11 +103,11 @@ function handleMenuSelect(key: string) {
       />
     </n-layout-sider>
 
-    <n-layout>
+    <n-layout style="height: 100vh; display: flex; flex-direction: column;">
       <n-layout-header
         bordered
         class="px-4 py-3 md:px-6 md:py-4"
-        style="background-color: #ffffff; border-bottom: 1px solid #e1e8ed;"
+        style="background-color: #ffffff; border-bottom: 1px solid #e1e8ed; flex-shrink: 0;"
       >
         <div class="flex items-center justify-between">
           <h2 class="text-base md:text-lg font-semibold" style="color: #2c3e50;">
@@ -133,7 +140,7 @@ function handleMenuSelect(key: string) {
         </div>
       </n-layout-header>
 
-      <n-layout-content class="p-4 md:p-6">
+      <n-layout-content class="p-4 md:p-6" style="flex: 1; overflow-y: auto; background-color: #f5f7fa;">
         <router-view />
       </n-layout-content>
     </n-layout>

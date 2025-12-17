@@ -14,21 +14,9 @@ export default defineConfig({
         name: 'RealLease',
         short_name: 'RealLease',
         description: '부동산 임대차 관리 시스템',
-        theme_color: '#3B82F6',
+        theme_color: '#2c3e50',
         background_color: '#ffffff',
-        display: 'standalone',
-        icons: [
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
+        display: 'standalone'
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

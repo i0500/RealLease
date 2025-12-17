@@ -42,9 +42,29 @@ export class SheetsService {
       return mockSheetsService.getSpreadsheetMetadata(spreadsheetId)
     }
 
-    const url = `${this.baseUrl}/${spreadsheetId}`
-    const response = await this.fetchWithAuth(url)
-    return response.json()
+    try {
+      const url = `${this.baseUrl}/${spreadsheetId}`
+      const response = await this.fetchWithAuth(url)
+      return response.json()
+    } catch (error) {
+      console.warn('OAuth 인증 실패, 공개 시트 메타데이터 접근 시도:', error)
+      // OAuth 실패 시 기본 메타데이터 반환 (공개 시트는 metadata API 사용 불가)
+      return {
+        spreadsheetId,
+        properties: {
+          title: 'Public Sheet'
+        },
+        sheets: [
+          {
+            properties: {
+              sheetId: 0,
+              title: 'Sheet1',
+              index: 0
+            }
+          }
+        ]
+      }
+    }
   }
 
   async readRange(spreadsheetId: string, range: string): Promise<any[][]> {
@@ -52,10 +72,41 @@ export class SheetsService {
       return mockSheetsService.readRange(spreadsheetId, range)
     }
 
-    const url = `${this.baseUrl}/${spreadsheetId}/values/${encodeURIComponent(range)}`
-    const response = await this.fetchWithAuth(url)
-    const data = await response.json()
-    return data.values || []
+    try {
+      const url = `${this.baseUrl}/${spreadsheetId}/values/${encodeURIComponent(range)}`
+      const response = await this.fetchWithAuth(url)
+      const data = await response.json()
+      return data.values || []
+    } catch (error) {
+      console.warn('OAuth 인증 실패, 공개 시트 접근 시도:', error)
+      // OAuth 실패 시 공개 시트로 접근 시도
+      return this.readPublicSheet(spreadsheetId, range)
+    }
+  }
+
+  private async readPublicSheet(spreadsheetId: string, _range: string): Promise<any[][]> {
+    try {
+      // Google Sheets CSV export URL 사용 (공개 시트만 가능)
+      // 기본적으로 첫 번째 시트(gid=0)를 사용
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=0`
+
+      const response = await fetch(csvUrl)
+      if (!response.ok) {
+        throw new Error('시트 접근 불가 - 시트가 공개 상태인지 확인해주세요')
+      }
+
+      const csvText = await response.text()
+      // CSV를 2차원 배열로 변환
+      const rows = csvText.trim().split('\n').map(row => {
+        // CSV 파싱 (간단한 구현)
+        return row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
+      })
+
+      return rows
+    } catch (error) {
+      console.error('공개 시트 접근 실패:', error)
+      throw new Error('시트 데이터를 불러올 수 없습니다. 시트가 "링크가 있는 모든 사용자" 권한으로 공유되어 있는지 확인해주세요.')
+    }
   }
 
   async writeRange(
