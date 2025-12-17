@@ -2,6 +2,9 @@ export const APP_NAME = 'RealLease'
 export const APP_VERSION = '1.0.0'
 
 export const GOOGLE_SCOPES = [
+  'openid',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/drive.readonly'
 ]
