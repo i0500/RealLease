@@ -38,6 +38,7 @@ const message = useMessage()
 const dialog = useDialog()
 
 // View state
+const isMobile = ref(false)
 const viewMode = ref<'table' | 'card'>('table')
 const searchQuery = ref('')
 const filterType = ref<'all' | 'jeonse' | 'wolse'>('all')
@@ -70,6 +71,18 @@ const contractForm = ref({
 
 // Load contracts on mount
 onMounted(async () => {
+  // 모바일 화면 감지 (768px 이하)
+  const checkMobile = () => {
+    const mobile = window.innerWidth < 768
+    isMobile.value = mobile
+    // 모바일에서는 자동으로 카드 뷰
+    if (mobile) {
+      viewMode.value = 'card'
+    }
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+
   if (sheetsStore.currentSheet) {
     try {
       await contractsStore.loadContracts(sheetsStore.currentSheet.id)
@@ -433,10 +446,12 @@ import { h } from 'vue'
 
         <n-button type="primary" @click="handleAdd">
           <template #icon>➕</template>
-          계약 추가
+          <span class="hidden sm:inline">계약 추가</span>
+          <span class="sm:hidden">추가</span>
         </n-button>
 
-        <n-radio-group v-model:value="viewMode">
+        <!-- 데스크톱에서만 뷰 모드 선택 표시 -->
+        <n-radio-group v-if="!isMobile" v-model:value="viewMode">
           <n-radio value="table">테이블</n-radio>
           <n-radio value="card">카드</n-radio>
         </n-radio-group>
@@ -477,58 +492,78 @@ import { h } from 'vue'
       />
     </n-card>
 
-    <!-- Card View -->
+    <!-- Card View (모바일 최적화) -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <n-card
         v-for="contract in filteredContracts"
         :key="contract.id"
-        :title="`${contract.tenant.name}`"
         hoverable
+        class="contract-card"
       >
-        <template #header-extra>
-          <n-tag
-            :type="
-              contract.contract.status === 'active'
-                ? 'success'
-                : contract.contract.status === 'expired'
-                ? 'error'
-                : 'warning'
-            "
-            size="small"
-          >
-            {{
-              contract.contract.status === 'active'
-                ? '진행중'
-                : contract.contract.status === 'expired'
-                ? '만료'
-                : '해지'
-            }}
-          </n-tag>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-lg">{{ contract.tenant.name }}</span>
+            <n-tag
+              :type="
+                contract.contract.status === 'active'
+                  ? 'success'
+                  : contract.contract.status === 'expired'
+                  ? 'error'
+                  : 'warning'
+              "
+              size="small"
+            >
+              {{
+                contract.contract.status === 'active'
+                  ? '진행중'
+                  : contract.contract.status === 'expired'
+                  ? '만료'
+                  : '해지'
+              }}
+            </n-tag>
+          </div>
         </template>
+        <div class="contract-info space-y-3">
+          <div class="info-row">
+            <span class="label">📍 물건지</span>
+            <span class="value">{{ contract.property.address }} {{ contract.property.unit }}</span>
+          </div>
 
-        <div class="space-y-2">
-          <p>
-            <strong>물건지:</strong> {{ contract.property.address }}
-            {{ contract.property.unit }}
-          </p>
-          <p>
-            <strong>계약구분:</strong>
-            {{ contract.contract.type === 'jeonse' ? '전세' : '월세' }}
-          </p>
-          <p>
-            <strong>보증금:</strong> {{ formatCurrency(contract.contract.deposit) }}
-          </p>
-          <p v-if="contract.contract.monthlyRent">
-            <strong>월세:</strong> {{ formatCurrency(contract.contract.monthlyRent) }}
-          </p>
-          <p>
-            <strong>계약기간:</strong><br />
-            {{ formatDate(contract.contract.startDate) }} ~
-            {{ formatDate(contract.contract.endDate) }}
-          </p>
-          <p v-if="contract.hug?.guaranteed">
-            <strong>HUG보증:</strong> 가입
-          </p>
+          <div class="info-row">
+            <span class="label">📝 계약구분</span>
+            <span class="value font-semibold">
+              {{ contract.contract.type === 'jeonse' ? '전세' : '월세' }}
+            </span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">💰 보증금</span>
+            <span class="value font-bold text-blue-600">{{ formatCurrency(contract.contract.deposit) }}</span>
+          </div>
+
+          <div v-if="contract.contract.monthlyRent" class="info-row">
+            <span class="label">🏠 월세</span>
+            <span class="value font-bold text-green-600">{{ formatCurrency(contract.contract.monthlyRent) }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">📅 계약기간</span>
+            <span class="value text-sm">
+              {{ formatDate(contract.contract.startDate) }}<br class="sm:hidden" />
+              <span class="hidden sm:inline"> ~ </span>
+              {{ formatDate(contract.contract.endDate) }}
+            </span>
+          </div>
+
+          <div v-if="contract.hug?.guaranteed" class="info-row">
+            <span class="label">🛡️ HUG보증</span>
+            <span class="value text-green-600">가입</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">📞 연락처</span>
+            <span class="value">{{ contract.tenant.phone }}</span>
+          </div>
         </div>
 
         <template #footer>
@@ -660,5 +695,59 @@ import { h } from 'vue'
 <style scoped>
 .contracts-view {
   padding: 1rem;
+}
+
+.contract-card {
+  transition: all 0.3s ease;
+}
+
+.contract-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.contract-info {
+  font-size: 14px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row .label {
+  flex-shrink: 0;
+  font-weight: 500;
+  color: #666;
+  min-width: 90px;
+}
+
+.info-row .value {
+  flex: 1;
+  text-align: right;
+  color: #2c3e50;
+  word-break: keep-all;
+}
+
+@media (max-width: 768px) {
+  .contract-info {
+    font-size: 13px;
+  }
+
+  .info-row .label {
+    min-width: 80px;
+    font-size: 12px;
+  }
+
+  .info-row .value {
+    font-size: 13px;
+  }
 }
 </style>

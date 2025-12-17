@@ -2,6 +2,8 @@
 import { onMounted, h, ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSheetsStore } from '@/stores/sheets'
+import { useContractsStore } from '@/stores/contracts'
+import { useNotificationsStore } from '@/stores/notifications'
 import {
   NLayout,
   NLayoutHeader,
@@ -12,7 +14,9 @@ import {
   NIcon,
   NDrawer,
   NDrawerContent,
-  NTag
+  NTag,
+  NDivider,
+  useMessage
 } from 'naive-ui'
 import {
   GridOutline as DashboardIcon,
@@ -20,13 +24,18 @@ import {
   NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
   MenuOutline as MenuIcon,
-  CheckmarkCircleOutline as ConnectedIcon
+  CheckmarkCircleOutline as ConnectedIcon,
+  DocumentOutline as SheetIcon,
+  AddCircleOutline as AddSheetIcon
 } from '@vicons/ionicons5'
 import type { MenuOption } from 'naive-ui'
 
 const router = useRouter()
 const route = useRoute()
 const sheetsStore = useSheetsStore()
+const contractsStore = useContractsStore()
+const notificationsStore = useNotificationsStore()
+const message = useMessage()
 
 const isMobile = ref(false)
 const sidebarCollapsed = ref(false)
@@ -62,8 +71,32 @@ function toggleMobileMenu() {
   mobileMenuOpen.value = !mobileMenuOpen.value
 }
 
-function handleMobileMenuSelect(key: string) {
-  router.push({ name: key })
+async function handleMobileMenuSelect(key: string) {
+  // 시트 선택 처리
+  if (key.startsWith('sheet-')) {
+    const sheetId = key.replace('sheet-', '')
+    try {
+      sheetsStore.setCurrentSheet(sheetId)
+      const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
+      if (sheet) {
+        message.success(`"${sheet.name}" 시트를 선택했습니다`)
+        // 선택한 시트의 데이터 로드
+        await contractsStore.loadContracts(sheetId)
+        await notificationsStore.checkNotifications()
+      }
+    } catch (error) {
+      console.error('Failed to switch sheet:', error)
+      message.error('시트 전환에 실패했습니다')
+    }
+  }
+  // 시트 추가
+  else if (key === 'add-sheet') {
+    router.push({ name: 'settings', query: { action: 'add-sheet' } })
+  }
+  // 일반 라우트
+  else {
+    router.push({ name: key })
+  }
   mobileMenuOpen.value = false
 }
 
@@ -71,31 +104,91 @@ function renderIcon(icon: any) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
-const menuOptions: MenuOption[] = [
-  {
-    label: '대시보드',
-    key: 'dashboard',
-    icon: renderIcon(DashboardIcon)
-  },
-  {
-    label: '계약 관리',
-    key: 'contracts',
-    icon: renderIcon(ContractIcon)
-  },
-  {
-    label: '알림',
-    key: 'notifications',
-    icon: renderIcon(NotificationIcon)
-  },
-  {
-    label: '설정',
-    key: 'settings',
-    icon: renderIcon(SettingsIcon)
-  }
-]
+// 동적 메뉴 옵션 (시트 목록 포함)
+const menuOptions = computed<MenuOption[]>(() => {
+  const options: MenuOption[] = [
+    {
+      label: '대시보드',
+      key: 'dashboard',
+      icon: renderIcon(DashboardIcon)
+    },
+    {
+      label: '계약 관리',
+      key: 'contracts',
+      icon: renderIcon(ContractIcon)
+    },
+    {
+      label: '알림',
+      key: 'notifications',
+      icon: renderIcon(NotificationIcon)
+    }
+  ]
 
-function handleMenuSelect(key: string) {
-  router.push({ name: key })
+  // 시트가 있으면 구분선과 시트 목록 추가
+  if (sheetsStore.sheets.length > 0) {
+    options.push({
+      type: 'divider',
+      key: 'divider-1'
+    })
+
+    // 시트 목록 추가
+    sheetsStore.sheets.forEach(sheet => {
+      options.push({
+        label: sheet.name,
+        key: `sheet-${sheet.id}`,
+        icon: renderIcon(SheetIcon),
+        extra: sheetsStore.currentSheetId === sheet.id ? '✓' : undefined
+      })
+    })
+  }
+
+  // 하단 메뉴
+  options.push(
+    {
+      type: 'divider',
+      key: 'divider-2'
+    },
+    {
+      label: '시트 추가',
+      key: 'add-sheet',
+      icon: renderIcon(AddSheetIcon)
+    },
+    {
+      label: '설정',
+      key: 'settings',
+      icon: renderIcon(SettingsIcon)
+    }
+  )
+
+  return options
+})
+
+async function handleMenuSelect(key: string) {
+  // 시트 선택 처리
+  if (key.startsWith('sheet-')) {
+    const sheetId = key.replace('sheet-', '')
+    try {
+      sheetsStore.setCurrentSheet(sheetId)
+      const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
+      if (sheet) {
+        message.success(`"${sheet.name}" 시트를 선택했습니다`)
+        // 선택한 시트의 데이터 로드
+        await contractsStore.loadContracts(sheetId)
+        await notificationsStore.checkNotifications()
+      }
+    } catch (error) {
+      console.error('Failed to switch sheet:', error)
+      message.error('시트 전환에 실패했습니다')
+    }
+  }
+  // 시트 추가
+  else if (key === 'add-sheet') {
+    router.push({ name: 'settings', query: { action: 'add-sheet' } })
+  }
+  // 일반 라우트
+  else {
+    router.push({ name: key })
+  }
 }
 </script>
 
@@ -124,7 +217,7 @@ function handleMenuSelect(key: string) {
       </div>
       <n-menu
         :options="menuOptions"
-        :value="route.name as string"
+        :value="(route.name as string)"
         @update:value="handleMenuSelect"
         :inverted="true"
         style="background-color: #2c3e50;"
@@ -167,31 +260,6 @@ function handleMenuSelect(key: string) {
             </div>
           </div>
 
-          <!-- 우측 버튼들 -->
-          <div class="flex items-center gap-1">
-            <n-button
-              text
-              @click="router.push({ name: 'notifications' })"
-              style="color: #5a6c7d;"
-              size="small"
-            >
-              <template #icon>
-                <n-icon><NotificationIcon /></n-icon>
-              </template>
-              <span class="hidden sm:inline ml-1">알림</span>
-            </n-button>
-            <n-button
-              text
-              @click="router.push({ name: 'settings' })"
-              style="color: #5a6c7d;"
-              size="small"
-            >
-              <template #icon>
-                <n-icon><SettingsIcon /></n-icon>
-              </template>
-              <span class="hidden sm:inline ml-1">설정</span>
-            </n-button>
-          </div>
         </div>
       </n-layout-header>
 
@@ -257,6 +325,43 @@ function handleMenuSelect(key: string) {
               <n-icon><NotificationIcon /></n-icon>
             </template>
             알림
+          </n-button>
+        </div>
+
+        <!-- 시트 목록 섹션 -->
+        <n-divider v-if="sheetsStore.sheets.length > 0">시트 목록</n-divider>
+        <div v-if="sheetsStore.sheets.length > 0" class="space-y-2">
+          <n-button
+            v-for="sheet in sheetsStore.sheets"
+            :key="sheet.id"
+            block
+            text
+            :type="sheetsStore.currentSheetId === sheet.id ? 'primary' : 'default'"
+            @click="handleMobileMenuSelect(`sheet-${sheet.id}`)"
+            class="justify-start"
+            size="large"
+          >
+            <template #icon>
+              <n-icon><SheetIcon /></n-icon>
+            </template>
+            {{ sheet.name }}
+            <span v-if="sheetsStore.currentSheetId === sheet.id" class="ml-auto">✓</span>
+          </n-button>
+        </div>
+
+        <n-divider>관리</n-divider>
+        <div class="space-y-2">
+          <n-button
+            block
+            text
+            @click="handleMobileMenuSelect('add-sheet')"
+            class="justify-start"
+            size="large"
+          >
+            <template #icon>
+              <n-icon><AddSheetIcon /></n-icon>
+            </template>
+            시트 추가
           </n-button>
 
           <n-button

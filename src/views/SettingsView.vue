@@ -16,7 +16,6 @@ import {
   NIcon,
   NListItem,
   NThing,
-  NTag,
   NSpin,
   NAlert,
   NEmpty,
@@ -113,20 +112,6 @@ function handleRemoveSheet(sheet: SheetConfig) {
       }
     }
   })
-}
-
-async function handleSetCurrentSheet(sheet: SheetConfig) {
-  try {
-    sheetsStore.setCurrentSheet(sheet.id)
-    message.success(`"${sheet.name}" 시트를 선택했습니다`)
-
-    // Load contracts from the selected sheet
-    await contractsStore.loadContracts(sheet.id)
-    await notificationsStore.checkNotifications()
-  } catch (error) {
-    console.error('Failed to set current sheet:', error)
-    message.error('시트 선택에 실패했습니다')
-  }
 }
 
 async function handleSyncSheet(sheet: SheetConfig) {
@@ -239,11 +224,6 @@ function copySheetUrl(url: string) {
       <n-list v-else hoverable>
         <n-list-item v-for="sheet in sheetsStore.sheets" :key="sheet.id">
           <n-thing :title="sheet.name">
-            <template #header-extra>
-              <n-tag v-if="sheetsStore.currentSheetId === sheet.id" type="success" size="small">
-                현재 선택됨
-              </n-tag>
-            </template>
 
             <template #description>
               <n-space vertical size="small">
@@ -272,14 +252,6 @@ function copySheetUrl(url: string) {
 
             <template #footer>
               <n-space>
-                <n-button
-                  v-if="sheetsStore.currentSheetId !== sheet.id"
-                  size="small"
-                  type="primary"
-                  @click="handleSetCurrentSheet(sheet)"
-                >
-                  선택
-                </n-button>
                 <n-button
                   size="small"
                   :loading="syncingSheetId === sheet.id"
