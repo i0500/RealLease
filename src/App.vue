@@ -21,13 +21,19 @@ onMounted(async () => {
     // Auth 초기화 (개발 모드에서는 clientId 없어도 가능)
     await authStore.initialize(clientId || '')
 
-    // 인증되어 있으면 데이터 로드
-    if (authStore.isAuthenticated) {
-      await sheetsStore.loadSheets()
-      await notificationsStore.loadReadNotifications()
-    }
+    // 시트 및 알림 데이터는 항상 로드 (localStorage에서)
+    // 공개 시트 접근을 위해 인증 여부와 무관하게 로드
+    console.log('📦 앱 초기화: 저장된 데이터 로딩')
+    await sheetsStore.loadSheets()
+    await notificationsStore.loadReadNotifications()
+
+    console.log('✅ 앱 초기화 완료:', {
+      authenticated: authStore.isAuthenticated,
+      sheetCount: sheetsStore.sheetCount,
+      currentSheet: sheetsStore.currentSheet?.name
+    })
   } catch (error) {
-    console.error('App initialization error:', error)
+    console.error('❌ 앱 초기화 실패:', error)
   }
 })
 </script>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, h, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, h, ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useSheetsStore } from '@/stores/sheets'
 import {
   NLayout,
   NLayoutHeader,
@@ -8,19 +9,35 @@ import {
   NLayoutContent,
   NMenu,
   NButton,
-  NIcon
+  NIcon,
+  NDrawer,
+  NDrawerContent,
+  NTag
 } from 'naive-ui'
 import {
   GridOutline as DashboardIcon,
   DocumentTextOutline as ContractIcon,
   NotificationsOutline as NotificationIcon,
-  SettingsOutline as SettingsIcon
+  SettingsOutline as SettingsIcon,
+  MenuOutline as MenuIcon,
+  CheckmarkCircleOutline as ConnectedIcon
 } from '@vicons/ionicons5'
 import type { MenuOption } from 'naive-ui'
 
 const router = useRouter()
+const route = useRoute()
+const sheetsStore = useSheetsStore()
+
 const isMobile = ref(false)
 const sidebarCollapsed = ref(false)
+const mobileMenuOpen = ref(false)
+
+const connectionStatus = computed(() => {
+  if (!sheetsStore.currentSheet) {
+    return { text: '시트 미연결', type: 'warning' as const }
+  }
+  return { text: sheetsStore.currentSheet.name, type: 'success' as const }
+})
 
 onMounted(() => {
   // 모바일 화면 감지 (768px 이하)
@@ -30,6 +47,7 @@ onMounted(() => {
     // 모바일에서는 기본적으로 사이드바 숨김
     if (mobile) {
       sidebarCollapsed.value = true
+      mobileMenuOpen.value = false
     }
   }
   checkMobile()
@@ -38,6 +56,15 @@ onMounted(() => {
 
 function handleCollapse(collapsed: boolean) {
   sidebarCollapsed.value = collapsed
+}
+
+function toggleMobileMenu() {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
+
+function handleMobileMenuSelect(key: string) {
+  router.push({ name: key })
+  mobileMenuOpen.value = false
 }
 
 function renderIcon(icon: any) {
@@ -74,16 +101,16 @@ function handleMenuSelect(key: string) {
 
 <template>
   <n-layout has-sider style="min-height: 100vh; height: 100vh; background-color: #f5f7fa;">
+    <!-- 데스크톱 사이드바 (768px 이상) -->
     <n-layout-sider
+      v-if="!isMobile"
       bordered
       show-trigger
       collapse-mode="width"
-      :collapsed-width="0"
+      :collapsed-width="64"
       :width="240"
       :native-scrollbar="false"
       :collapsed="sidebarCollapsed"
-      :default-collapsed="isMobile"
-      breakpoint="md"
       @update:collapsed="handleCollapse"
       style="background-color: #2c3e50; height: 100vh;"
     >
@@ -97,6 +124,7 @@ function handleMenuSelect(key: string) {
       </div>
       <n-menu
         :options="menuOptions"
+        :value="route.name as string"
         @update:value="handleMenuSelect"
         :inverted="true"
         style="background-color: #2c3e50;"
@@ -104,16 +132,43 @@ function handleMenuSelect(key: string) {
     </n-layout-sider>
 
     <n-layout style="height: 100vh; display: flex; flex-direction: column;">
+      <!-- 모바일/데스크톱 헤더 -->
       <n-layout-header
         bordered
-        class="px-4 py-3 md:px-6 md:py-4"
+        class="px-4 py-3"
         style="background-color: #ffffff; border-bottom: 1px solid #e1e8ed; flex-shrink: 0;"
       >
-        <div class="flex items-center justify-between">
-          <h2 class="text-base md:text-lg font-semibold" style="color: #2c3e50;">
-            임대차 관리 시스템
-          </h2>
-          <div class="flex items-center gap-1 md:gap-2">
+        <div class="flex items-center justify-between gap-3">
+          <!-- 모바일 메뉴 버튼 -->
+          <n-button
+            v-if="isMobile"
+            text
+            @click="toggleMobileMenu"
+            style="color: #2c3e50;"
+            size="large"
+          >
+            <template #icon>
+              <n-icon :size="24"><MenuIcon /></n-icon>
+            </template>
+          </n-button>
+
+          <!-- 제목 및 연결 상태 -->
+          <div class="flex-1 min-w-0">
+            <h2 class="text-base md:text-lg font-semibold truncate" style="color: #2c3e50;">
+              임대차 관리 시스템
+            </h2>
+            <div class="flex items-center gap-2 mt-1">
+              <n-icon :size="14" :style="{ color: connectionStatus.type === 'success' ? '#18a058' : '#f0a020' }">
+                <ConnectedIcon />
+              </n-icon>
+              <span class="text-xs truncate" :style="{ color: connectionStatus.type === 'success' ? '#18a058' : '#f0a020' }">
+                {{ connectionStatus.text }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 우측 버튼들 -->
+          <div class="flex items-center gap-1">
             <n-button
               text
               @click="router.push({ name: 'notifications' })"
@@ -123,7 +178,7 @@ function handleMenuSelect(key: string) {
               <template #icon>
                 <n-icon><NotificationIcon /></n-icon>
               </template>
-              <span class="hidden sm:inline">알림</span>
+              <span class="hidden sm:inline ml-1">알림</span>
             </n-button>
             <n-button
               text
@@ -134,15 +189,97 @@ function handleMenuSelect(key: string) {
               <template #icon>
                 <n-icon><SettingsIcon /></n-icon>
               </template>
-              <span class="hidden sm:inline">설정</span>
+              <span class="hidden sm:inline ml-1">설정</span>
             </n-button>
           </div>
         </div>
       </n-layout-header>
 
+      <!-- 콘텐츠 영역 -->
       <n-layout-content class="p-4 md:p-6" style="flex: 1; overflow-y: auto; background-color: #f5f7fa;">
         <router-view />
       </n-layout-content>
     </n-layout>
+
+    <!-- 모바일 네비게이션 드로어 -->
+    <n-drawer v-model:show="mobileMenuOpen" :width="280" placement="left">
+      <n-drawer-content title="메뉴" :native-scrollbar="false">
+        <div class="mb-4 p-4 rounded" style="background-color: #f5f7fa;">
+          <div class="flex items-center gap-2 mb-2">
+            <n-icon :size="16" :style="{ color: connectionStatus.type === 'success' ? '#18a058' : '#f0a020' }">
+              <ConnectedIcon />
+            </n-icon>
+            <span class="text-sm font-medium">연결 상태</span>
+          </div>
+          <n-tag :type="connectionStatus.type" size="small">
+            {{ connectionStatus.text }}
+          </n-tag>
+        </div>
+
+        <div class="space-y-2">
+          <n-button
+            block
+            text
+            :type="route.name === 'dashboard' ? 'primary' : 'default'"
+            @click="handleMobileMenuSelect('dashboard')"
+            class="justify-start"
+            size="large"
+          >
+            <template #icon>
+              <n-icon><DashboardIcon /></n-icon>
+            </template>
+            대시보드
+          </n-button>
+
+          <n-button
+            block
+            text
+            :type="route.name === 'contracts' ? 'primary' : 'default'"
+            @click="handleMobileMenuSelect('contracts')"
+            class="justify-start"
+            size="large"
+          >
+            <template #icon>
+              <n-icon><ContractIcon /></n-icon>
+            </template>
+            계약 관리
+          </n-button>
+
+          <n-button
+            block
+            text
+            :type="route.name === 'notifications' ? 'primary' : 'default'"
+            @click="handleMobileMenuSelect('notifications')"
+            class="justify-start"
+            size="large"
+          >
+            <template #icon>
+              <n-icon><NotificationIcon /></n-icon>
+            </template>
+            알림
+          </n-button>
+
+          <n-button
+            block
+            text
+            :type="route.name === 'settings' ? 'primary' : 'default'"
+            @click="handleMobileMenuSelect('settings')"
+            class="justify-start"
+            size="large"
+          >
+            <template #icon>
+              <n-icon><SettingsIcon /></n-icon>
+            </template>
+            설정
+          </n-button>
+        </div>
+
+        <template #footer>
+          <div class="text-center text-xs" style="color: #95a5a6;">
+            RealLease v1.0.0
+          </div>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
   </n-layout>
 </template>
