@@ -71,10 +71,14 @@ watch(
 // Navigation handlers
 function navigateToContracts(status?: 'active' | 'expired') {
   if (status) {
-    router.push({ name: 'contracts', query: { status } })
+    router.push({ name: 'rental-contracts', query: { status } })
   } else {
-    router.push({ name: 'contracts' })
+    router.push({ name: 'rental-contracts' })
   }
+}
+
+function navigateToSales() {
+  router.push({ name: 'sales' })
 }
 
 function navigateToNotifications() {
@@ -87,8 +91,13 @@ function handleNotificationClick() {
 }
 
 function handleContractClick(contract: RentalContract) {
-  // Navigate to contracts page with contract ID to open detail modal
-  router.push({ name: 'contracts', query: { id: contract.id } })
+  // Navigate to rental contracts page with contract ID to open detail modal
+  router.push({ name: 'rental-contracts', query: { id: contract.id } })
+}
+
+function handleSaleClick(saleId: string) {
+  // Navigate to sale detail page
+  router.push({ name: 'sale-detail', params: { id: saleId } })
 }
 </script>
 
@@ -168,15 +177,15 @@ function handleContractClick(contract: RentalContract) {
       <div v-if="stats.saleTotal > 0" class="mb-4 md:mb-6">
         <h2 class="text-base md:text-lg font-semibold mb-2 md:mb-3" style="color: #2c3e50;">매도현황</h2>
         <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
-          <n-card hoverable class="cursor-pointer text-center">
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales()">
             <n-statistic label="전체 매도" :value="stats.saleTotal" />
           </n-card>
 
-          <n-card hoverable class="cursor-pointer text-center">
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales()">
             <n-statistic label="진행중" :value="stats.saleActive" />
           </n-card>
 
-          <n-card hoverable class="cursor-pointer text-center">
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales()">
             <n-statistic label="종결" :value="stats.saleCompleted" />
           </n-card>
         </div>
@@ -271,6 +280,7 @@ function handleContractClick(contract: RentalContract) {
             v-for="sale in contractsStore.saleContracts.slice(0, 5)"
             :key="sale.id"
             class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
+            @click="handleSaleClick(sale.id)"
           >
             <!-- Header: 동-호 & 상태 -->
             <div class="flex items-start justify-between mb-2">

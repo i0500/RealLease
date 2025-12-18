@@ -21,6 +21,7 @@ import {
 import {
   GridOutline as DashboardIcon,
   DocumentTextOutline as ContractIcon,
+  DocumentTextOutline,
   NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
   MenuOutline as MenuIcon,
@@ -114,8 +115,20 @@ const menuOptions = computed<MenuOption[]>(() => {
     },
     {
       label: '계약 관리',
-      key: 'contracts',
-      icon: renderIcon(ContractIcon)
+      key: 'contracts-group',
+      icon: renderIcon(ContractIcon),
+      children: [
+        {
+          label: '임대차 현황',
+          key: 'rental-contracts',
+          icon: renderIcon(DocumentTextOutline)
+        },
+        {
+          label: '매도현황',
+          key: 'sales',
+          icon: renderIcon(DocumentTextOutline)
+        }
+      ]
     },
     {
       label: '알림',
@@ -299,19 +312,36 @@ async function handleMenuSelect(key: string) {
             대시보드
           </n-button>
 
-          <n-button
-            block
-            text
-            :type="route.name === 'contracts' ? 'primary' : 'default'"
-            @click="handleMobileMenuSelect('contracts')"
-            class="justify-start"
-            size="large"
-          >
-            <template #icon>
-              <n-icon><ContractIcon /></n-icon>
-            </template>
-            계약 관리
-          </n-button>
+          <!-- 계약 관리 섹션 -->
+          <div class="mb-2">
+            <div class="text-xs text-gray-500 px-3 py-2 font-semibold">계약 관리</div>
+            <n-button
+              block
+              text
+              :type="route.name === 'rental-contracts' ? 'primary' : 'default'"
+              @click="handleMobileMenuSelect('rental-contracts')"
+              class="justify-start pl-6"
+              size="large"
+            >
+              <template #icon>
+                <n-icon><DocumentTextOutline /></n-icon>
+              </template>
+              임대차 현황
+            </n-button>
+            <n-button
+              block
+              text
+              :type="route.name === 'sales' || route.name === 'sale-detail' ? 'primary' : 'default'"
+              @click="handleMobileMenuSelect('sales')"
+              class="justify-start pl-6"
+              size="large"
+            >
+              <template #icon>
+                <n-icon><DocumentTextOutline /></n-icon>
+              </template>
+              매도현황
+            </n-button>
+          </div>
 
           <n-button
             block

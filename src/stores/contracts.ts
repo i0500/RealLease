@@ -517,18 +517,19 @@ export const useContractsStore = defineStore('contracts', () => {
       // row[17+offset]: 채권양도
       // row[18+offset]: 비고
 
-      const category = row[0 + offset]?.toString() || ''
-      const unit = row[1 + offset]?.toString() || ''
-      const buyer = row[2 + offset]?.toString() || ''
+      const category = row[0 + offset]?.toString().trim() || ''
+      const unit = row[1 + offset]?.toString().trim() || ''
+      const buyer = row[2 + offset]?.toString().trim() || ''
 
-      // 필수 필드 검증
+      // 필수 필드 검증: 계약자가 있는 경우만 유효한 매도 계약으로 처리
       if (!category || !unit || !buyer) {
         console.log('⏭️ [parseRowToSale] 필수 필드 누락으로 건너뜀:', {
           rowIndex,
           offset,
           category,
           unit,
-          buyer
+          buyer,
+          reason: !buyer ? '계약자 없음' : !category ? '구분 없음' : '동호 없음'
         })
         return null
       }
