@@ -18,7 +18,7 @@ export class SheetsService {
   private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
     const token = authService.getAccessToken()
     if (!token) {
-      throw new Error('Not authenticated')
+      throw new Error('OAuth 토큰이 만료되었습니다. 로그아웃 후 다시 로그인해주세요.')
     }
 
     const response = await fetch(url, {
@@ -31,7 +31,13 @@ export class SheetsService {
     })
 
     if (!response.ok) {
-      const error = await response.json()
+      const error = await response.json().catch(() => ({}))
+
+      // 401 Unauthorized - 토큰 만료
+      if (response.status === 401) {
+        throw new Error('OAuth 토큰이 만료되었습니다. 로그아웃 후 다시 로그인해주세요.')
+      }
+
       throw new Error(error.error?.message || 'Sheets API error')
     }
 
