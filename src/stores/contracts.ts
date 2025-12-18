@@ -82,11 +82,34 @@ export const useContractsStore = defineStore('contracts', () => {
 
       // 헤더 행 제외하고 데이터 파싱
       const _headers = data[0]!
-      const rows = data.slice(1)
+
+      // 🔧 FIX: 헤더 행 및 빈 행 명시적 필터링
+      const isHeaderRow = (row: any[]) => {
+        if (!row || row.length === 0) return true
+        // 헤더 행 체크: "번호", "동", "이름", "시작일" 등의 키워드 포함
+        const firstCell = row[0]?.toString().trim()
+        const nameCell = row[3]?.toString().trim()
+        const startDateCell = row[13]?.toString().trim()
+        return (
+          firstCell === '번호' ||
+          nameCell === '이름' ||
+          startDateCell === '시작일' ||
+          startDateCell === '임대차계약기간 시작'
+        )
+      }
+
+      const isEmptyRow = (row: any[]) => {
+        // 모든 셀이 비어있거나 공백만 있으면 빈 행
+        return row.every(cell => !cell || cell.toString().trim() === '')
+      }
+
+      const rows = data.slice(1).filter(row => !isHeaderRow(row) && !isEmptyRow(row))
 
       console.log('🔄 [ContractsStore.loadContracts] 데이터 파싱 시작:', {
         headerColumns: _headers.length,
-        dataRowsCount: rows.length
+        totalRows: data.length - 1,
+        dataRowsAfterFilter: rows.length,
+        filteredOutRows: (data.length - 1) - rows.length
       })
 
       const parsedContracts: RentalContract[] = rows.map((row, index) => {
@@ -270,6 +293,13 @@ export const useContractsStore = defineStore('contracts', () => {
 
       // 필수 필드 검증 (이름, 시작일, 종료일이 없으면 건너뛰기)
       if (!row[3] || !row[13] || !row[14]) {
+        console.log('⏭️ [parseRowToContract] 필수 필드 누락으로 건너뜀:', {
+          rowIndex,
+          name: row[3],
+          startDate: row[13],
+          endDate: row[14],
+          fullRow: row
+        })
         return null
       }
 
