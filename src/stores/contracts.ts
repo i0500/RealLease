@@ -118,14 +118,36 @@ export const useContractsStore = defineStore('contracts', () => {
       })
 
       const parsedContracts: RentalContract[] = rows.map((row, index) => {
+        // 처음 3개 계약은 상세 디버깅 로그 출력
+        if (index < 3) {
+          console.log(`🔍 [ContractsStore.loadContracts] Row ${index + 1} 원본 데이터:`, {
+            rowIndex: index + 2,
+            row0_번호: row[0],
+            row1_동: row[1],
+            row2_호수: row[2],
+            row3_이름: row[3],
+            row4_연락처: row[4],
+            row10_보증금: row[10],
+            row11_월세: row[11],
+            row13_시작일: row[13],
+            row14_종료일: row[14],
+            fullRow: row
+          })
+        }
+
         const contract = parseRowToContract(row, _headers, sheetId, index + 2)
-        if (contract && index < 2) {
-          console.log(`📝 [ContractsStore.loadContracts] 샘플 계약 ${index + 1}:`, {
+
+        if (contract && index < 3) {
+          console.log(`📝 [ContractsStore.loadContracts] 샘플 계약 ${index + 1} 파싱 결과:`, {
             id: contract.id,
-            tenant: contract.tenant.name,
-            property: `${contract.property.address} ${contract.property.unit}`,
-            type: contract.contract.type,
-            status: contract.contract.status
+            'property.address': contract.property.address,
+            'property.unit': contract.property.unit,
+            'tenant.name': contract.tenant.name,
+            'tenant.phone': contract.tenant.phone,
+            'contract.type': contract.contract.type,
+            'contract.deposit': contract.contract.deposit,
+            'contract.monthlyRent': contract.contract.monthlyRent,
+            'contract.status': contract.contract.status
           })
         }
         return contract
