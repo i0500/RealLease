@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -14,14 +14,33 @@ const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
 const sheetsStore = useSheetsStore()
 
-const stats = computed(() => ({
+// 임대차 통계
+const rentalStats = computed(() => ({
   total: contractsStore.contracts.length,
   active: contractsStore.activeContracts.length,
-  expired: contractsStore.expiredContracts.length,
+  expired: contractsStore.expiredContracts.length
+}))
+
+// 매도현황 통계
+const saleStats = computed(() => ({
+  total: contractsStore.saleContracts.length,
+  active: contractsStore.activeSaleContracts.length,
+  completed: contractsStore.completedSaleContracts.length
+}))
+
+// 전체 통계
+const stats = computed(() => ({
+  rentalTotal: rentalStats.value.total,
+  rentalActive: rentalStats.value.active,
+  rentalExpired: rentalStats.value.expired,
+  saleTotal: saleStats.value.total,
+  saleActive: saleStats.value.active,
+  saleCompleted: saleStats.value.completed,
   notifications: notificationsStore.unreadCount
 }))
 
-onMounted(async () => {
+// 데이터 로드 함수
+async function loadData() {
   if (sheetsStore.currentSheet) {
     try {
       await contractsStore.loadContracts(sheetsStore.currentSheet.id)
@@ -30,7 +49,24 @@ onMounted(async () => {
       console.error('Failed to load dashboard data:', error)
     }
   }
+}
+
+// 마운트 시 데이터 로드
+onMounted(() => {
+  loadData()
 })
+
+// 시트 변경 감지하여 데이터 재로드 (새로고침 문제 해결)
+watch(
+  () => sheetsStore.currentSheet?.id,
+  (newSheetId, oldSheetId) => {
+    if (newSheetId && newSheetId !== oldSheetId) {
+      console.log('🔄 [DashboardView] 시트 변경 감지, 데이터 재로드:', newSheetId)
+      loadData()
+    }
+  },
+  { immediate: true }
+)
 
 // Navigation handlers
 function navigateToContracts(status?: 'active' | 'expired') {
@@ -107,22 +143,43 @@ function handleContractClick(contract: RentalContract) {
       </n-alert>
 
       <!-- 통계 카드 -->
-      <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
-        <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts()">
-          <n-statistic label="전체 계약" :value="stats.total" />
-        </n-card>
+      <div class="mb-4 md:mb-6">
+        <h2 class="text-base md:text-lg font-semibold mb-2 md:mb-3" style="color: #2c3e50;">임대차 현황</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts()">
+            <n-statistic label="전체 계약" :value="stats.rentalTotal" />
+          </n-card>
 
-        <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('active')">
-          <n-statistic label="진행중 계약" :value="stats.active" />
-        </n-card>
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('active')">
+            <n-statistic label="진행중" :value="stats.rentalActive" />
+          </n-card>
 
-        <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('expired')">
-          <n-statistic label="만료된 계약" :value="stats.expired" />
-        </n-card>
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('expired')">
+            <n-statistic label="만료됨" :value="stats.rentalExpired" />
+          </n-card>
 
-        <n-card hoverable class="cursor-pointer text-center" @click="navigateToNotifications()">
-          <n-statistic label="미확인 알림" :value="stats.notifications" />
-        </n-card>
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToNotifications()">
+            <n-statistic label="미확인 알림" :value="stats.notifications" />
+          </n-card>
+        </div>
+      </div>
+
+      <!-- 매도현황 통계 카드 -->
+      <div v-if="stats.saleTotal > 0" class="mb-4 md:mb-6">
+        <h2 class="text-base md:text-lg font-semibold mb-2 md:mb-3" style="color: #2c3e50;">매도현황</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+          <n-card hoverable class="cursor-pointer text-center">
+            <n-statistic label="전체 매도" :value="stats.saleTotal" />
+          </n-card>
+
+          <n-card hoverable class="cursor-pointer text-center">
+            <n-statistic label="진행중" :value="stats.saleActive" />
+          </n-card>
+
+          <n-card hoverable class="cursor-pointer text-center">
+            <n-statistic label="종결" :value="stats.saleCompleted" />
+          </n-card>
+        </div>
       </div>
 
       <!-- 최근 알림 -->
@@ -205,6 +262,65 @@ function handleContractClick(contract: RentalContract) {
           </div>
         </div>
         <n-empty v-else description="계약이 없습니다" />
+      </n-card>
+
+      <!-- 최근 매도 -->
+      <n-card v-if="contractsStore.saleContracts.length > 0" title="최근 매도" class="mt-4 md:mt-6">
+        <div class="space-y-3">
+          <div
+            v-for="sale in contractsStore.saleContracts.slice(0, 5)"
+            :key="sale.id"
+            class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
+          >
+            <!-- Header: 동-호 & 상태 -->
+            <div class="flex items-start justify-between mb-2">
+              <h4 class="font-semibold text-green-600 hover:underline text-sm sm:text-base">
+                {{ sale.unit }}
+              </h4>
+              <n-tag
+                :type="sale.notes?.includes('종결') ? 'success' : 'info'"
+                size="small"
+                class="ml-2 flex-shrink-0"
+              >
+                {{ sale.notes?.includes('종결') ? '종결' : '진행중' }}
+              </n-tag>
+            </div>
+
+            <!-- Buyer & Contract Format -->
+            <div class="flex flex-wrap items-center gap-2 mb-2 text-xs sm:text-sm text-gray-600">
+              <span class="font-medium">{{ sale.buyer }}</span>
+              <span class="text-gray-400">·</span>
+              <n-tag type="warning" size="small">
+                {{ sale.contractFormat || '매도' }}
+              </n-tag>
+              <span class="text-gray-400">·</span>
+              <span class="font-medium text-green-600">
+                합계 {{ sale.totalAmount.toLocaleString() }}만원
+              </span>
+            </div>
+
+            <!-- Payment Details -->
+            <div class="flex flex-col gap-1 text-xs text-gray-500">
+              <div v-if="sale.downPayment1" class="flex items-center gap-2">
+                <span class="text-gray-400">계약금:</span>
+                <span>{{ sale.downPayment1.amount.toLocaleString() }}만원</span>
+                <span v-if="sale.downPayment1.date" class="text-gray-400">
+                  ({{ formatDate(sale.downPayment1.date, 'yyyy.MM.dd') }})
+                </span>
+              </div>
+              <div v-if="sale.finalPayment" class="flex items-center gap-2">
+                <span class="text-gray-400">잔금:</span>
+                <span>{{ sale.finalPayment.amount.toLocaleString() }}만원</span>
+                <span v-if="sale.finalPayment.date" class="text-gray-400">
+                  ({{ formatDate(sale.finalPayment.date, 'yyyy.MM.dd') }})
+                </span>
+              </div>
+              <div v-if="sale.notes" class="text-gray-600 mt-1">
+                <span class="text-gray-400">비고:</span> {{ sale.notes }}
+              </div>
+            </div>
+          </div>
+        </div>
       </n-card>
     </div>
   </div>

@@ -2,17 +2,22 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { sheetsService } from '@/services/google/sheetsService'
 import { useSheetsStore } from './sheets'
-import type { RentalContract } from '@/types'
+import type { RentalContract, SaleContract, PaymentStage } from '@/types'
 import { generateId } from '@/utils/formatUtils'
 import { parseDate } from '@/utils/dateUtils'
 
+// 시트 타입 정의
+type SheetType = 'rental' | 'sale' | 'unknown'
+
 export const useContractsStore = defineStore('contracts', () => {
   const contracts = ref<RentalContract[]>([])
+  const saleContracts = ref<SaleContract[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   const sheetsStore = useSheetsStore()
 
+  // 임대차 계약 computed
   const activeContracts = computed(() =>
     contracts.value.filter(c => c.contract.status === 'active')
   )
@@ -24,6 +29,26 @@ export const useContractsStore = defineStore('contracts', () => {
   const contractsBySheet = computed(() => {
     const grouped: Record<string, RentalContract[]> = {}
     contracts.value.forEach(contract => {
+      if (!grouped[contract.sheetId]) {
+        grouped[contract.sheetId] = []
+      }
+      grouped[contract.sheetId]!.push(contract)
+    })
+    return grouped
+  })
+
+  // 매도현황 계약 computed
+  const activeSaleContracts = computed(() =>
+    saleContracts.value.filter(c => c.notes && !c.notes.includes('종결'))
+  )
+
+  const completedSaleContracts = computed(() =>
+    saleContracts.value.filter(c => c.notes && c.notes.includes('종결'))
+  )
+
+  const saleContractsBySheet = computed(() => {
+    const grouped: Record<string, SaleContract[]> = {}
+    saleContracts.value.forEach(contract => {
       if (!grouped[contract.sheetId]) {
         grouped[contract.sheetId] = []
       }
@@ -80,40 +105,53 @@ export const useContractsStore = defineStore('contracts', () => {
         return
       }
 
-      // 헤더 행 제외하고 데이터 파싱
+      // 헤더 행 분석
       const _headers = data[0]!
 
+      // 🔍 시트 타입 자동 감지
+      const sheetType = detectSheetType(_headers)
+      console.log('🔖 [ContractsStore.loadContracts] 감지된 시트 타입:', sheetType)
+
       // 🔧 FIX: 헤더 행 및 빈 행 필터링 (강화)
-      const isHeaderRow = (row: any[]) => {
+      const isHeaderRow = (row: any[], type: SheetType) => {
         if (!row || row.length === 0) return true
 
-        // 안전한 문자열 변환 (undefined 방지)
         const firstCell = row[0]?.toString().trim() || ''
-        const buildingCell = row[1]?.toString().trim() || ''
-        const unitCell = row[2]?.toString().trim() || ''
-        const nameCell = row[3]?.toString().trim() || ''
-        const startDateCell = row[13]?.toString().trim() || ''
+        const secondCell = row[1]?.toString().trim() || ''
+        const thirdCell = row[2]?.toString().trim() || ''
 
-        // 헤더 행 체크: 컬럼명 키워드
-        return (
-          firstCell === '번호' ||
-          buildingCell === '동' ||
-          unitCell === '호수' ||
-          nameCell === '이름' ||
-          nameCell === '호수' ||  // 잘못된 매핑도 체크
-          startDateCell === '시작일' ||
-          startDateCell.includes('임대차계약기간')
-        )
+        if (type === 'sale') {
+          // 매도현황 헤더 체크
+          return (
+            firstCell === '구분' ||
+            secondCell === '동-호' ||
+            thirdCell === '계약자'
+          )
+        } else {
+          // 임대차 헤더 체크
+          const fourthCell = row[3]?.toString().trim() || ''
+          const startDateCell = row[13]?.toString().trim() || ''
+
+          return (
+            firstCell === '번호' ||
+            secondCell === '동' ||
+            thirdCell === '호수' ||
+            fourthCell === '이름' ||
+            fourthCell === '호수' ||
+            startDateCell === '시작일' ||
+            startDateCell.includes('임대차계약기간')
+          )
+        }
       }
 
       const isEmptyRow = (row: any[]) => {
-        // 모든 셀이 비어있거나 공백만 있으면 빈 행
         return row.every(cell => !cell || cell.toString().trim() === '')
       }
 
-      const rows = data.slice(1).filter(row => !isHeaderRow(row) && !isEmptyRow(row))
+      const rows = data.slice(1).filter(row => !isHeaderRow(row, sheetType) && !isEmptyRow(row))
 
       console.log('🔄 [ContractsStore.loadContracts] 데이터 파싱 시작:', {
+        sheetType,
         headerColumns: _headers.length,
         totalRows: data.length - 1,
         dataRowsAfterFilter: rows.length,
@@ -122,61 +160,110 @@ export const useContractsStore = defineStore('contracts', () => {
         firstDataRow: rows[0]
       })
 
-      const parsedContracts: RentalContract[] = rows.map((row, index) => {
-        // 처음 3개 계약은 상세 디버깅 로그 출력
-        if (index < 3) {
-          console.log(`🔍 [ContractsStore.loadContracts] Row ${index + 1} 원본 데이터:`, {
-            rowIndex: index + 2,
-            row0_번호: row[0],
-            row1_동: row[1],
-            row2_호수: row[2],
-            row3_이름: row[3],
-            row4_연락처: row[4],
-            row10_보증금: row[10],
-            row11_월세: row[11],
-            row13_시작일: row[13],
-            row14_종료일: row[14],
-            fullRow: row
-          })
-        }
+      // 타입에 따라 다른 파싱 로직 적용
+      if (sheetType === 'sale') {
+        // 매도현황 파싱
+        const parsedSales: SaleContract[] = rows.map((row, index) => {
+          if (index < 3) {
+            console.log(`🔍 [ContractsStore.loadContracts] 매도 Row ${index + 1}:`, {
+              rowIndex: index + 2,
+              row0_구분: row[0],
+              row1_동호: row[1],
+              row2_계약자: row[2],
+              row15_합계: row[15],
+              fullRow: row.slice(0, 20)
+            })
+          }
 
-        const contract = parseRowToContract(row, _headers, sheetId, index + 2)
+          const contract = parseRowToSale(row, _headers, sheetId, index + 2)
 
-        if (contract && index < 3) {
-          console.log(`📝 [ContractsStore.loadContracts] 샘플 계약 ${index + 1} 파싱 결과:`, {
-            id: contract.id,
-            'property.address': contract.property.address,
-            'property.unit': contract.property.unit,
-            'tenant.name': contract.tenant.name,
-            'tenant.phone': contract.tenant.phone,
-            'contract.type': contract.contract.type,
-            'contract.deposit': contract.contract.deposit,
-            'contract.monthlyRent': contract.contract.monthlyRent,
-            'contract.status': contract.contract.status
-          })
-        }
-        return contract
-      }).filter(c => c !== null) as RentalContract[]
+          if (contract && index < 3) {
+            console.log(`📝 [ContractsStore.loadContracts] 샘플 매도 ${index + 1}:`, {
+              id: contract.id,
+              unit: contract.unit,
+              buyer: contract.buyer,
+              totalAmount: contract.totalAmount,
+              notes: contract.notes
+            })
+          }
+          return contract
+        }).filter(c => c !== null) as SaleContract[]
 
-      console.log('✅ [ContractsStore.loadContracts] 파싱 완료:', {
-        parsedCount: parsedContracts.length,
-        activeCount: parsedContracts.filter(c => c.contract.status === 'active').length,
-        expiredCount: parsedContracts.filter(c => c.contract.status === 'expired').length
-      })
+        console.log('✅ [ContractsStore.loadContracts] 매도 파싱 완료:', {
+          parsedCount: parsedSales.length,
+          completedCount: parsedSales.filter(c => c.notes?.includes('종결')).length
+        })
 
-      // 기존 계약 중 현재 시트의 계약 제거 후 새 데이터 추가
-      const beforeCount = contracts.value.length
-      contracts.value = [
-        ...contracts.value.filter(c => c.sheetId !== sheetId),
-        ...parsedContracts
-      ]
-      const afterCount = contracts.value.length
+        // 기존 매도 계약 중 현재 시트 제거 후 새 데이터 추가
+        const beforeCount = saleContracts.value.length
+        saleContracts.value = [
+          ...saleContracts.value.filter(c => c.sheetId !== sheetId),
+          ...parsedSales
+        ]
+        const afterCount = saleContracts.value.length
 
-      console.log('💾 [ContractsStore.loadContracts] 스토어 업데이트:', {
-        beforeCount,
-        afterCount,
-        addedCount: parsedContracts.length
-      })
+        console.log('💾 [ContractsStore.loadContracts] 매도 스토어 업데이트:', {
+          beforeCount,
+          afterCount,
+          addedCount: parsedSales.length
+        })
+      } else {
+        // 임대차 현황 파싱
+        const parsedContracts: RentalContract[] = rows.map((row, index) => {
+          if (index < 3) {
+            console.log(`🔍 [ContractsStore.loadContracts] 임대 Row ${index + 1}:`, {
+              rowIndex: index + 2,
+              row0_번호: row[0],
+              row1_동: row[1],
+              row2_호수: row[2],
+              row3_이름: row[3],
+              row4_연락처: row[4],
+              row10_보증금: row[10],
+              row11_월세: row[11],
+              row13_시작일: row[13],
+              row14_종료일: row[14],
+              fullRow: row
+            })
+          }
+
+          const contract = parseRowToContract(row, _headers, sheetId, index + 2)
+
+          if (contract && index < 3) {
+            console.log(`📝 [ContractsStore.loadContracts] 샘플 임대 ${index + 1}:`, {
+              id: contract.id,
+              'property.address': contract.property.address,
+              'property.unit': contract.property.unit,
+              'tenant.name': contract.tenant.name,
+              'tenant.phone': contract.tenant.phone,
+              'contract.type': contract.contract.type,
+              'contract.deposit': contract.contract.deposit,
+              'contract.monthlyRent': contract.contract.monthlyRent,
+              'contract.status': contract.contract.status
+            })
+          }
+          return contract
+        }).filter(c => c !== null) as RentalContract[]
+
+        console.log('✅ [ContractsStore.loadContracts] 임대 파싱 완료:', {
+          parsedCount: parsedContracts.length,
+          activeCount: parsedContracts.filter(c => c.contract.status === 'active').length,
+          expiredCount: parsedContracts.filter(c => c.contract.status === 'expired').length
+        })
+
+        // 기존 계약 중 현재 시트의 계약 제거 후 새 데이터 추가
+        const beforeCount = contracts.value.length
+        contracts.value = [
+          ...contracts.value.filter(c => c.sheetId !== sheetId),
+          ...parsedContracts
+        ]
+        const afterCount = contracts.value.length
+
+        console.log('💾 [ContractsStore.loadContracts] 임대 스토어 업데이트:', {
+          beforeCount,
+          afterCount,
+          addedCount: parsedContracts.length
+        })
+      }
 
       await sheetsStore.updateLastSynced(sheetId)
 
@@ -296,6 +383,158 @@ export const useContractsStore = defineStore('contracts', () => {
       throw err
     } finally {
       isLoading.value = false
+    }
+  }
+
+  // 🔍 시트 타입 자동 감지 함수
+  function detectSheetType(headers: any[]): SheetType {
+    const headerStr = headers.map(h => h?.toString().toLowerCase() || '').join(' ')
+
+    console.log('🔍 [detectSheetType] 헤더 분석:', {
+      headers: headers.slice(0, 15),
+      headerStr: headerStr.substring(0, 200)
+    })
+
+    // 매도현황 키워드 체크 (우선순위 높음)
+    const saleKeywords = ['구분', '계약자', '계약금', '중도금', '잔금', '합계', '동-호']
+    const saleMatches = saleKeywords.filter(keyword =>
+      headerStr.includes(keyword.toLowerCase())
+    ).length
+
+    // 임대차 현황 키워드 체크
+    const rentalKeywords = ['호수', '이름', '연락처', '임대보증금', '월세', '시작일', '종료일']
+    const rentalMatches = rentalKeywords.filter(keyword =>
+      headerStr.includes(keyword.toLowerCase())
+    ).length
+
+    console.log('📊 [detectSheetType] 키워드 매칭 결과:', {
+      saleMatches: `${saleMatches}/${saleKeywords.length}`,
+      rentalMatches: `${rentalMatches}/${rentalKeywords.length}`
+    })
+
+    // 매칭 점수가 높은 쪽으로 판별 (3개 이상 매칭되면 해당 타입으로 인식)
+    if (saleMatches >= 3) {
+      console.log('✅ [detectSheetType] 매도현황 시트로 판별')
+      return 'sale'
+    }
+
+    if (rentalMatches >= 4) {
+      console.log('✅ [detectSheetType] 임대차 현황 시트로 판별')
+      return 'rental'
+    }
+
+    console.warn('⚠️ [detectSheetType] 시트 타입을 판별할 수 없음, rental로 기본 설정')
+    return 'rental' // 기본값
+  }
+
+  // 📋 매도현황 파싱 함수
+  function parseRowToSale(
+    row: any[],
+    _headers: string[],
+    sheetId: string,
+    rowIndex: number
+  ): SaleContract | null {
+    try {
+      // 첫 번째 컬럼이 공란인 경우 offset 조정
+      const firstCell = row[0]?.toString().trim() || ''
+      const offset = firstCell === '' ? 1 : 0
+
+      // 매도현황 시트 구조:
+      // row[0+offset]: 구분 (1, 2, 3...)
+      // row[1+offset]: 동-호 (108-407)
+      // row[2+offset]: 계약자
+      // row[3+offset]: 계약금(1차) 일자
+      // row[4+offset]: 계약금(1차) 금액
+      // row[5+offset]: 계약금(2차) 일자
+      // row[6+offset]: 계약금(2차) 금액
+      // row[7+offset]: 중도금(1차) 일자
+      // row[8+offset]: 중도금(1차) 금액
+      // row[9+offset]: 중도금(2차) 일자
+      // row[10+offset]: 중도금(2차) 금액
+      // row[11+offset]: 중도금(3차)/임대보증금대체 일자
+      // row[12+offset]: 중도금(3차)/임대보증금대체 금액
+      // row[13+offset]: 잔금 일자
+      // row[14+offset]: 잔금 금액
+      // row[15+offset]: 합계
+      // row[16+offset]: 계약형식
+      // row[17+offset]: 채권양도
+      // row[18+offset]: 비고
+
+      const category = row[0 + offset]?.toString() || ''
+      const unit = row[1 + offset]?.toString() || ''
+      const buyer = row[2 + offset]?.toString() || ''
+
+      // 필수 필드 검증
+      if (!category || !unit || !buyer) {
+        console.log('⏭️ [parseRowToSale] 필수 필드 누락으로 건너뜀:', {
+          rowIndex,
+          offset,
+          category,
+          unit,
+          buyer
+        })
+        return null
+      }
+
+      // 헤더 행 체크 (구분, 동-호 등의 컬럼명이면 건너뜀)
+      if (category === '구분' || unit === '동-호' || buyer === '계약자') {
+        return null
+      }
+
+      // 결제 단계 파싱 헬퍼 함수
+      const parsePayment = (dateIdx: number, amountIdx: number): PaymentStage | undefined => {
+        const dateStr = row[dateIdx]?.toString()
+        const amountStr = row[amountIdx]?.toString()
+
+        if (!amountStr || amountStr.trim() === '') return undefined
+
+        const amount = parseInt(amountStr.replace(/,/g, '')) || 0
+        if (amount === 0) return undefined
+
+        const date = dateStr ? parseDate(dateStr) : undefined
+        return { date, amount }
+      }
+
+      const downPayment1 = parsePayment(3 + offset, 4 + offset)
+      const downPayment2 = parsePayment(5 + offset, 6 + offset)
+      const interimPayment1 = parsePayment(7 + offset, 8 + offset)
+      const interimPayment2 = parsePayment(9 + offset, 10 + offset)
+      const interimPayment3 = parsePayment(11 + offset, 12 + offset)
+      const finalPayment = parsePayment(13 + offset, 14 + offset)
+
+      // 합계 파싱
+      const totalAmountStr = row[15 + offset]?.toString() || '0'
+      const totalAmount = parseInt(totalAmountStr.replace(/,/g, '')) || 0
+
+      const contractFormat = row[16 + offset]?.toString() || ''
+      const bondTransfer = row[17 + offset]?.toString() || ''
+      const notes = row[18 + offset]?.toString() || ''
+
+      return {
+        id: `sale-${category}-${unit}`.replace(/\s+/g, '-'),
+        sheetId,
+        rowIndex,
+        category,
+        unit,
+        buyer,
+        downPayment1,
+        downPayment2,
+        interimPayment1,
+        interimPayment2,
+        interimPayment3,
+        finalPayment,
+        totalAmount,
+        contractFormat,
+        bondTransfer,
+        notes,
+        metadata: {
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      }
+    } catch (err) {
+      console.error('❌ [parseRowToSale] 파싱 오류:', err, 'Row data:', row)
+      return null
     }
   }
 
@@ -484,10 +723,17 @@ export const useContractsStore = defineStore('contracts', () => {
   }
 
   return {
+    // 임대차 계약
     contracts,
     activeContracts,
     expiredContracts,
     contractsBySheet,
+    // 매도현황 계약
+    saleContracts,
+    activeSaleContracts,
+    completedSaleContracts,
+    saleContractsBySheet,
+    // 공통
     isLoading,
     error,
     loadContracts,
