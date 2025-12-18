@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSheetsStore } from '@/stores/sheets'
-import { NCard, NStatistic, NSpin, NAlert, NEmpty, NButton, NIcon } from 'naive-ui'
+import { formatDate } from '@/utils/dateUtils'
+import { NCard, NStatistic, NSpin, NAlert, NEmpty, NButton, NIcon, NTag } from 'naive-ui'
 import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
 import type { RentalContract } from '@/types/contract'
 
@@ -125,22 +126,26 @@ function handleContractClick(contract: RentalContract) {
       </div>
 
       <!-- 최근 알림 -->
-      <n-card title="최근 알림" class="mb-6">
-        <div v-if="notificationsStore.highPriorityNotifications.length > 0">
+      <n-card title="최근 알림" class="mb-4 md:mb-6">
+        <div v-if="notificationsStore.highPriorityNotifications.length > 0" class="space-y-2">
           <div
             v-for="notification in notificationsStore.highPriorityNotifications.slice(0, 5)"
             :key="notification.id"
-            class="border-b last:border-0 py-3 cursor-pointer hover:bg-gray-50 rounded transition-colors"
+            class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-red-50 hover:border-red-300 transition-all"
             @click="handleNotificationClick()"
           >
-            <div class="flex items-start justify-between">
-              <div>
-                <h4 class="font-semibold text-blue-600 hover:underline">{{ notification.title }}</h4>
-                <p class="text-sm text-gray-600">{{ notification.message }}</p>
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <h4 class="font-semibold text-blue-600 hover:underline text-sm sm:text-base truncate">
+                  {{ notification.title }}
+                </h4>
+                <p class="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
+                  {{ notification.message }}
+                </p>
               </div>
-              <span class="text-sm text-red-500">
+              <n-tag type="error" size="small" class="flex-shrink-0">
                 D-{{ notification.daysLeft }}
-              </span>
+              </n-tag>
             </div>
           </div>
         </div>
@@ -149,31 +154,53 @@ function handleContractClick(contract: RentalContract) {
 
       <!-- 최근 계약 -->
       <n-card title="최근 계약">
-        <div v-if="contractsStore.activeContracts.length > 0">
+        <div v-if="contractsStore.activeContracts.length > 0" class="space-y-3">
           <div
             v-for="contract in contractsStore.activeContracts.slice(0, 5)"
             :key="contract.id"
-            class="border-b last:border-0 py-3 cursor-pointer hover:bg-gray-50 rounded transition-colors"
+            class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all"
             @click="handleContractClick(contract)"
           >
-            <div class="flex items-center justify-between">
-              <div class="flex-1">
-                <h4 class="font-semibold text-blue-600 hover:underline">
-                  {{ contract.property.address }}
-                </h4>
-                <p class="text-sm text-gray-600">
-                  {{ contract.tenant.name }} ·
-                  <span v-if="contract.contract.type === 'jeonse'">
-                    전세 {{ contract.contract.deposit.toLocaleString() }}만원
-                  </span>
-                  <span v-else>
-                    월세 {{ contract.contract.deposit.toLocaleString() }}/{{ contract.contract.monthlyRent?.toLocaleString() }}만원
-                  </span>
-                </p>
-              </div>
-              <span class="text-sm text-gray-500 ml-2">
+            <!-- Header: 주소 & 상태 -->
+            <div class="flex items-start justify-between mb-2">
+              <h4 class="font-semibold text-blue-600 hover:underline text-sm sm:text-base">
+                {{ contract.property.address }}
+              </h4>
+              <n-tag
+                :type="contract.contract.status === 'active' ? 'success' : 'default'"
+                size="small"
+                class="ml-2 flex-shrink-0"
+              >
                 {{ contract.contract.status === 'active' ? '진행중' : '만료' }}
+              </n-tag>
+            </div>
+
+            <!-- Tenant & Type -->
+            <div class="flex flex-wrap items-center gap-2 mb-2 text-xs sm:text-sm text-gray-600">
+              <span class="font-medium">{{ contract.tenant.name }}</span>
+              <span class="text-gray-400">·</span>
+              <n-tag
+                :type="contract.contract.contractType === 'new' ? 'info' : 'warning'"
+                size="small"
+              >
+                {{ contract.contract.contractType === 'new' ? '최초' : contract.contract.contractType === 'renewal' ? '갱신' : '변경' }}
+              </n-tag>
+              <span class="text-gray-400">·</span>
+              <span class="font-medium">
+                <span v-if="contract.contract.type === 'jeonse'">
+                  전세 {{ contract.contract.deposit.toLocaleString() }}만원
+                </span>
+                <span v-else>
+                  월세 {{ contract.contract.deposit.toLocaleString() }}/{{ contract.contract.monthlyRent?.toLocaleString() }}만원
+                </span>
               </span>
+            </div>
+
+            <!-- Dates -->
+            <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-gray-500">
+              <span>시작: {{ formatDate(contract.contract.startDate, 'yyyy.MM.dd') }}</span>
+              <span class="hidden sm:inline text-gray-400">→</span>
+              <span>종료: {{ formatDate(contract.contract.endDate, 'yyyy.MM.dd') }}</span>
             </div>
           </div>
         </div>

@@ -306,45 +306,55 @@ export const useContractsStore = defineStore('contracts', () => {
     rowIndex: number
   ): RentalContract | null {
     try {
-      // 실제 엑셀 시트 구조 (Tab 2: 아르테자이임대):
-      // row[0]: 번호
-      // row[1]: 동 (108)
-      // row[2]: 호수 (108, 305, 306...)
-      // row[3]: 이름
-      // row[4]: 연락처
-      // row[5]: 연락처 2
-      // row[6]: 계약유형 (최초/갱신)
-      // row[7]: 주민번호
-      // row[8]: 전용면적
-      // row[9]: 공급면적
-      // row[10]: 임대보증금
-      // row[11]: 월세
-      // row[12]: 계약서 작성일
-      // row[13]: 시작일
-      // row[14]: 종료일
+      // 🔧 첫 번째 컬럼이 공란인 경우 offset 조정
+      const firstCell = row[0]?.toString().trim() || ''
+      const offset = firstCell === '' ? 1 : 0
+
+      // 실제 엑셀 시트 구조 (offset 적용):
+      // row[0+offset]: 번호
+      // row[1+offset]: 동 (108)
+      // row[2+offset]: 호수 (108, 305, 306...)
+      // row[3+offset]: 이름
+      // row[4+offset]: 연락처
+      // row[5+offset]: 연락처 2
+      // row[6+offset]: 계약유형 (최초/갱신)
+      // row[7+offset]: 주민번호
+      // row[8+offset]: 전용면적
+      // row[9+offset]: 공급면적
+      // row[10+offset]: 임대보증금
+      // row[11+offset]: 월세
+      // row[12+offset]: 계약서 작성일
+      // row[13+offset]: 시작일
+      // row[14+offset]: 종료일
+
+      const idxName = 3 + offset
+      const idxStartDate = 13 + offset
+      const idxEndDate = 14 + offset
 
       // 필수 필드 검증 (이름, 시작일, 종료일이 없으면 건너뛰기)
-      if (!row[3] || !row[13] || !row[14]) {
+      if (!row[idxName] || !row[idxStartDate] || !row[idxEndDate]) {
         console.log('⏭️ [parseRowToContract] 필수 필드 누락으로 건너뜀:', {
           rowIndex,
-          name: row[3],
-          startDate: row[13],
-          endDate: row[14],
+          offset,
+          name: row[idxName],
+          startDate: row[idxStartDate],
+          endDate: row[idxEndDate],
           fullRow: row
         })
         return null
       }
 
       // 날짜 파싱 및 검증
-      const startDate = parseDate(row[13])
-      const endDate = parseDate(row[14])
+      const startDate = parseDate(row[idxStartDate])
+      const endDate = parseDate(row[idxEndDate])
 
       // Invalid Date 체크
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         console.log('⏭️ [parseRowToContract] 잘못된 날짜 형식으로 건너뜀:', {
           rowIndex,
-          startDate: row[13],
-          endDate: row[14],
+          offset,
+          startDate: row[idxStartDate],
+          endDate: row[idxEndDate],
           parsedStart: startDate,
           parsedEnd: endDate
         })
@@ -352,16 +362,16 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       // 동-호수 조합으로 주소 생성
-      const building = row[1]?.toString() || ''
-      const unit = row[2]?.toString() || ''
+      const building = row[1 + offset]?.toString() || ''
+      const unit = row[2 + offset]?.toString() || ''
       const address = building ? `${building}동 ${unit}호` : unit
 
       // 보증금 파싱 (쉼표 제거)
-      const depositStr = row[10]?.toString() || '0'
+      const depositStr = row[10 + offset]?.toString() || '0'
       const deposit = parseInt(depositStr.replace(/,/g, '')) || 0
 
       // 월세 파싱 (빈 값이면 undefined)
-      const monthlyRentStr = row[11]?.toString()
+      const monthlyRentStr = row[11 + offset]?.toString()
       const monthlyRent = monthlyRentStr && monthlyRentStr.trim()
         ? parseInt(monthlyRentStr.replace(/,/g, ''))
         : undefined
@@ -370,7 +380,7 @@ export const useContractsStore = defineStore('contracts', () => {
       const contractTypeValue = monthlyRent ? 'wolse' : 'jeonse'
 
       // 계약 구분 매핑 (최초 -> new, 갱신 -> renewal)
-      const contractCategoryStr = row[6]?.toString() || ''
+      const contractCategoryStr = row[6 + offset]?.toString() || ''
       let contractCategory: 'new' | 'renewal' | 'change' = 'new'
       if (contractCategoryStr.includes('갱신')) {
         contractCategory = 'renewal'
@@ -384,14 +394,14 @@ export const useContractsStore = defineStore('contracts', () => {
         endDate < today ? 'expired' : 'active'
 
       return {
-        id: row[0]?.toString() || generateId(),
+        id: row[0 + offset]?.toString() || generateId(),
         sheetId,
         rowIndex,
         tenant: {
-          name: row[3]?.toString() || '',
-          phone: row[4]?.toString() || '',
-          email: row[5]?.toString() || undefined,
-          idNumber: row[7]?.toString() || undefined
+          name: row[3 + offset]?.toString() || '',
+          phone: row[4 + offset]?.toString() || '',
+          email: row[5 + offset]?.toString() || undefined,
+          idNumber: row[7 + offset]?.toString() || undefined
         },
         property: {
           address: address,
@@ -408,7 +418,7 @@ export const useContractsStore = defineStore('contracts', () => {
           contractType: contractCategory
         },
         metadata: {
-          createdAt: row[12] ? parseDate(row[12]) : new Date(),
+          createdAt: row[12 + offset] ? parseDate(row[12 + offset]) : new Date(),
           updatedAt: new Date(),
           deletedAt: undefined
         }

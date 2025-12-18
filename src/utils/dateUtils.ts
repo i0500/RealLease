@@ -34,6 +34,18 @@ export function parseDate(dateString: string | undefined | null): Date {
   }
 
   try {
+    const trimmed = dateString.trim()
+
+    // 2자리 연도 형식 처리 (22-9-29, 24-10-30 등)
+    if (/^\d{2}-\d{1,2}-\d{1,2}$/.test(trimmed)) {
+      const [yy, mm, dd] = trimmed.split('-')
+      const year = parseInt(yy!, 10)
+      // 50보다 작으면 2000년대, 크거나 같으면 1900년대
+      const fullYear = year < 50 ? 2000 + year : 1900 + year
+      const fullDate = `${fullYear}-${mm!.padStart(2, '0')}-${dd!.padStart(2, '0')}`
+      return parseISO(fullDate)
+    }
+
     // ISO 형식 (YYYY-MM-DD)
     if (dateString.includes('-')) {
       return parseISO(dateString)
