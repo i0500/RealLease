@@ -80,30 +80,77 @@ export const useContractsStore = defineStore('contracts', () => {
         return
       }
 
-      // 헤더 행 제외하고 데이터 파싱
-      const _headers = data[0]!
-
       // 🔧 FIX: 헤더 행 및 빈 행 명시적 필터링
       const isHeaderRow = (row: any[]) => {
         if (!row || row.length === 0) return true
-        // 헤더 행 체크: "번호", "동", "이름", "시작일" 등의 키워드 포함
+
+        // 제목 행 체크: "안양", "현재", "구분" 등 제목 키워드
         const firstCell = row[0]?.toString().trim()
+        const secondCell = row[1]?.toString().trim()
+
+        // 매매현황 시트 제목 체크
+        if (firstCell.includes('안양') || firstCell.includes('매매현황')) {
+          return true
+        }
+
+        // 날짜/주소 설명 행 체크 (예: "2025. 12 현재", "경기도 안양시...")
+        if (firstCell.includes('현재') || firstCell.includes('경기도')) {
+          return true
+        }
+
+        // 실제 컬럼 헤더 행 체크: "번호", "동", "이름", "시작일" 등의 키워드
         const nameCell = row[3]?.toString().trim()
         const startDateCell = row[13]?.toString().trim()
+
         return (
           firstCell === '번호' ||
+          secondCell === '동' ||
           nameCell === '이름' ||
           startDateCell === '시작일' ||
-          startDateCell === '임대차계약기간 시작'
+          startDateCell === '임대차계약기간' ||
+          startDateCell.includes('임대차계약기간')
         )
       }
 
       const isEmptyRow = (row: any[]) => {
-        // 모든 셀이 비어있거나 공백만 있으면 빈 행
-        return row.every(cell => !cell || cell.toString().trim() === '')
+        // 모든 셀이 비어있거나 공백만 있거나 '-'만 있으면 빈 행
+        return row.every(cell => {
+          const str = cell?.toString().trim() || ''
+          return str === '' || str === '-'
+        })
       }
 
-      const rows = data.slice(1).filter(row => !isHeaderRow(row) && !isEmptyRow(row))
+      const isInvalidDataRow = (row: any[]) => {
+        // "계 (55 세대)", "합계", "매매계약" 등 집계 행 체크
+        const firstCell = row[0]?.toString().trim() || ''
+        const thirdCell = row[2]?.toString().trim() || ''
+
+        return (
+          firstCell.includes('계') ||
+          firstCell.includes('합계') ||
+          thirdCell.includes('매매계약') ||
+          thirdCell === '공실'
+        )
+      }
+
+      // 헤더 행 찾기 (처음 5줄 중에서)
+      let headerIndex = 0
+      for (let i = 0; i < Math.min(5, data.length); i++) {
+        const row = data[i]
+        if (row && row[0]?.toString().trim() === '번호' && row[3]?.toString().trim() === '이름') {
+          headerIndex = i
+          console.log('📋 [ContractsStore.loadContracts] 헤더 행 발견:', {
+            index: i,
+            headerRow: row.slice(0, 15)
+          })
+          break
+        }
+      }
+
+      const _headers = data[headerIndex] || []
+      const rows = data.slice(headerIndex + 1).filter(row =>
+        !isHeaderRow(row) && !isEmptyRow(row) && !isInvalidDataRow(row)
+      )
 
       console.log('🔄 [ContractsStore.loadContracts] 데이터 파싱 시작:', {
         headerColumns: _headers.length,
