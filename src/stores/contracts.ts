@@ -83,19 +83,24 @@ export const useContractsStore = defineStore('contracts', () => {
       // 헤더 행 제외하고 데이터 파싱
       const _headers = data[0]!
 
-      // 🔧 FIX: 헤더 행 및 빈 행 필터링 (단순하게)
+      // 🔧 FIX: 헤더 행 및 빈 행 필터링 (강화)
       const isHeaderRow = (row: any[]) => {
         if (!row || row.length === 0) return true
 
         // 안전한 문자열 변환 (undefined 방지)
         const firstCell = row[0]?.toString().trim() || ''
+        const buildingCell = row[1]?.toString().trim() || ''
+        const unitCell = row[2]?.toString().trim() || ''
         const nameCell = row[3]?.toString().trim() || ''
         const startDateCell = row[13]?.toString().trim() || ''
 
-        // 헤더 행 체크: "번호", "이름", "시작일" 등의 키워드
+        // 헤더 행 체크: 컬럼명 키워드
         return (
           firstCell === '번호' ||
+          buildingCell === '동' ||
+          unitCell === '호수' ||
           nameCell === '이름' ||
+          nameCell === '호수' ||  // 잘못된 매핑도 체크
           startDateCell === '시작일' ||
           startDateCell.includes('임대차계약기간')
         )
@@ -330,6 +335,22 @@ export const useContractsStore = defineStore('contracts', () => {
         return null
       }
 
+      // 날짜 파싱 및 검증
+      const startDate = parseDate(row[13])
+      const endDate = parseDate(row[14])
+
+      // Invalid Date 체크
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        console.log('⏭️ [parseRowToContract] 잘못된 날짜 형식으로 건너뜀:', {
+          rowIndex,
+          startDate: row[13],
+          endDate: row[14],
+          parsedStart: startDate,
+          parsedEnd: endDate
+        })
+        return null
+      }
+
       // 동-호수 조합으로 주소 생성
       const building = row[1]?.toString() || ''
       const unit = row[2]?.toString() || ''
@@ -358,7 +379,6 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       // 상태 판단 (종료일 기준)
-      const endDate = parseDate(row[14])
       const today = new Date()
       const status: 'active' | 'expired' | 'terminated' =
         endDate < today ? 'expired' : 'active'
@@ -382,7 +402,7 @@ export const useContractsStore = defineStore('contracts', () => {
           type: contractTypeValue,
           deposit: deposit,
           monthlyRent: monthlyRent,
-          startDate: parseDate(row[13]),
+          startDate: startDate,
           endDate: endDate,
           status: status,
           contractType: contractCategory

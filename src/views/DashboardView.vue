@@ -107,19 +107,19 @@ function handleContractClick(contract: RentalContract) {
 
       <!-- 통계 카드 -->
       <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
-        <n-card hoverable class="cursor-pointer" @click="navigateToContracts()">
+        <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts()">
           <n-statistic label="전체 계약" :value="stats.total" />
         </n-card>
 
-        <n-card hoverable class="cursor-pointer" @click="navigateToContracts('active')">
+        <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('active')">
           <n-statistic label="진행중 계약" :value="stats.active" />
         </n-card>
 
-        <n-card hoverable class="cursor-pointer" @click="navigateToContracts('expired')">
+        <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('expired')">
           <n-statistic label="만료된 계약" :value="stats.expired" />
         </n-card>
 
-        <n-card hoverable class="cursor-pointer" @click="navigateToNotifications()">
+        <n-card hoverable class="cursor-pointer text-center" @click="navigateToNotifications()">
           <n-statistic label="미확인 알림" :value="stats.notifications" />
         </n-card>
       </div>
@@ -157,15 +157,21 @@ function handleContractClick(contract: RentalContract) {
             @click="handleContractClick(contract)"
           >
             <div class="flex items-center justify-between">
-              <div>
+              <div class="flex-1">
                 <h4 class="font-semibold text-blue-600 hover:underline">
-                  {{ contract.property.address }} {{ contract.property.unit }}
+                  {{ contract.property.address }}
                 </h4>
                 <p class="text-sm text-gray-600">
-                  {{ contract.tenant.name }} · {{ contract.contract.type === 'jeonse' ? '전세' : '월세' }}
+                  {{ contract.tenant.name }} ·
+                  <span v-if="contract.contract.type === 'jeonse'">
+                    전세 {{ contract.contract.deposit.toLocaleString() }}만원
+                  </span>
+                  <span v-else>
+                    월세 {{ contract.contract.deposit.toLocaleString() }}/{{ contract.contract.monthlyRent?.toLocaleString() }}만원
+                  </span>
                 </p>
               </div>
-              <span class="text-sm text-gray-500">
+              <span class="text-sm text-gray-500 ml-2">
                 {{ contract.contract.status === 'active' ? '진행중' : '만료' }}
               </span>
             </div>

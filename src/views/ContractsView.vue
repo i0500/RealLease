@@ -86,30 +86,30 @@ onMounted(async () => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
 
+  // Handle query parameters from dashboard navigation
+  const { status, id } = route.query
+
   if (sheetsStore.currentSheet) {
     try {
       await contractsStore.loadContracts(sheetsStore.currentSheet.id)
+
+      // Open detail modal if contract id is provided (after data loaded)
+      if (id && typeof id === 'string') {
+        const contract = contractsStore.contracts.find(c => c.id === id)
+        if (contract) {
+          viewingContract.value = contract
+          showDetailModal.value = true
+        }
+      }
     } catch (error) {
       console.error('Failed to load contracts:', error)
       message.error('계약 정보를 불러오는데 실패했습니다')
     }
   }
 
-  // Handle query parameters from dashboard navigation
-  const { status, id } = route.query
-
   // Apply status filter if provided
   if (status && (status === 'active' || status === 'expired')) {
     filterStatus.value = status
-  }
-
-  // Open detail modal if contract id is provided
-  if (id && typeof id === 'string') {
-    const contract = contractsStore.contracts.find(c => c.id === id)
-    if (contract) {
-      viewingContract.value = contract
-      showDetailModal.value = true
-    }
   }
 })
 
