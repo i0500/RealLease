@@ -1,5 +1,6 @@
 import { authService } from './authService'
 import { mockSheetsService } from './mockSheetsService'
+import { TokenExpiredError } from '@/errors/TokenExpiredError'
 
 export interface SheetRange {
   range: string
@@ -18,7 +19,9 @@ export class SheetsService {
   private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
     const token = authService.getAccessToken()
     if (!token) {
-      throw new Error('OAuth 토큰이 만료되었습니다. 로그아웃 후 다시 로그인해주세요.')
+      console.warn('⚠️ [SheetsService] OAuth 토큰 없음, 자동 로그아웃 처리')
+      await authService.signOut()
+      throw new TokenExpiredError()
     }
 
     const response = await fetch(url, {
@@ -35,7 +38,9 @@ export class SheetsService {
 
       // 401 Unauthorized - 토큰 만료
       if (response.status === 401) {
-        throw new Error('OAuth 토큰이 만료되었습니다. 로그아웃 후 다시 로그인해주세요.')
+        console.warn('⚠️ [SheetsService] 401 Unauthorized, 자동 로그아웃 처리')
+        await authService.signOut()
+        throw new TokenExpiredError()
       }
 
       throw new Error(error.error?.message || 'Sheets API error')

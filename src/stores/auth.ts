@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService } from '@/services/google/authService'
 import type { User } from '@/types'
+import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
   // 🔧 FIX: 페이지 새로고침 시 즉시 localStorage에서 사용자 정보 복원
@@ -166,6 +167,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * 토큰 만료 처리
+   * OAuth 토큰이 만료되었을 때 자동으로 로그아웃하고 로그인 페이지로 리디렉션
+   */
+  async function handleTokenExpired() {
+    console.warn('⚠️ [AuthStore] 토큰 만료 감지, 자동 로그아웃 처리')
+
+    try {
+      // 로그아웃 처리
+      await authService.signOut()
+      user.value = null
+      clearUserFromStorage()
+
+      // 로그인 페이지로 리디렉션
+      if (router.currentRoute.value.name !== 'auth') {
+        console.log('🔄 [AuthStore] 로그인 페이지로 리디렉션')
+        await router.push({ name: 'auth', query: { expired: 'true' } })
+      }
+    } catch (err) {
+      console.error('❌ [AuthStore] 토큰 만료 처리 중 오류:', err)
+    }
+  }
+
   return {
     user,
     isInitialized,
@@ -175,6 +199,7 @@ export const useAuthStore = defineStore('auth', () => {
     initialize,
     signIn,
     signOut,
-    clearError
+    clearError,
+    handleTokenExpired
   }
 })

@@ -1,14 +1,28 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSheetsStore } from '@/stores/sheets'
 import { useNotificationsStore } from '@/stores/notifications'
+import { isTokenExpiredError } from '@/errors/TokenExpiredError'
 
 const authStore = useAuthStore()
 const sheetsStore = useSheetsStore()
 const notificationsStore = useNotificationsStore()
 
+// 전역 에러 핸들러: TokenExpiredError 감지
+function handleUnhandledRejection(event: PromiseRejectionEvent) {
+  if (isTokenExpiredError(event.reason)) {
+    console.warn('🚨 [App] TokenExpiredError 감지, 자동 로그아웃 처리')
+    event.preventDefault() // 기본 에러 표시 방지
+    authStore.handleTokenExpired()
+  }
+}
+
 onMounted(async () => {
+  // 전역 에러 핸들러 등록
+  window.addEventListener('unhandledrejection', handleUnhandledRejection)
+  console.log('🛡️ [App] 전역 에러 핸들러 등록 완료')
+
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
 
@@ -35,6 +49,12 @@ onMounted(async () => {
   } catch (error) {
     console.error('❌ 앱 초기화 실패:', error)
   }
+})
+
+onUnmounted(() => {
+  // 전역 에러 핸들러 제거
+  window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+  console.log('🛡️ [App] 전역 에러 핸들러 제거 완료')
 })
 </script>
 
