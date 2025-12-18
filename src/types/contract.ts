@@ -51,11 +51,6 @@ export interface RentalContract {
 export type ContractFormData = Omit<RentalContract, 'id' | 'metadata'>
 
 // 매도현황 (Sales Contract) 인터페이스
-export interface PaymentStage {
-  date?: Date
-  amount: number
-}
-
 export interface SaleContract {
   id: string
   sheetId: string
@@ -63,22 +58,21 @@ export interface SaleContract {
 
   // 기본 정보
   category: string // 구분
+  building: string // 동 (예: 108)
   unit: string // 동-호 (예: 108-407)
   buyer: string // 계약자
+  contractDate?: Date // 계약일
 
-  // 결제 단계
-  downPayment1?: PaymentStage // 계약금(1차)
-  downPayment2?: PaymentStage // 계약금(2차)
-  interimPayment1?: PaymentStage // 중도금(1차)
-  interimPayment2?: PaymentStage // 중도금(2차)
-  interimPayment3?: PaymentStage // 중도금(3차)/임대보증금대체
-  finalPayment?: PaymentStage // 잔금
-
-  totalAmount: number // 합계
+  // 결제 정보 (단위: 천원)
+  downPayment: number // 계약금 (H열)
+  interimPayment: number // 중도금 (P열)
+  finalPayment: number // 잔금 (R열)
+  finalPaymentDate?: Date // 잔금일자 (Q열)
+  totalAmount: number // 합계 (S열)
 
   // 추가 정보
-  contractFormat: string // 계약형식 (예: 임대일부말소)
-  bondTransfer: string // 채권양도 (예: 없음, 있음)
+  contractFormat: string // 계약형식 (T열)
+  status: 'active' | 'completed' // 진행중/종결
   notes: string // 비고
 
   metadata: {

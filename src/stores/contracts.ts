@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { sheetsService } from '@/services/google/sheetsService'
 import { useSheetsStore } from './sheets'
-import type { RentalContract, SaleContract, PaymentStage } from '@/types'
+import type { RentalContract, SaleContract } from '@/types'
 import { generateId } from '@/utils/formatUtils'
 import { parseDate } from '@/utils/dateUtils'
 
@@ -78,11 +78,11 @@ export const useContractsStore = defineStore('contracts', () => {
 
   // 매도현황 계약 computed
   const activeSaleContracts = computed(() =>
-    saleContracts.value.filter(c => c.notes && !c.notes.includes('종결'))
+    saleContracts.value.filter(c => c.status === 'active')
   )
 
   const completedSaleContracts = computed(() =>
-    saleContracts.value.filter(c => c.notes && c.notes.includes('종결'))
+    saleContracts.value.filter(c => c.status === 'completed')
   )
 
   const saleContractsBySheet = computed(() => {
@@ -496,94 +496,100 @@ export const useContractsStore = defineStore('contracts', () => {
       const firstCell = row[0]?.toString().trim() || ''
       const offset = firstCell === '' ? 1 : 0
 
-      // 매도현황 시트 구조:
-      // row[0+offset]: 구분 (1, 2, 3...)
-      // row[1+offset]: 동-호 (108-407)
-      // row[2+offset]: 계약자
-      // row[3+offset]: 계약금(1차) 일자
-      // row[4+offset]: 계약금(1차) 금액
-      // row[5+offset]: 계약금(2차) 일자
-      // row[6+offset]: 계약금(2차) 금액
-      // row[7+offset]: 중도금(1차) 일자
-      // row[8+offset]: 중도금(1차) 금액
-      // row[9+offset]: 중도금(2차) 일자
-      // row[10+offset]: 중도금(2차) 금액
-      // row[11+offset]: 중도금(3차)/임대보증금대체 일자
-      // row[12+offset]: 중도금(3차)/임대보증금대체 금액
-      // row[13+offset]: 잔금 일자
-      // row[14+offset]: 잔금 금액
-      // row[15+offset]: 합계
-      // row[16+offset]: 계약형식
-      // row[17+offset]: 채권양도
-      // row[18+offset]: 비고
+      // 📊 새로운 매도현황 시트 구조 (엑셀 컬럼 기준):
+      // A열 (row[0]): 빈칸 또는 번호 (offset 체크)
+      // B열 (row[1]): 구분
+      // C열 (row[2]): 동
+      // D열 (row[3]): 하이픈 (-)
+      // E열 (row[4]): 호수
+      // F열 (row[5]): 계약자
+      // G열 (row[6]): 계약일
+      // H열 (row[7]): 계약금
+      // P열 (row[15]): 중도금
+      // Q열 (row[16]): 잔금일자
+      // R열 (row[17]): 잔금
+      // S열 (row[18]): 합계
+      // T열 (row[19]): 계약형식
+      // U열+ (row[20+]): 비고
 
-      const category = row[0 + offset]?.toString().trim() || ''
-      const unit = row[1 + offset]?.toString().trim() || ''
-      const buyer = row[2 + offset]?.toString().trim() || ''
+      const category = row[1 + offset]?.toString().trim() || ''
+      const building = row[2 + offset]?.toString().trim() || ''
+      const hyphen = row[3 + offset]?.toString().trim() || '-'
+      const unitNum = row[4 + offset]?.toString().trim() || ''
+      const buyer = row[5 + offset]?.toString().trim() || ''
+
+      // 동-호 조합 (예: "108-407")
+      const unit = building && unitNum ? `${building}${hyphen}${unitNum}` : ''
 
       // 필수 필드 검증: 계약자가 있는 경우만 유효한 매도 계약으로 처리
-      if (!category || !unit || !buyer) {
+      if (!buyer || !unit) {
         console.log('⏭️ [parseRowToSale] 필수 필드 누락으로 건너뜀:', {
           rowIndex,
           offset,
           category,
+          building,
+          unitNum,
           unit,
           buyer,
-          reason: !buyer ? '계약자 없음' : !category ? '구분 없음' : '동호 없음'
+          reason: !buyer ? '계약자 없음' : '동-호 정보 없음'
         })
         return null
       }
 
-      // 헤더 행 체크 (구분, 동-호 등의 컬럼명이면 건너뜀)
-      if (category === '구분' || unit === '동-호' || buyer === '계약자') {
+      // 헤더 행 체크 (구분, 동, 계약자 등의 컬럼명이면 건너뜀)
+      if (category === '구분' || buyer === '계약자' || building === '동') {
         return null
       }
 
-      // 결제 단계 파싱 헬퍼 함수
-      const parsePayment = (dateIdx: number, amountIdx: number): PaymentStage | undefined => {
-        const dateStr = row[dateIdx]?.toString()
-        const amountStr = row[amountIdx]?.toString()
+      // 계약일 파싱
+      const contractDateStr = row[6 + offset]?.toString()
+      const contractDate = contractDateStr ? parseDate(contractDateStr) : undefined
 
-        if (!amountStr || amountStr.trim() === '') return undefined
-
-        const amount = parseInt(amountStr.replace(/,/g, '')) || 0
-        if (amount === 0) return undefined
-
-        const date = dateStr ? parseDate(dateStr) : undefined
-        return { date, amount }
+      // 금액 파싱 헬퍼 함수 (단위: 천원)
+      const parseAmount = (idx: number): number => {
+        const amountStr = row[idx]?.toString()
+        if (!amountStr || amountStr.trim() === '') return 0
+        return parseInt(amountStr.replace(/,/g, '')) || 0
       }
 
-      const downPayment1 = parsePayment(3 + offset, 4 + offset)
-      const downPayment2 = parsePayment(5 + offset, 6 + offset)
-      const interimPayment1 = parsePayment(7 + offset, 8 + offset)
-      const interimPayment2 = parsePayment(9 + offset, 10 + offset)
-      const interimPayment3 = parsePayment(11 + offset, 12 + offset)
-      const finalPayment = parsePayment(13 + offset, 14 + offset)
+      const downPayment = parseAmount(7 + offset) // H열: 계약금
+      const interimPayment = parseAmount(15 + offset) // P열: 중도금
+      const finalPayment = parseAmount(17 + offset) // R열: 잔금
+      const totalAmount = parseAmount(18 + offset) // S열: 합계
 
-      // 합계 파싱
-      const totalAmountStr = row[15 + offset]?.toString() || '0'
-      const totalAmount = parseInt(totalAmountStr.replace(/,/g, '')) || 0
+      // 잔금일자 파싱
+      const finalPaymentDateStr = row[16 + offset]?.toString()
+      const finalPaymentDate = finalPaymentDateStr ? parseDate(finalPaymentDateStr) : undefined
 
-      const contractFormat = row[16 + offset]?.toString() || ''
-      const bondTransfer = row[17 + offset]?.toString() || ''
-      const notes = row[18 + offset]?.toString() || ''
+      // 계약형식
+      const contractFormat = row[19 + offset]?.toString().trim() || ''
+
+      // 비고 (여러 컬럼에 걸쳐 있을 수 있음)
+      const notesRaw = row[20 + offset]?.toString().trim() || ''
+
+      // 상태 판별: 비고에 "종결" 포함 여부
+      // "종결 (임차인 매수)" 같은 경우도 "종결"로 인식
+      const status: 'active' | 'completed' = notesRaw.includes('종결') ? 'completed' : 'active'
+
+      // 비고에서 괄호 안 텍스트 제거 (선택사항)
+      const notes = notesRaw
 
       return {
         id: `sale-${category}-${unit}`.replace(/\s+/g, '-'),
         sheetId,
         rowIndex,
         category,
+        building,
         unit,
         buyer,
-        downPayment1,
-        downPayment2,
-        interimPayment1,
-        interimPayment2,
-        interimPayment3,
+        contractDate,
+        downPayment,
+        interimPayment,
         finalPayment,
+        finalPaymentDate,
         totalAmount,
         contractFormat,
-        bondTransfer,
+        status,
         notes,
         metadata: {
           createdAt: new Date(),
@@ -776,6 +782,157 @@ export const useContractsStore = defineStore('contracts', () => {
     ]
   }
 
+  // 매도현황 계약 추가
+  async function addSaleContract(contract: Omit<SaleContract, 'id' | 'metadata'>) {
+    try {
+      isLoading.value = true
+      error.value = null
+
+      const sheet = sheetsStore.sheets.find(s => s.id === contract.sheetId)
+      if (!sheet) {
+        throw new Error('Sheet not found')
+      }
+
+      const newContract: SaleContract = {
+        ...contract,
+        id: generateId(),
+        metadata: {
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      }
+
+      // 시트에 행 추가
+      const row = saleContractToRow(newContract)
+      const range = sheet.tabName ? `${sheet.tabName}!A:Z` : 'A:Z'
+      await sheetsService.appendRow(sheet.spreadsheetId, range, row)
+
+      saleContracts.value.push(newContract)
+
+      return newContract
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to add sale contract'
+      console.error('Add sale contract error:', err)
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // 매도현황 계약 수정
+  async function updateSaleContract(contractId: string, updates: Partial<SaleContract>) {
+    try {
+      isLoading.value = true
+      error.value = null
+
+      const index = saleContracts.value.findIndex(c => c.id === contractId)
+      if (index === -1) {
+        throw new Error('Sale contract not found')
+      }
+
+      const contract = saleContracts.value[index]!
+      const sheet = sheetsStore.sheets.find(s => s.id === contract.sheetId)
+      if (!sheet) {
+        throw new Error('Sheet not found')
+      }
+
+      const updatedContract: SaleContract = {
+        ...contract,
+        ...updates,
+        metadata: {
+          ...contract.metadata,
+          updatedAt: new Date()
+        }
+      }
+
+      // 시트 업데이트
+      const row = saleContractToRow(updatedContract)
+      const range = sheet.tabName
+        ? `${sheet.tabName}!A${contract.rowIndex}:Z${contract.rowIndex}`
+        : `A${contract.rowIndex}:Z${contract.rowIndex}`
+      await sheetsService.updateRow(sheet.spreadsheetId, range, row)
+
+      saleContracts.value[index] = updatedContract
+
+      return updatedContract
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to update sale contract'
+      console.error('Update sale contract error:', err)
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // 매도현황 계약 삭제
+  async function deleteSaleContract(contractId: string) {
+    try {
+      isLoading.value = true
+      error.value = null
+
+      const contract = saleContracts.value.find(c => c.id === contractId)
+      if (!contract) {
+        throw new Error('Sale contract not found')
+      }
+
+      // 소프트 삭제 (deletedAt 설정)
+      await updateSaleContract(contractId, {
+        metadata: {
+          ...contract.metadata,
+          deletedAt: new Date()
+        }
+      })
+
+      // 로컬에서 제거
+      saleContracts.value = saleContracts.value.filter(c => c.id !== contractId)
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to delete sale contract'
+      console.error('Delete sale contract error:', err)
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // SaleContract를 시트 row로 변환
+  function saleContractToRow(contract: SaleContract): any[] {
+    // 매도현황 시트 구조에 맞춰 row 생성
+    // A열 (row[0]): 빈칸 또는 구분 번호
+    // B열 (row[1]): 구분
+    // C열 (row[2]): 동
+    // D열 (row[3]): 하이픈
+    // E열 (row[4]): 호수
+    // F열 (row[5]): 계약자
+    // G열 (row[6]): 계약일
+    // H열 (row[7]): 계약금
+    // P열 (row[15]): 중도금
+    // Q열 (row[16]): 잔금일자
+    // R열 (row[17]): 잔금
+    // S열 (row[18]): 합계
+    // T열 (row[19]): 계약형식
+    // U열 (row[20]): 비고
+
+    const row = new Array(21).fill('')
+
+    row[1] = contract.category
+    row[2] = contract.building
+    row[3] = '-'
+    // 동-호에서 호수 추출 (예: "108-407" -> "407")
+    const unitParts = contract.unit.split('-')
+    row[4] = unitParts[1] || contract.unit
+    row[5] = contract.buyer
+    row[6] = contract.contractDate ? contract.contractDate.toISOString().substring(0, 10).replace(/-/g, '/') : ''
+    row[7] = contract.downPayment
+    row[15] = contract.interimPayment
+    row[16] = contract.finalPaymentDate ? contract.finalPaymentDate.toISOString().substring(0, 10).replace(/-/g, '/') : ''
+    row[17] = contract.finalPayment
+    row[18] = contract.totalAmount
+    row[19] = contract.contractFormat
+    row[20] = contract.notes
+
+    return row
+  }
+
   function clearError() {
     error.value = null
   }
@@ -798,6 +955,9 @@ export const useContractsStore = defineStore('contracts', () => {
     addContract,
     updateContract,
     deleteContract,
+    addSaleContract,
+    updateSaleContract,
+    deleteSaleContract,
     clearError
   }
 })

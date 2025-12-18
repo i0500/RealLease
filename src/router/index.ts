@@ -21,19 +21,19 @@ const router = createRouter({
           meta: { requiresAuth: true }
         },
         {
-          path: 'rental-contracts',
+          path: 'sheets/:sheetId/rental-contracts',
           name: 'rental-contracts',
           component: () => import('@/views/RentalContractsView.vue'),
           meta: { requiresAuth: true }
         },
         {
-          path: 'sales',
+          path: 'sheets/:sheetId/sales',
           name: 'sales',
           component: () => import('@/views/SalesView.vue'),
           meta: { requiresAuth: true }
         },
         {
-          path: 'sales/:id',
+          path: 'sheets/:sheetId/sales/:id',
           name: 'sale-detail',
           component: () => import('@/views/SaleDetailView.vue'),
           meta: { requiresAuth: true }

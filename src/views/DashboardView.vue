@@ -288,15 +288,15 @@ function handleSaleClick(saleId: string) {
                 {{ sale.unit }}
               </h4>
               <n-tag
-                :type="sale.notes?.includes('종결') ? 'success' : 'info'"
+                :type="sale.status === 'completed' ? 'success' : 'info'"
                 size="small"
                 class="ml-2 flex-shrink-0"
               >
-                {{ sale.notes?.includes('종결') ? '종결' : '진행중' }}
+                {{ sale.status === 'completed' ? '종결' : '진행중' }}
               </n-tag>
             </div>
 
-            <!-- Buyer & Contract Format -->
+            <!-- Buyer & Contract Info -->
             <div class="flex flex-wrap items-center gap-2 mb-2 text-xs sm:text-sm text-gray-600">
               <span class="font-medium">{{ sale.buyer }}</span>
               <span class="text-gray-400">·</span>
@@ -305,29 +305,30 @@ function handleSaleClick(saleId: string) {
               </n-tag>
               <span class="text-gray-400">·</span>
               <span class="font-medium text-green-600">
-                합계 {{ sale.totalAmount.toLocaleString() }}만원
+                합계 {{ sale.totalAmount.toLocaleString() }}천원
               </span>
             </div>
 
             <!-- Payment Details -->
-            <div class="flex flex-col gap-1 text-xs text-gray-500">
-              <div v-if="sale.downPayment1" class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+              <div v-if="sale.downPayment > 0" class="flex items-center gap-1">
                 <span class="text-gray-400">계약금:</span>
-                <span>{{ sale.downPayment1.amount.toLocaleString() }}만원</span>
-                <span v-if="sale.downPayment1.date" class="text-gray-400">
-                  ({{ formatDate(sale.downPayment1.date, 'yyyy.MM.dd') }})
-                </span>
+                <span>{{ sale.downPayment.toLocaleString() }}</span>
               </div>
-              <div v-if="sale.finalPayment" class="flex items-center gap-2">
+              <div v-if="sale.interimPayment > 0" class="flex items-center gap-1">
+                <span class="text-gray-400">중도금:</span>
+                <span>{{ sale.interimPayment.toLocaleString() }}</span>
+              </div>
+              <div v-if="sale.finalPayment > 0" class="flex items-center gap-1">
                 <span class="text-gray-400">잔금:</span>
-                <span>{{ sale.finalPayment.amount.toLocaleString() }}만원</span>
-                <span v-if="sale.finalPayment.date" class="text-gray-400">
-                  ({{ formatDate(sale.finalPayment.date, 'yyyy.MM.dd') }})
+                <span>{{ sale.finalPayment.toLocaleString() }}</span>
+                <span v-if="sale.finalPaymentDate" class="text-gray-400">
+                  ({{ formatDate(sale.finalPaymentDate, 'yyyy.MM.dd') }})
                 </span>
               </div>
-              <div v-if="sale.notes" class="text-gray-600 mt-1">
-                <span class="text-gray-400">비고:</span> {{ sale.notes }}
-              </div>
+            </div>
+            <div v-if="sale.notes" class="text-xs text-gray-600 mt-2">
+              <span class="text-gray-400">비고:</span> {{ sale.notes }}
             </div>
           </div>
         </div>
