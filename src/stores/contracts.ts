@@ -109,7 +109,9 @@ export const useContractsStore = defineStore('contracts', () => {
         headerColumns: _headers.length,
         totalRows: data.length - 1,
         dataRowsAfterFilter: rows.length,
-        filteredOutRows: (data.length - 1) - rows.length
+        filteredOutRows: (data.length - 1) - rows.length,
+        headerRow: _headers,
+        firstDataRow: rows[0]
       })
 
       const parsedContracts: RentalContract[] = rows.map((row, index) => {
