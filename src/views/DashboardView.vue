@@ -322,53 +322,79 @@ function handleSaleClick(saleId: string) {
             class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
             @click="handleSaleClick(sale.id)"
           >
-            <!-- Header: 동-호 & 상태 -->
-            <div class="flex items-start justify-between mb-2">
-              <h4 class="font-semibold text-green-600 hover:underline text-sm sm:text-base">
-                {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
-              </h4>
-              <n-tag
-                :type="sale.status === 'completed' ? 'success' : 'info'"
-                size="small"
-                class="ml-2 flex-shrink-0"
-              >
-                {{ sale.status === 'completed' ? '종결' : '진행중' }}
-              </n-tag>
+            <!-- 모바일 레이아웃 (md 미만) -->
+            <div class="md:hidden">
+              <!-- 첫 줄: 동-호, 계약자, 계약일 -->
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="font-semibold text-green-600">
+                    {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
+                  </span>
+                  <span class="text-gray-400">·</span>
+                  <span class="font-medium">{{ sale.buyer }}</span>
+                  <span v-if="sale.contractDate" class="text-gray-500 text-xs">
+                    {{ formatDate(sale.contractDate, 'MM.dd') }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 둘째 줄: 계약금, 잔금, 합계, 상태 -->
+              <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2 text-gray-600">
+                  <span v-if="sale.downPayment > 0">계약금 {{ sale.downPayment.toLocaleString() }}</span>
+                  <span v-if="sale.finalPayment > 0">잔금 {{ sale.finalPayment.toLocaleString() }}</span>
+                  <span class="font-medium text-green-600">합계 {{ sale.totalAmount.toLocaleString() }}</span>
+                </div>
+                <n-tag
+                  :type="sale.status === 'completed' ? 'success' : 'info'"
+                  size="small"
+                >
+                  {{ sale.status === 'completed' ? '종결' : '진행중' }}
+                </n-tag>
+              </div>
             </div>
 
-            <!-- Buyer & Contract Info -->
-            <div class="flex flex-wrap items-center gap-2 mb-2 text-xs sm:text-sm text-gray-600">
-              <span class="font-medium">{{ sale.buyer }}</span>
-              <span class="text-gray-400">·</span>
-              <n-tag type="warning" size="small">
-                {{ sale.contractFormat || '매도' }}
-              </n-tag>
-              <span class="text-gray-400">·</span>
-              <span class="font-medium text-green-600">
-                합계 {{ sale.totalAmount.toLocaleString() }}
-              </span>
-            </div>
+            <!-- PC 레이아웃 (md 이상) -->
+            <div class="hidden md:block">
+              <!-- 첫 줄: 동-호, 계약자, 계약형식, 합계 + 상태 -->
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3 text-sm">
+                  <span class="font-semibold text-green-600 hover:underline">
+                    {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
+                  </span>
+                  <span class="text-gray-400">|</span>
+                  <span class="font-medium">{{ sale.buyer }}</span>
+                  <span class="text-gray-400">|</span>
+                  <n-tag type="warning" size="small">
+                    {{ sale.contractFormat || '매도' }}
+                  </n-tag>
+                  <span class="text-gray-400">|</span>
+                  <span class="font-medium text-green-600">
+                    합계 {{ sale.totalAmount.toLocaleString() }}
+                  </span>
+                </div>
+                <n-tag
+                  :type="sale.status === 'completed' ? 'success' : 'info'"
+                  size="small"
+                >
+                  {{ sale.status === 'completed' ? '종결' : '진행중' }}
+                </n-tag>
+              </div>
 
-            <!-- Payment Details -->
-            <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-              <div v-if="sale.downPayment > 0" class="flex items-center gap-1">
-                <span class="text-gray-400">계약금:</span>
-                <span>{{ sale.downPayment.toLocaleString() }}</span>
-              </div>
-              <div v-if="sale.interimPayment > 0" class="flex items-center gap-1">
-                <span class="text-gray-400">중도금:</span>
-                <span>{{ sale.interimPayment.toLocaleString() }}</span>
-              </div>
-              <div v-if="sale.finalPayment > 0" class="flex items-center gap-1">
-                <span class="text-gray-400">잔금:</span>
-                <span>{{ sale.finalPayment.toLocaleString() }}</span>
-                <span v-if="sale.finalPaymentDate" class="text-gray-400">
-                  ({{ formatDate(sale.finalPaymentDate, 'yyyy.MM.dd') }})
+              <!-- 둘째 줄: 계약금, 중도금, 잔금(날짜), 비고 -->
+              <div class="flex items-center gap-3 text-xs text-gray-600">
+                <span v-if="sale.downPayment > 0">계약금 {{ sale.downPayment.toLocaleString() }}</span>
+                <span v-if="sale.interimPayment > 0">중도금 {{ sale.interimPayment.toLocaleString() }}</span>
+                <span v-if="sale.finalPayment > 0">
+                  잔금 {{ sale.finalPayment.toLocaleString() }}
+                  <span v-if="sale.finalPaymentDate" class="text-gray-500">
+                    ({{ formatDate(sale.finalPaymentDate, 'yyyy.MM.dd') }})
+                  </span>
+                </span>
+                <span v-if="sale.notes" class="text-gray-500">
+                  <span class="text-gray-400">비고:</span> {{ sale.notes }}
                 </span>
               </div>
-            </div>
-            <div v-if="sale.notes" class="text-xs text-gray-600 mt-2">
-              <span class="text-gray-400">비고:</span> {{ sale.notes }}
             </div>
           </div>
         </div>

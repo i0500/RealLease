@@ -234,12 +234,6 @@ async function handleDelete() {
       <!-- Basic Information -->
       <n-card title="기본 정보" class="mb-4">
         <n-descriptions bordered :column="2">
-          <n-descriptions-item label="구분">
-            {{ saleContract.category }}
-          </n-descriptions-item>
-          <n-descriptions-item label="동">
-            {{ saleContract.building }}
-          </n-descriptions-item>
           <n-descriptions-item label="동-호">
             {{ saleContract.building }}동 {{ saleContract.unit.split('-')[1] || saleContract.unit.split('-')[0] }}호
           </n-descriptions-item>
