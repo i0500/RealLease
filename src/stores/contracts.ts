@@ -85,8 +85,10 @@ export const useContractsStore = defineStore('contracts', () => {
         if (!row || row.length === 0) return true
 
         // 제목 행 체크: "안양", "현재", "구분" 등 제목 키워드
-        const firstCell = row[0]?.toString().trim()
-        const secondCell = row[1]?.toString().trim()
+        const firstCell = row[0]?.toString().trim() || ''
+        const secondCell = row[1]?.toString().trim() || ''
+        const nameCell = row[3]?.toString().trim() || ''
+        const startDateCell = row[13]?.toString().trim() || ''
 
         // 매매현황 시트 제목 체크
         if (firstCell.includes('안양') || firstCell.includes('매매현황')) {
@@ -99,9 +101,6 @@ export const useContractsStore = defineStore('contracts', () => {
         }
 
         // 실제 컬럼 헤더 행 체크: "번호", "동", "이름", "시작일" 등의 키워드
-        const nameCell = row[3]?.toString().trim()
-        const startDateCell = row[13]?.toString().trim()
-
         return (
           firstCell === '번호' ||
           secondCell === '동' ||
