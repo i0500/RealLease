@@ -9,9 +9,16 @@ export function addMonthsToDate(date: Date, months: number): Date {
   return addMonths(date, months)
 }
 
-export function formatDate(date: Date | string, formatStr: string = 'yyyy-MM-dd'): string {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date
-  return format(dateObj, formatStr, { locale: ko })
+export function formatDate(date: Date | string | null | undefined, formatStr: string = 'yyyy-MM-dd'): string {
+  if (!date) return '-'
+
+  try {
+    const dateObj = typeof date === 'string' ? parseISO(date) : date
+    return format(dateObj, formatStr, { locale: ko })
+  } catch (error) {
+    console.warn('날짜 포맷 실패:', date, error)
+    return '-'
+  }
 }
 
 export function formatKoreanDate(date: Date | string): string {

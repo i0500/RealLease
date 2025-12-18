@@ -70,15 +70,35 @@ watch(
 
 // Navigation handlers
 function navigateToContracts(status?: 'active' | 'expired') {
+  if (!sheetsStore.currentSheet) {
+    console.warn('No current sheet selected')
+    return
+  }
+
   if (status) {
-    router.push({ name: 'rental-contracts', query: { status } })
+    router.push({
+      name: 'rental-contracts',
+      params: { sheetId: sheetsStore.currentSheet.id },
+      query: { status }
+    })
   } else {
-    router.push({ name: 'rental-contracts' })
+    router.push({
+      name: 'rental-contracts',
+      params: { sheetId: sheetsStore.currentSheet.id }
+    })
   }
 }
 
 function navigateToSales() {
-  router.push({ name: 'sales' })
+  if (!sheetsStore.currentSheet) {
+    console.warn('No current sheet selected')
+    return
+  }
+
+  router.push({
+    name: 'sales',
+    params: { sheetId: sheetsStore.currentSheet.id }
+  })
 }
 
 function navigateToNotifications() {
@@ -91,13 +111,33 @@ function handleNotificationClick() {
 }
 
 function handleContractClick(contract: RentalContract) {
+  if (!sheetsStore.currentSheet) {
+    console.warn('No current sheet selected')
+    return
+  }
+
   // Navigate to rental contracts page with contract ID to open detail modal
-  router.push({ name: 'rental-contracts', query: { id: contract.id } })
+  router.push({
+    name: 'rental-contracts',
+    params: { sheetId: sheetsStore.currentSheet.id },
+    query: { id: contract.id }
+  })
 }
 
 function handleSaleClick(saleId: string) {
+  if (!sheetsStore.currentSheet) {
+    console.warn('No current sheet selected')
+    return
+  }
+
   // Navigate to sale detail page
-  router.push({ name: 'sale-detail', params: { id: saleId } })
+  router.push({
+    name: 'sale-detail',
+    params: {
+      sheetId: sheetsStore.currentSheet.id,
+      id: saleId
+    }
+  })
 }
 </script>
 
