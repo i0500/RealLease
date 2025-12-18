@@ -492,12 +492,8 @@ export const useContractsStore = defineStore('contracts', () => {
     rowIndex: number
   ): SaleContract | null {
     try {
-      // 첫 번째 컬럼이 공란인 경우 offset 조정
-      const firstCell = row[0]?.toString().trim() || ''
-      const offset = firstCell === '' ? 1 : 0
-
-      // 📊 새로운 매도현황 시트 구조 (엑셀 컬럼 기준):
-      // A열 (row[0]): 빈칸 또는 번호 (offset 체크)
+      // 📊 매도현황 시트 구조 (고정 인덱스):
+      // A열 (row[0]): 빈칸 (무시)
       // B열 (row[1]): 구분
       // C열 (row[2]): 동
       // D열 (row[3]): 하이픈 (-)
@@ -512,11 +508,11 @@ export const useContractsStore = defineStore('contracts', () => {
       // T열 (row[19]): 계약형식
       // U열+ (row[20+]): 비고
 
-      const category = row[1 + offset]?.toString().trim() || ''
-      const building = row[2 + offset]?.toString().trim() || ''
-      const hyphen = row[3 + offset]?.toString().trim() || '-'
-      const unitNum = row[4 + offset]?.toString().trim() || ''
-      const buyer = row[5 + offset]?.toString().trim() || ''
+      const category = row[1]?.toString().trim() || ''
+      const building = row[2]?.toString().trim() || ''
+      const hyphen = row[3]?.toString().trim() || '-'
+      const unitNum = row[4]?.toString().trim() || ''
+      const buyer = row[5]?.toString().trim() || ''
 
       // 동-호 조합 (예: "108-407")
       const unit = building && unitNum ? `${building}${hyphen}${unitNum}` : ''
@@ -525,7 +521,6 @@ export const useContractsStore = defineStore('contracts', () => {
       if (!buyer || !unit) {
         console.log('⏭️ [parseRowToSale] 필수 필드 누락으로 건너뜀:', {
           rowIndex,
-          offset,
           category,
           building,
           unitNum,
@@ -542,7 +537,7 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       // 계약일 파싱
-      const contractDateStr = row[6 + offset]?.toString()
+      const contractDateStr = row[6]?.toString()
       const contractDate = contractDateStr ? parseDate(contractDateStr) : undefined
 
       // 금액 파싱 헬퍼 함수 (단위: 천원)
@@ -552,20 +547,20 @@ export const useContractsStore = defineStore('contracts', () => {
         return parseInt(amountStr.replace(/,/g, '')) || 0
       }
 
-      const downPayment = parseAmount(7 + offset) // H열: 계약금
-      const interimPayment = parseAmount(15 + offset) // P열: 중도금
-      const finalPayment = parseAmount(17 + offset) // R열: 잔금
-      const totalAmount = parseAmount(18 + offset) // S열: 합계
+      const downPayment = parseAmount(7) // H열: 계약금
+      const interimPayment = parseAmount(15) // P열: 중도금
+      const finalPayment = parseAmount(17) // R열: 잔금
+      const totalAmount = parseAmount(18) // S열: 합계
 
       // 잔금일자 파싱
-      const finalPaymentDateStr = row[16 + offset]?.toString()
+      const finalPaymentDateStr = row[16]?.toString()
       const finalPaymentDate = finalPaymentDateStr ? parseDate(finalPaymentDateStr) : undefined
 
       // 계약형식
-      const contractFormat = row[19 + offset]?.toString().trim() || ''
+      const contractFormat = row[19]?.toString().trim() || ''
 
       // 비고 (여러 컬럼에 걸쳐 있을 수 있음)
-      const notesRaw = row[20 + offset]?.toString().trim() || ''
+      const notesRaw = row[20]?.toString().trim() || ''
 
       // 상태 판별: 비고에 "종결" 포함 여부
       // "종결 (임차인 매수)" 같은 경우도 "종결"로 인식

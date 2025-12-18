@@ -14,6 +14,13 @@ export function formatDate(date: Date | string | null | undefined, formatStr: st
 
   try {
     const dateObj = typeof date === 'string' ? parseISO(date) : date
+
+    // Invalid Date 체크
+    if (isNaN(dateObj.getTime())) {
+      console.warn('날짜 포맷 실패: Invalid Date', date)
+      return '-'
+    }
+
     return format(dateObj, formatStr, { locale: ko })
   } catch (error) {
     console.warn('날짜 포맷 실패:', date, error)
