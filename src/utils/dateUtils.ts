@@ -28,6 +28,22 @@ export function isExpiringSoon(targetDate: Date, thresholdDays: number = 90): bo
   return daysLeft > 0 && daysLeft <= thresholdDays
 }
 
-export function parseDate(dateString: string): Date {
-  return parseISO(dateString)
+export function parseDate(dateString: string | undefined | null): Date {
+  if (!dateString || typeof dateString !== 'string') {
+    return new Date()
+  }
+
+  try {
+    // ISO 형식 (YYYY-MM-DD)
+    if (dateString.includes('-')) {
+      return parseISO(dateString)
+    }
+
+    // 한국 날짜 형식 (YYYY.MM.DD 또는 YYYY/MM/DD)
+    const cleaned = dateString.replace(/[./]/g, '-')
+    return parseISO(cleaned)
+  } catch (error) {
+    console.warn('날짜 파싱 실패, 현재 날짜 사용:', dateString, error)
+    return new Date()
+  }
 }

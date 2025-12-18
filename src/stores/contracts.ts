@@ -251,85 +251,144 @@ export const useContractsStore = defineStore('contracts', () => {
     rowIndex: number
   ): RentalContract | null {
     try {
-      // 기본 데이터 파싱 (컬럼 인덱스는 실제 시트 구조에 맞게 조정 필요)
+      // 실제 엑셀 시트 구조 (Tab 2: 아르테자이임대):
+      // row[0]: 번호
+      // row[1]: 동 (108)
+      // row[2]: 호수 (108, 305, 306...)
+      // row[3]: 이름
+      // row[4]: 연락처
+      // row[5]: 연락처 2
+      // row[6]: 계약유형 (최초/갱신)
+      // row[7]: 주민번호
+      // row[8]: 전용면적
+      // row[9]: 공급면적
+      // row[10]: 임대보증금
+      // row[11]: 월세
+      // row[12]: 계약서 작성일
+      // row[13]: 시작일
+      // row[14]: 종료일
+
+      // 필수 필드 검증 (이름, 시작일, 종료일이 없으면 건너뛰기)
+      if (!row[3] || !row[13] || !row[14]) {
+        return null
+      }
+
+      // 동-호수 조합으로 주소 생성
+      const building = row[1]?.toString() || ''
+      const unit = row[2]?.toString() || ''
+      const address = building ? `${building}동 ${unit}호` : unit
+
+      // 보증금 파싱 (쉼표 제거)
+      const depositStr = row[10]?.toString() || '0'
+      const deposit = parseInt(depositStr.replace(/,/g, '')) || 0
+
+      // 월세 파싱 (빈 값이면 undefined)
+      const monthlyRentStr = row[11]?.toString()
+      const monthlyRent = monthlyRentStr && monthlyRentStr.trim()
+        ? parseInt(monthlyRentStr.replace(/,/g, ''))
+        : undefined
+
+      // 계약 타입 결정 (월세 값이 있으면 월세, 없으면 전세)
+      const contractTypeValue = monthlyRent ? 'wolse' : 'jeonse'
+
+      // 계약 구분 매핑 (최초 -> new, 갱신 -> renewal)
+      const contractCategoryStr = row[6]?.toString() || ''
+      let contractCategory: 'new' | 'renewal' | 'change' = 'new'
+      if (contractCategoryStr.includes('갱신')) {
+        contractCategory = 'renewal'
+      } else if (contractCategoryStr.includes('변경')) {
+        contractCategory = 'change'
+      }
+
+      // 상태 판단 (종료일 기준)
+      const endDate = parseDate(row[14])
+      const today = new Date()
+      const status: 'active' | 'expired' | 'terminated' =
+        endDate < today ? 'expired' : 'active'
+
       return {
-        id: row[0] || generateId(),
+        id: row[0]?.toString() || generateId(),
         sheetId,
         rowIndex,
         tenant: {
-          name: row[1] || '',
-          phone: row[2] || '',
-          email: row[3],
-          idNumber: row[4]
+          name: row[3]?.toString() || '',
+          phone: row[4]?.toString() || '',
+          email: row[5]?.toString() || undefined,
+          idNumber: row[7]?.toString() || undefined
         },
         property: {
-          address: row[5] || '',
-          type: row[6] || '',
-          unit: row[7]
+          address: address,
+          type: '아파트',
+          unit: unit
         },
         contract: {
-          type: (row[8] === '월세' ? 'wolse' : 'jeonse') as 'jeonse' | 'wolse',
-          deposit: parseInt(row[9]) || 0,
-          monthlyRent: row[10] ? parseInt(row[10]) : undefined,
-          startDate: parseDate(row[11]),
-          endDate: parseDate(row[12]),
-          status: (row[13] || 'active') as 'active' | 'expired' | 'terminated',
-          contractType: (row[14] || 'new') as 'new' | 'renewal' | 'change'
+          type: contractTypeValue,
+          deposit: deposit,
+          monthlyRent: monthlyRent,
+          startDate: parseDate(row[13]),
+          endDate: endDate,
+          status: status,
+          contractType: contractCategory
         },
-        hug: row[15] === 'Y' ? {
-          guaranteed: true,
-          startDate: parseDate(row[16]),
-          endDate: parseDate(row[17]),
-          amount: parseInt(row[18]) || 0,
-          insuranceNumber: row[19]
-        } : undefined,
-        realtor: row[20] ? {
-          name: row[20],
-          phone: row[21],
-          address: row[22],
-          fee: row[23] ? parseInt(row[23]) : undefined
-        } : undefined,
         metadata: {
-          createdAt: row[24] ? parseDate(row[24]) : new Date(),
-          updatedAt: row[25] ? parseDate(row[25]) : new Date(),
-          deletedAt: row[26] ? parseDate(row[26]) : undefined
+          createdAt: row[12] ? parseDate(row[12]) : new Date(),
+          updatedAt: new Date(),
+          deletedAt: undefined
         }
       }
     } catch (err) {
-      console.error('Parse row error:', err)
+      console.error('Parse row error:', err, 'Row data:', row)
       return null
     }
   }
 
   function contractToRow(contract: RentalContract): any[] {
+    // 실제 엑셀 시트 구조에 맞춰 row 생성
+    // row[0]: 번호
+    // row[1]: 동
+    // row[2]: 호수
+    // row[3]: 이름
+    // row[4]: 연락처
+    // row[5]: 연락처 2
+    // row[6]: 계약유형 (최초/갱신)
+    // row[7]: 주민번호
+    // row[8]: 전용면적
+    // row[9]: 공급면적
+    // row[10]: 임대보증금
+    // row[11]: 월세
+    // row[12]: 계약서 작성일
+    // row[13]: 시작일
+    // row[14]: 종료일
+
+    // property.address에서 동/호수 추출 (예: "108동 305호")
+    const addressParts = contract.property.address.split('동')
+    const building = addressParts[0]?.trim() || ''
+    const unitPart = addressParts[1]?.replace('호', '').trim() || contract.property.unit || ''
+
+    // 계약구분 변환 (new -> 최초, renewal -> 갱신)
+    let contractCategory = '최초'
+    if (contract.contract.contractType === 'renewal') {
+      contractCategory = '갱신'
+    } else if (contract.contract.contractType === 'change') {
+      contractCategory = '변경'
+    }
+
     return [
       contract.id,
+      building,
+      unitPart,
       contract.tenant.name,
       contract.tenant.phone,
       contract.tenant.email || '',
+      contractCategory,
       contract.tenant.idNumber || '',
-      contract.property.address,
-      contract.property.type,
-      contract.property.unit || '',
-      contract.contract.type === 'wolse' ? '월세' : '전세',
-      contract.contract.deposit,
-      contract.contract.monthlyRent || '',
-      contract.contract.startDate.toISOString().split('T')[0],
-      contract.contract.endDate.toISOString().split('T')[0],
-      contract.contract.status,
-      contract.contract.contractType,
-      contract.hug ? 'Y' : 'N',
-      contract.hug?.startDate.toISOString().split('T')[0] || '',
-      contract.hug?.endDate.toISOString().split('T')[0] || '',
-      contract.hug?.amount || '',
-      contract.hug?.insuranceNumber || '',
-      contract.realtor?.name || '',
-      contract.realtor?.phone || '',
-      contract.realtor?.address || '',
-      contract.realtor?.fee || '',
+      '', // 전용면적 (비어있음)
+      '', // 공급면적 (비어있음)
+      contract.contract.deposit.toLocaleString(), // 쉼표 포함
+      contract.contract.monthlyRent ? contract.contract.monthlyRent.toLocaleString() : '',
       contract.metadata.createdAt.toISOString().split('T')[0],
-      contract.metadata.updatedAt.toISOString().split('T')[0],
-      contract.metadata.deletedAt?.toISOString().split('T')[0] || ''
+      contract.contract.startDate.toISOString().split('T')[0].replace(/-/g, '-'),
+      contract.contract.endDate.toISOString().split('T')[0].replace(/-/g, '/')
     ]
   }
 
