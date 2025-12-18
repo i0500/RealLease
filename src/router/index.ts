@@ -53,6 +53,7 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
 
+  // 🔧 FIX: localStorage에서 즉시 복원되므로 isAuthenticated를 바로 사용 가능
   // 인증이 필요한 페이지인데 인증되지 않은 경우
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     console.log('🔒 인증 필요 → 로그인 페이지로 이동')

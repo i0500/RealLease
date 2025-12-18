@@ -4,7 +4,18 @@ import { authService } from '@/services/google/authService'
 import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null)
+  // 🔧 FIX: 페이지 새로고침 시 즉시 localStorage에서 사용자 정보 복원
+  const savedUser = (() => {
+    try {
+      const userData = localStorage.getItem('reallease_user')
+      return userData ? JSON.parse(userData) : null
+    } catch (err) {
+      console.error('Failed to load user from storage on init:', err)
+      return null
+    }
+  })()
+
+  const user = ref<User | null>(savedUser)
   const isInitialized = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)

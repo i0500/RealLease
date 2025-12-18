@@ -386,9 +386,9 @@ export const useContractsStore = defineStore('contracts', () => {
       '', // 공급면적 (비어있음)
       contract.contract.deposit.toLocaleString(), // 쉼표 포함
       contract.contract.monthlyRent ? contract.contract.monthlyRent.toLocaleString() : '',
-      contract.metadata.createdAt.toISOString().split('T')[0],
-      contract.contract.startDate.toISOString().split('T')[0].replace(/-/g, '-'),
-      contract.contract.endDate.toISOString().split('T')[0].replace(/-/g, '/')
+      contract.metadata.createdAt.toISOString().substring(0, 10),
+      contract.contract.startDate.toISOString().substring(0, 10),
+      contract.contract.endDate.toISOString().substring(0, 10).replace(/-/g, '/')
     ]
   }
 
