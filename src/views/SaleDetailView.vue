@@ -221,7 +221,7 @@ async function handleDelete() {
           </n-button>
           <div>
             <h1 class="text-2xl font-bold" style="color: #2c3e50;">
-              {{ saleContract.unit }}
+              {{ saleContract.building }}동 {{ saleContract.unit.split('-')[1] || saleContract.unit.split('-')[0] }}호
             </h1>
             <p class="text-sm text-gray-600 mt-1">매도현황 상세 정보</p>
           </div>
@@ -241,7 +241,7 @@ async function handleDelete() {
             {{ saleContract.building }}
           </n-descriptions-item>
           <n-descriptions-item label="동-호">
-            {{ saleContract.unit }}
+            {{ saleContract.building }}동 {{ saleContract.unit.split('-')[1] || saleContract.unit.split('-')[0] }}호
           </n-descriptions-item>
           <n-descriptions-item label="계약자">
             {{ saleContract.buyer }}

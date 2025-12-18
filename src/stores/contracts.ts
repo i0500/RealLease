@@ -559,14 +559,16 @@ export const useContractsStore = defineStore('contracts', () => {
       // 계약형식
       const contractFormat = row[19]?.toString().trim() || ''
 
-      // 비고 (여러 컬럼에 걸쳐 있을 수 있음)
-      const notesRaw = row[20]?.toString().trim() || ''
+      // 비고 (U열, V열 등 여러 컬럼 확인)
+      const notesU = row[20]?.toString().trim() || ''
+      const notesV = row[21]?.toString().trim() || ''
+      const notesRaw = notesV || notesU // V열 우선, 없으면 U열
 
       // 상태 판별: 비고에 "종결" 포함 여부
       // "종결 (임차인 매수)" 같은 경우도 "종결"로 인식
       const status: 'active' | 'completed' = notesRaw.includes('종결') ? 'completed' : 'active'
 
-      // 비고에서 괄호 안 텍스트 제거 (선택사항)
+      // 비고
       const notes = notesRaw
 
       return {

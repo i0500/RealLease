@@ -325,7 +325,7 @@ function handleSaleClick(saleId: string) {
             <!-- Header: 동-호 & 상태 -->
             <div class="flex items-start justify-between mb-2">
               <h4 class="font-semibold text-green-600 hover:underline text-sm sm:text-base">
-                {{ sale.unit }}
+                {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
               </h4>
               <n-tag
                 :type="sale.status === 'completed' ? 'success' : 'info'"
@@ -345,7 +345,7 @@ function handleSaleClick(saleId: string) {
               </n-tag>
               <span class="text-gray-400">·</span>
               <span class="font-medium text-green-600">
-                합계 {{ sale.totalAmount.toLocaleString() }}천원
+                합계 {{ sale.totalAmount.toLocaleString() }}
               </span>
             </div>
 
