@@ -17,6 +17,45 @@ export const useContractsStore = defineStore('contracts', () => {
 
   const sheetsStore = useSheetsStore()
 
+  // 🔍 헤더 행 자동 탐지 함수
+  function findHeaderRowIndex(data: any[][]): number {
+    // 첫 10행 이내에서 헤더 행 검색
+    for (let i = 0; i < Math.min(10, data.length); i++) {
+      const row = data[i]
+      if (!row || row.length === 0) continue
+
+      // 각 셀을 문자열로 변환하여 검사
+      const cells = row.map(cell => cell?.toString().toLowerCase().trim() || '')
+
+      // 매도현황 헤더 키워드
+      const saleHeaders = ['구분', '동-호', '계약자', '계약금', '중도금', '잔금']
+      const saleMatches = saleHeaders.filter(keyword =>
+        cells.some(cell => cell === keyword.toLowerCase())
+      ).length
+
+      // 임대차 현황 헤더 키워드
+      const rentalHeaders = ['번호', '동', '호수', '이름', '연락처', '임대보증금', '월세', '시작일', '종료일']
+      const rentalMatches = rentalHeaders.filter(keyword =>
+        cells.some(cell => cell === keyword.toLowerCase())
+      ).length
+
+      console.log(`🔎 [findHeaderRowIndex] Row ${i} 검사:`, {
+        cells: cells.slice(0, 10),
+        saleMatches: `${saleMatches}/${saleHeaders.length}`,
+        rentalMatches: `${rentalMatches}/${rentalHeaders.length}`
+      })
+
+      // 3개 이상의 헤더 키워드가 매칭되면 헤더 행으로 판단
+      if (saleMatches >= 3 || rentalMatches >= 3) {
+        console.log(`✅ [findHeaderRowIndex] 헤더 행 발견: Row ${i}`)
+        return i
+      }
+    }
+
+    console.warn('⚠️ [findHeaderRowIndex] 헤더 행을 찾지 못함, 첫 행 사용')
+    return 0 // 못 찾으면 기본값으로 첫 행 반환
+  }
+
   // 임대차 계약 computed
   const activeContracts = computed(() =>
     contracts.value.filter(c => c.contract.status === 'active')
@@ -96,7 +135,7 @@ export const useContractsStore = defineStore('contracts', () => {
         totalRows: data.length,
         headerRow: data[0],
         dataRows: data.length - 1,
-        sampleData: data.slice(0, 3)
+        sampleData: data.slice(0, 5)
       })
 
       if (data.length === 0) {
@@ -105,8 +144,20 @@ export const useContractsStore = defineStore('contracts', () => {
         return
       }
 
-      // 헤더 행 분석
-      const _headers = data[0]!
+      // 🔍 실제 헤더 행 찾기 (제목 행들을 건너뛰고)
+      const headerRowIndex = findHeaderRowIndex(data)
+      console.log('🔎 [ContractsStore.loadContracts] 헤더 행 감지:', {
+        headerRowIndex,
+        headerRow: data[headerRowIndex]
+      })
+
+      if (headerRowIndex === -1) {
+        console.error('❌ [ContractsStore.loadContracts] 헤더 행을 찾을 수 없음')
+        throw new Error('헤더 행을 찾을 수 없습니다. 시트 형식을 확인해주세요.')
+      }
+
+      // 헤더 행 추출
+      const _headers = data[headerRowIndex]!
 
       // 🔍 시트 타입 자동 감지
       const sheetType = detectSheetType(_headers)
@@ -148,14 +199,16 @@ export const useContractsStore = defineStore('contracts', () => {
         return row.every(cell => !cell || cell.toString().trim() === '')
       }
 
-      const rows = data.slice(1).filter(row => !isHeaderRow(row, sheetType) && !isEmptyRow(row))
+      // 헤더 행 다음부터 데이터 행 추출 (헤더 행과 빈 행 제외)
+      const rows = data.slice(headerRowIndex + 1).filter(row => !isHeaderRow(row, sheetType) && !isEmptyRow(row))
 
       console.log('🔄 [ContractsStore.loadContracts] 데이터 파싱 시작:', {
         sheetType,
+        headerRowIndex,
         headerColumns: _headers.length,
-        totalRows: data.length - 1,
+        totalRows: data.length,
         dataRowsAfterFilter: rows.length,
-        filteredOutRows: (data.length - 1) - rows.length,
+        filteredOutRows: data.length - headerRowIndex - 1 - rows.length,
         headerRow: _headers,
         firstDataRow: rows[0]
       })
@@ -164,9 +217,11 @@ export const useContractsStore = defineStore('contracts', () => {
       if (sheetType === 'sale') {
         // 매도현황 파싱
         const parsedSales: SaleContract[] = rows.map((row, index) => {
+          const actualRowIndex = headerRowIndex + index + 2 // 헤더 행 위치 + 데이터 행 인덱스 + 2
+
           if (index < 3) {
             console.log(`🔍 [ContractsStore.loadContracts] 매도 Row ${index + 1}:`, {
-              rowIndex: index + 2,
+              rowIndex: actualRowIndex,
               row0_구분: row[0],
               row1_동호: row[1],
               row2_계약자: row[2],
@@ -175,7 +230,7 @@ export const useContractsStore = defineStore('contracts', () => {
             })
           }
 
-          const contract = parseRowToSale(row, _headers, sheetId, index + 2)
+          const contract = parseRowToSale(row, _headers, sheetId, actualRowIndex)
 
           if (contract && index < 3) {
             console.log(`📝 [ContractsStore.loadContracts] 샘플 매도 ${index + 1}:`, {
@@ -210,9 +265,11 @@ export const useContractsStore = defineStore('contracts', () => {
       } else {
         // 임대차 현황 파싱
         const parsedContracts: RentalContract[] = rows.map((row, index) => {
+          const actualRowIndex = headerRowIndex + index + 2 // 헤더 행 위치 + 데이터 행 인덱스 + 2
+
           if (index < 3) {
             console.log(`🔍 [ContractsStore.loadContracts] 임대 Row ${index + 1}:`, {
-              rowIndex: index + 2,
+              rowIndex: actualRowIndex,
               row0_번호: row[0],
               row1_동: row[1],
               row2_호수: row[2],
@@ -226,7 +283,7 @@ export const useContractsStore = defineStore('contracts', () => {
             })
           }
 
-          const contract = parseRowToContract(row, _headers, sheetId, index + 2)
+          const contract = parseRowToContract(row, _headers, sheetId, actualRowIndex)
 
           if (contract && index < 3) {
             console.log(`📝 [ContractsStore.loadContracts] 샘플 임대 ${index + 1}:`, {
