@@ -29,7 +29,8 @@ import {
 import {
   HomeOutline as HomeIcon,
   AddOutline as AddIcon,
-  RefreshOutline as RefreshIcon
+  RefreshOutline as RefreshIcon,
+  HelpCircleOutline as HelpIcon
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -46,6 +47,7 @@ const appName = import.meta.env.VITE_APP_NAME || 'RealLease'
 
 // Modal state
 const showAddSheetModal = ref(false)
+const showHelpGuide = ref(false)
 const sheetForm = ref({
   name: '',
   sheetUrl: '',
@@ -229,12 +231,20 @@ function handleResetApp() {
       <template #header>
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-semibold">구글 시트 관리</h2>
-          <n-button type="primary" @click="handleAddSheet">
-            <template #icon>
-              <n-icon><AddIcon /></n-icon>
-            </template>
-            시트 추가
-          </n-button>
+          <n-space>
+            <n-button @click="showHelpGuide = true">
+              <template #icon>
+                <n-icon><HelpIcon /></n-icon>
+              </template>
+              도움말
+            </n-button>
+            <n-button type="primary" @click="handleAddSheet">
+              <template #icon>
+                <n-icon><AddIcon /></n-icon>
+              </template>
+              시트 추가
+            </n-button>
+          </n-space>
         </div>
       </template>
 
@@ -383,6 +393,90 @@ function handleResetApp() {
         <n-space justify="end">
           <n-button @click="showAddSheetModal = false">취소</n-button>
           <n-button type="primary" @click="handleSaveSheet">추가</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- Help Guide Modal -->
+    <n-modal
+      v-model:show="showHelpGuide"
+      preset="card"
+      title="시트 등록 가이드"
+      style="width: 700px; max-width: 90vw"
+    >
+      <n-space vertical size="large">
+        <!-- Step 1 -->
+        <div>
+          <h3 class="text-lg font-semibold mb-3" style="color: #2c3e50;">
+            1단계: 엑셀 파일을 구글 시트로 변환
+          </h3>
+          <n-space vertical size="small">
+            <p class="text-sm text-gray-700">① 구글 드라이브(<a href="https://drive.google.com" target="_blank" class="text-blue-500 hover:underline">drive.google.com</a>)에 접속합니다</p>
+            <p class="text-sm text-gray-700">② 왼쪽 상단의 <strong>"+ 새로 만들기"</strong> 버튼을 클릭합니다</p>
+            <p class="text-sm text-gray-700">③ <strong>"파일 업로드"</strong>를 선택하여 엑셀 파일(.xlsx, .xls)을 업로드합니다</p>
+            <p class="text-sm text-gray-700">④ 업로드된 엑셀 파일을 더블클릭하여 엽니다</p>
+            <p class="text-sm text-gray-700">⑤ 상단 메뉴에서 <strong>"Google Sheets로 열기"</strong> 또는 <strong>"Google 스프레드시트로 열기"</strong>를 클릭합니다</p>
+            <n-alert type="success" class="mt-2">
+              <template #icon>
+                <n-icon><HelpIcon /></n-icon>
+              </template>
+              <span class="text-sm">엑셀 파일이 구글 시트 형식(.gsheet)으로 자동 변환됩니다</span>
+            </n-alert>
+          </n-space>
+        </div>
+
+        <n-divider />
+
+        <!-- Step 2 -->
+        <div>
+          <h3 class="text-lg font-semibold mb-3" style="color: #2c3e50;">
+            2단계: 시트 공유 설정
+          </h3>
+          <n-space vertical size="small">
+            <p class="text-sm text-gray-700">① 변환된 구글 시트에서 오른쪽 상단의 <strong>"공유"</strong> 버튼을 클릭합니다</p>
+            <p class="text-sm text-gray-700">② "일반 액세스" 섹션에서 <strong>"제한됨"</strong>을 클릭합니다</p>
+            <p class="text-sm text-gray-700">③ <strong>"링크가 있는 모든 사용자"</strong>를 선택합니다</p>
+            <p class="text-sm text-gray-700">④ 권한을 <strong>"뷰어"</strong> 또는 <strong>"편집자"</strong>로 설정합니다</p>
+            <p class="text-sm text-gray-700 ml-4">
+              • <strong>뷰어</strong>: 앱에서 데이터를 읽기만 가능 (권장)<br />
+              • <strong>편집자</strong>: 앱에서 데이터 수정 가능
+            </p>
+            <p class="text-sm text-gray-700">⑤ <strong>"완료"</strong> 버튼을 클릭합니다</p>
+            <n-alert type="warning" class="mt-2">
+              <span class="text-sm"><strong>중요:</strong> 링크가 있는 모든 사용자가 접근할 수 있도록 설정해야 앱에서 데이터를 불러올 수 있습니다</span>
+            </n-alert>
+          </n-space>
+        </div>
+
+        <n-divider />
+
+        <!-- Step 3 -->
+        <div>
+          <h3 class="text-lg font-semibold mb-3" style="color: #2c3e50;">
+            3단계: 공유 링크 복사 및 앱에 추가
+          </h3>
+          <n-space vertical size="small">
+            <p class="text-sm text-gray-700">① 구글 시트 상단 주소창의 URL을 전체 선택하여 복사합니다</p>
+            <p class="text-sm text-gray-700 ml-4 text-gray-500">
+              예: <code class="bg-gray-100 px-1 rounded">https://docs.google.com/spreadsheets/d/1ABC...</code>
+            </p>
+            <p class="text-sm text-gray-700">② RealLease 앱의 <strong>"시트 추가"</strong> 버튼을 클릭합니다</p>
+            <p class="text-sm text-gray-700">③ <strong>"시트 이름"</strong>에 구분하기 쉬운 이름을 입력합니다</p>
+            <p class="text-sm text-gray-700 ml-4 text-gray-500">예: "아르테 임대차 현황", "A동 관리 시트" 등</p>
+            <p class="text-sm text-gray-700">④ <strong>"시트 URL"</strong>에 복사한 구글 시트 링크를 붙여넣습니다</p>
+            <p class="text-sm text-gray-700">⑤ (선택) 특정 탭을 사용하려면 <strong>"탭 이름"</strong>을 입력합니다</p>
+            <p class="text-sm text-gray-700 ml-4 text-gray-500">비워두면 첫 번째 탭을 자동으로 사용합니다</p>
+            <p class="text-sm text-gray-700">⑥ <strong>"추가"</strong> 버튼을 클릭하여 시트를 등록합니다</p>
+            <n-alert type="info" class="mt-2">
+              <span class="text-sm">시트 추가 후 <strong>"동기화"</strong> 버튼을 클릭하면 최신 데이터를 불러올 수 있습니다</span>
+            </n-alert>
+          </n-space>
+        </div>
+      </n-space>
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button type="primary" @click="showHelpGuide = false">확인</n-button>
         </n-space>
       </template>
     </n-modal>
