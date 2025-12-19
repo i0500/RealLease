@@ -34,7 +34,12 @@ export class NotificationService {
             title: '계약 만료 예정',
             message: `${address} - ${contract.tenantName}님의 계약이 ${daysLeft}일 후 만료됩니다.`,
             read: false,
-            createdAt: today
+            createdAt: today,
+            // 계약 찾기를 위한 추가 정보
+            building: contract.building,
+            unit: contract.unit,
+            sheetId: contract.sheetId,
+            tenantName: contract.tenantName
           })
         }
       }
@@ -56,7 +61,12 @@ export class NotificationService {
             title: 'HUG 보증 만료 예정',
             message: `${address}의 HUG 보증이 ${hugDaysLeft}일 후 만료됩니다.`,
             read: false,
-            createdAt: today
+            createdAt: today,
+            // 계약 찾기를 위한 추가 정보
+            building: contract.building,
+            unit: contract.unit,
+            sheetId: contract.sheetId,
+            tenantName: contract.tenantName // HUG는 호수 기준이지만 현재 계약자 정보도 포함
           })
         }
       }

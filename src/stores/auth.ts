@@ -20,8 +20,27 @@ export const useAuthStore = defineStore('auth', () => {
   const isInitialized = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const isReauthenticating = ref(false) // 재인증 시도 중 플래그
 
   const isAuthenticated = computed(() => !!user.value)
+
+  // keepSignedIn 설정 저장/복원
+  function getKeepSignedIn(): boolean {
+    try {
+      const stored = localStorage.getItem('reallease_keep_signed_in')
+      return stored === 'true'
+    } catch {
+      return false
+    }
+  }
+
+  function setKeepSignedIn(value: boolean) {
+    try {
+      localStorage.setItem('reallease_keep_signed_in', String(value))
+    } catch (err) {
+      console.error('Failed to save keepSignedIn preference:', err)
+    }
+  }
 
   async function initialize(clientId: string) {
     try {
@@ -78,6 +97,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       isLoading.value = true
       error.value = null
+
+      // keepSignedIn 설정 저장
+      setKeepSignedIn(keepSignedIn)
 
       // 개발 모드 체크
       const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
@@ -182,24 +204,70 @@ export const useAuthStore = defineStore('auth', () => {
 
   /**
    * 토큰 만료 처리
-   * OAuth 토큰이 만료되었을 때 자동으로 로그아웃하고 로그인 페이지로 리디렉션
+   * OAuth 토큰이 만료되었을 때 keepSignedIn이 true면 자동 재인증 시도,
+   * 그렇지 않으면 로그아웃 후 로그인 페이지로 리디렉션
    */
   async function handleTokenExpired() {
-    console.warn('⚠️ [AuthStore] 토큰 만료 감지, 자동 로그아웃 처리')
+    console.warn('⚠️ [AuthStore] 토큰 만료 감지')
 
-    try {
-      // 로그아웃 처리
-      await authService.signOut()
-      user.value = null
-      clearUserFromStorage()
+    // 재인증 중복 시도 방지
+    if (isReauthenticating.value) {
+      console.log('ℹ️ [AuthStore] 이미 재인증 시도 중')
+      return
+    }
 
-      // 로그인 페이지로 리디렉션
-      if (router.currentRoute.value.name !== 'auth') {
-        console.log('🔄 [AuthStore] 로그인 페이지로 리디렉션')
-        await router.push({ name: 'auth', query: { expired: 'true' } })
+    const shouldAutoReauth = getKeepSignedIn()
+
+    if (shouldAutoReauth) {
+      console.log('🔄 [AuthStore] 자동 로그인 유지 설정 감지, 자동 재인증 시도')
+      isReauthenticating.value = true
+
+      try {
+        // 자동 재인증 시도
+        await signIn(true)
+        console.log('✅ [AuthStore] 자동 재인증 성공')
+        isReauthenticating.value = false
+
+        // 현재 페이지 새로고침하여 데이터 재로드
+        if (router.currentRoute.value.name !== 'auth') {
+          window.location.reload()
+        }
+      } catch (err) {
+        console.error('❌ [AuthStore] 자동 재인증 실패:', err)
+        isReauthenticating.value = false
+
+        // 재인증 실패 시 로그아웃 처리
+        try {
+          await authService.signOut()
+          user.value = null
+          clearUserFromStorage()
+
+          // 로그인 페이지로 리디렉션
+          if (router.currentRoute.value.name !== 'auth') {
+            console.log('🔄 [AuthStore] 로그인 페이지로 리디렉션')
+            await router.push({ name: 'auth', query: { expired: 'true' } })
+          }
+        } catch (logoutErr) {
+          console.error('❌ [AuthStore] 로그아웃 처리 중 오류:', logoutErr)
+        }
       }
-    } catch (err) {
-      console.error('❌ [AuthStore] 토큰 만료 처리 중 오류:', err)
+    } else {
+      console.log('ℹ️ [AuthStore] 자동 로그인 유지 비활성화, 로그아웃 처리')
+
+      try {
+        // 로그아웃 처리
+        await authService.signOut()
+        user.value = null
+        clearUserFromStorage()
+
+        // 로그인 페이지로 리디렉션
+        if (router.currentRoute.value.name !== 'auth') {
+          console.log('🔄 [AuthStore] 로그인 페이지로 리디렉션')
+          await router.push({ name: 'auth', query: { expired: 'true' } })
+        }
+      } catch (err) {
+        console.error('❌ [AuthStore] 토큰 만료 처리 중 오류:', err)
+      }
     }
   }
 

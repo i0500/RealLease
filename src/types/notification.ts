@@ -8,6 +8,11 @@ export interface Notification {
   message: string
   read: boolean
   createdAt: Date
+  // 계약 찾기를 위한 추가 정보 (contractId가 변경되어도 찾을 수 있도록)
+  building?: string
+  unit?: string
+  sheetId?: string
+  tenantName?: string
 }
 
 export type NotificationType = Notification['type']

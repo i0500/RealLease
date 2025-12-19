@@ -235,7 +235,41 @@ function handleNotificationClick(notification: Notification) {
   notificationsStore.markAsRead(notification.id)
 
   // contractId로 계약 찾기
-  const contract = contractsStore.contracts.find(c => c.id === notification.contractId)
+  let contract = contractsStore.contracts.find(c => c.id === notification.contractId)
+
+  // contractId로 못 찾으면 building, unit, sheetId로 검색 (기존 알림 대응)
+  if (!contract && notification.building && notification.unit) {
+    // 같은 building, unit을 가진 계약 찾기
+    const candidates = contractsStore.contracts.filter(c =>
+      c.building === notification.building &&
+      c.unit === notification.unit &&
+      !c.metadata.deletedAt
+    )
+
+    if (candidates.length === 1) {
+      // 유일한 매칭이면 사용
+      contract = candidates[0]
+    } else if (candidates.length > 1) {
+      // 여러 개면 sheetId와 tenantName으로 추가 필터링
+      if (notification.sheetId) {
+        const sheetFiltered = candidates.filter(c => c.sheetId === notification.sheetId)
+        if (sheetFiltered.length === 1) {
+          contract = sheetFiltered[0]
+        } else if (sheetFiltered.length > 1 && notification.tenantName) {
+          // tenantName으로 추가 필터링
+          contract = sheetFiltered.find(c => c.tenantName === notification.tenantName)
+        }
+      } else if (notification.tenantName) {
+        // sheetId 없으면 tenantName으로만 필터링
+        contract = candidates.find(c => c.tenantName === notification.tenantName)
+      }
+
+      // 여전히 못 찾으면 첫 번째 것 사용
+      if (!contract && candidates.length > 0) {
+        contract = candidates[0]
+      }
+    }
+  }
 
   if (!contract) {
     message.error('계약을 찾을 수 없습니다')
