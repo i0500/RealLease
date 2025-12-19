@@ -3,6 +3,7 @@ import { ref, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
+import { formatDate } from '@/utils/dateUtils'
 import type { SaleContract } from '@/types/contract'
 import {
   NCard,
@@ -285,22 +286,66 @@ async function handleSubmit() {
       {{ contractsStore.error }}
     </n-alert>
 
-    <!-- Data table -->
-    <n-card v-else-if="sheetsStore.currentSheet">
-      <n-data-table
-        v-if="filteredSales.length > 0"
-        :columns="columns"
-        :data="filteredSales"
-        :scroll-x="900"
-        :pagination="{ pageSize: 20 }"
-        striped
-        :row-props="(row: SaleContract) => ({
-          style: 'cursor: pointer;',
-          onClick: () => handleRowClick(row)
-        })"
-      />
-      <n-empty v-else description="매도 계약이 없습니다" class="py-10" />
-    </n-card>
+    <!-- Data list/table -->
+    <div v-else-if="sheetsStore.currentSheet">
+      <!-- Mobile card layout (below md) -->
+      <div class="md:hidden space-y-3">
+        <div
+          v-for="sale in filteredSales"
+          :key="sale.id"
+          class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
+          @click="handleRowClick(sale)"
+        >
+          <!-- Line 1: 동-호, 계약자, 계약일 -->
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="font-semibold text-green-600">
+                {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
+              </span>
+              <span class="text-gray-400">·</span>
+              <span class="font-medium">{{ sale.buyer }}</span>
+              <span v-if="sale.contractDate" class="text-gray-500 text-xs">
+                {{ formatDate(sale.contractDate, 'MM.dd') }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Line 2: 계약금, 잔금, 합계, 상태 -->
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2 text-gray-600">
+              <span v-if="sale.downPayment > 0">계약금 {{ sale.downPayment.toLocaleString() }}</span>
+              <span v-if="sale.finalPayment > 0">잔금 {{ sale.finalPayment.toLocaleString() }}</span>
+              <span class="font-medium text-green-600">합계 {{ sale.totalAmount.toLocaleString() }}</span>
+            </div>
+            <n-tag
+              :type="sale.status === 'completed' ? 'success' : 'info'"
+              size="small"
+            >
+              {{ sale.status === 'completed' ? '종결' : '진행중' }}
+            </n-tag>
+          </div>
+        </div>
+
+        <n-empty v-if="filteredSales.length === 0" description="매도 계약이 없습니다" class="py-10" />
+      </div>
+
+      <!-- PC table layout (md and above) -->
+      <n-card class="hidden md:block">
+        <n-data-table
+          v-if="filteredSales.length > 0"
+          :columns="columns"
+          :data="filteredSales"
+          :scroll-x="900"
+          :pagination="{ pageSize: 20 }"
+          striped
+          :row-props="(row: SaleContract) => ({
+            style: 'cursor: pointer;',
+            onClick: () => handleRowClick(row)
+          })"
+        />
+        <n-empty v-else description="매도 계약이 없습니다" class="py-10" />
+      </n-card>
+    </div>
 
     <!-- Add Sale Modal -->
     <n-modal v-model:show="showAddModal" preset="dialog" title="매도 계약 등록">

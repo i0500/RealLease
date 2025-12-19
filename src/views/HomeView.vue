@@ -94,6 +94,17 @@ async function handleMobileMenuSelect(key: string) {
   else if (key === 'add-sheet') {
     router.push({ name: 'settings', query: { action: 'add-sheet' } })
   }
+  // sheetId가 필요한 라우트
+  else if (key === 'sales' || key === 'rental-contracts') {
+    if (!sheetsStore.currentSheet) {
+      message.warning('시트를 먼저 선택해주세요')
+      return
+    }
+    router.push({
+      name: key,
+      params: { sheetId: sheetsStore.currentSheet.id }
+    })
+  }
   // 일반 라우트
   else {
     router.push({ name: key })
