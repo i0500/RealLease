@@ -42,32 +42,33 @@ export const useAuthStore = defineStore('auth', () => {
         return
       }
 
-      // Google Identity Services 로드
+      // ✅ Firebase Auth 초기화 완료 대기 (중요!)
+      console.log('🔄 [AuthStore] Waiting for Firebase Auth initialization...')
+      await authService.waitForAuth()
+      console.log('✅ [AuthStore] Firebase Auth ready')
+
+      // Google Identity Services 로드 (레거시 호환)
       await authService.loadGoogleIdentityServices()
 
-      // Auth 서비스 초기화
+      // Auth 서비스 초기화 (레거시 호환)
       await authService.initialize(clientId)
 
-      // 기존 토큰 및 사용자 정보 확인
+      // 기존 사용자 정보 확인 및 복원
       if (authService.isAuthenticated()) {
-        const savedUser = loadUserFromStorage()
-        if (savedUser) {
-          user.value = savedUser
-          console.log('🔐 저장된 사용자 정보 복원:', savedUser)
-        } else {
-          // 토큰은 있지만 사용자 정보가 없는 경우 (이전 버전 호환성)
-          user.value = {
-            email: 'user@example.com',
-            name: 'User'
-          }
+        const userInfo = await authService.getUserInfo()
+        if (userInfo) {
+          user.value = userInfo
           saveUserToStorage(user.value)
+          console.log('✅ [AuthStore] User session restored:', userInfo)
         }
+      } else {
+        console.log('ℹ️ [AuthStore] No active session')
       }
 
       isInitialized.value = true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to initialize auth'
-      console.error('Auth initialization error:', err)
+      console.error('❌ [AuthStore] Auth initialization error:', err)
     } finally {
       isLoading.value = false
     }

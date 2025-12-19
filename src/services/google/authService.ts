@@ -18,10 +18,25 @@ export class AuthService {
   private currentUser: FirebaseUser | null = null
   private authStateListener: (() => void) | null = null
   private googleAccessToken: string | null = null
+  private authReady: Promise<void>
+  private authReadyResolve!: () => void
 
   constructor() {
+    // Firebase Auth 초기화 완료를 기다릴 Promise 생성
+    this.authReady = new Promise((resolve) => {
+      this.authReadyResolve = resolve
+    })
+
     this.initializeAuthListener()
     this.loadGoogleAccessToken()
+  }
+
+  /**
+   * Firebase Auth 초기화 완료 대기
+   * 앱 시작 시 이 메서드를 await하여 인증 상태가 복원될 때까지 기다려야 합니다
+   */
+  async waitForAuth(): Promise<void> {
+    await this.authReady
   }
 
   /**
@@ -30,6 +45,8 @@ export class AuthService {
    */
   private initializeAuthListener(): void {
     console.log('🔐 [AuthService] Initializing auth state listener...')
+
+    let isFirstCall = true
 
     this.authStateListener = onAuthStateChanged(auth, (user) => {
       this.currentUser = user
@@ -46,6 +63,13 @@ export class AuthService {
       } else {
         console.log('🚪 [AuthService] User signed out')
         this.googleAccessToken = null
+      }
+
+      // 첫 콜백에서 초기화 완료 신호
+      if (isFirstCall) {
+        isFirstCall = false
+        this.authReadyResolve()
+        console.log('✅ [AuthService] Auth initialization complete')
       }
     })
   }
