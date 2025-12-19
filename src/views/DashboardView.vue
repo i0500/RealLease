@@ -273,10 +273,11 @@ function handleSaleClick(saleId: string) {
   })
 }
 
-// Convert thousands to millions (천원 → 백만원)
-function toMillions(thousands: number): string {
+// Convert thousands to billions (천원 → 억원)
+function toBillions(thousands: number): string {
   if (thousands === 0) return '0'
-  return (thousands / 1000).toFixed(0)
+  const billions = thousands / 100000
+  return billions % 1 === 0 ? billions.toFixed(0) : billions.toFixed(1)
 }
 </script>
 
@@ -421,7 +422,7 @@ function toMillions(thousands: number): string {
               <span v-if="contract.contractType" class="font-medium">{{ contract.contractType }}</span>
               <span v-if="contract.deposit > 0" class="text-gray-400">·</span>
               <span v-if="contract.deposit > 0" class="font-medium">
-                보증금 {{ (contract.deposit / 10000).toFixed(0) }}억
+                보증금 {{ (contract.deposit / 100000000).toFixed(2) }}억
                 <span v-if="contract.monthlyRent > 0"> / 월세 {{ (contract.monthlyRent / 10000).toFixed(0) }}만</span>
               </span>
             </div>
@@ -469,16 +470,16 @@ function toMillions(thousands: number): string {
               </n-tag>
             </div>
 
-            <!-- Payment Info (백만원 단위) -->
+            <!-- Payment Info (억원 단위) -->
             <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-              <span v-if="sale.downPayment > 0">계약금 {{ toMillions(sale.downPayment) }}</span>
-              <span v-if="sale.downPayment2 > 0">계약금2차 {{ toMillions(sale.downPayment2) }}</span>
-              <span v-if="sale.interimPayment1 > 0">중도1 {{ toMillions(sale.interimPayment1) }}</span>
-              <span v-if="sale.interimPayment2 > 0">중도2 {{ toMillions(sale.interimPayment2) }}</span>
-              <span v-if="sale.interimPayment3 > 0">중도3 {{ toMillions(sale.interimPayment3) }}</span>
-              <span v-if="sale.finalPayment > 0">잔금 {{ toMillions(sale.finalPayment) }}</span>
+              <span v-if="sale.downPayment > 0">계약금 {{ toBillions(sale.downPayment) }}억</span>
+              <span v-if="sale.downPayment2 > 0">계약금2차 {{ toBillions(sale.downPayment2) }}억</span>
+              <span v-if="sale.interimPayment1 > 0">중도1 {{ toBillions(sale.interimPayment1) }}억</span>
+              <span v-if="sale.interimPayment2 > 0">중도2 {{ toBillions(sale.interimPayment2) }}억</span>
+              <span v-if="sale.interimPayment3 > 0">중도3 {{ toBillions(sale.interimPayment3) }}억</span>
+              <span v-if="sale.finalPayment > 0">잔금 {{ toBillions(sale.finalPayment) }}억</span>
               <span class="text-gray-400">·</span>
-              <span class="font-medium text-green-600">합계 {{ toMillions(sale.totalAmount) }}</span>
+              <span class="font-medium text-green-600">합계 {{ toBillions(sale.totalAmount) }}억</span>
             </div>
           </div>
         </div>

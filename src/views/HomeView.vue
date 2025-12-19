@@ -145,7 +145,7 @@ const menuOptions = computed<MenuOption[]>(() => {
     {
       label: () => h(
         'div',
-        { style: 'display: flex; align-items: center; gap: 8px;' },
+        { style: 'display: flex; align-items: center; gap: 16px;' },
         [
           '알림',
           notificationsStore.unreadCount > 0
@@ -406,7 +406,7 @@ async function handleMenuSelect(key: string) {
             <template #icon>
               <n-icon><NotificationIcon /></n-icon>
             </template>
-            <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 16px; width: 100%;">
               <span>알림</span>
               <n-badge
                 v-if="notificationsStore.unreadCount > 0"
