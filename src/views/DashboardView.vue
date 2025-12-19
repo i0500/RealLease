@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useNotificationSettingsStore } from '@/stores/notificationSettings'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatDate } from '@/utils/dateUtils'
 import { formatCurrency } from '@/utils/formatUtils'
@@ -13,6 +14,7 @@ import type { Notification } from '@/types/notification'
 const router = useRouter()
 const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
+const notificationSettingsStore = useNotificationSettingsStore()
 const sheetsStore = useSheetsStore()
 const message = useMessage()
 
@@ -48,14 +50,16 @@ const recentContracts = computed(() => {
     .slice(0, 5)
 })
 
-// 보증보험 만료 예정 (3개월 이내)
+// 보증보험 만료 예정 (설정값 기반)
 const hugExpiringContracts = computed(() => {
   const today = new Date()
-  const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+  const expiryDays = notificationSettingsStore.settings.hugExpiryNoticeDays || 90
+  const expiryDate = new Date(today)
+  expiryDate.setDate(expiryDate.getDate() + expiryDays)
 
   return currentSheetContracts.value.filter(c => {
     if (!c.hugEndDate) return false
-    return c.hugEndDate >= today && c.hugEndDate <= threeMonthsLater
+    return c.hugEndDate >= today && c.hugEndDate <= expiryDate
   })
 })
 
@@ -64,12 +68,15 @@ const rentalStats = computed(() => {
   const total = currentSheetContracts.value.filter(c => c.tenantName && c.tenantName.trim() !== '').length
   const vacant = currentSheetContracts.value.filter(c => !c.tenantName || c.tenantName.trim() === '').length
 
-  // 계약 만료예정 (3개월 이내)
+  // 계약 만료예정 (설정값 기반)
   const today = new Date()
-  const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+  const contractExpiryDays = notificationSettingsStore.settings.contractExpiryNoticeDays || 90
+  const contractExpiryDate = new Date(today)
+  contractExpiryDate.setDate(contractExpiryDate.getDate() + contractExpiryDays)
+
   const expiring = currentSheetContracts.value.filter(c => {
     if (!c.endDate) return false
-    return c.endDate >= today && c.endDate <= threeMonthsLater
+    return c.endDate >= today && c.endDate <= contractExpiryDate
   }).length
 
   // 보증보험 만료예정
@@ -164,6 +171,9 @@ async function loadData() {
 
 // 마운트 시 데이터 로드
 onMounted(async () => {
+  // 알림 설정 로드
+  await notificationSettingsStore.initialize()
+
   // 🔧 FIX: 새로고침 시 sheets가 로드되지 않은 경우를 대비해 먼저 로드
   if (sheetsStore.sheets.length === 0) {
     console.log('📦 [DashboardView] Sheets 데이터 로딩 중...')
@@ -395,11 +405,11 @@ function toBillions(thousands: number): string {
           </n-card>
 
           <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('expiring')">
-            <n-statistic label="만료예정" :value="stats.rentalExpiring" />
+            <n-statistic label="계약만료 도래" :value="stats.rentalExpiring" />
           </n-card>
 
           <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('hugExpiring')">
-            <n-statistic label="보증만료 예정" :value="stats.hugExpiring" />
+            <n-statistic label="보험만료 도래" :value="stats.hugExpiring" />
           </n-card>
         </div>
       </div>
