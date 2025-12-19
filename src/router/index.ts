@@ -67,11 +67,19 @@ router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
 
+  // ✅ Firebase Auth 초기화 완료 대기 (중요!)
+  // 페이지 새로고침 시 authService가 완전히 초기화될 때까지 기다림
+  if (!isDevMode) {
+    console.log('🔄 [Router] Waiting for Firebase Auth initialization...')
+    await authService.waitForAuth()
+    console.log('✅ [Router] Firebase Auth ready')
+  }
+
   // 인증이 필요한 페이지인 경우 토큰 검증
   if (to.meta.requiresAuth) {
     // 개발 모드가 아니고, 사용자 정보는 있지만 OAuth 토큰이 없는 경우
     if (!isDevMode && authStore.isAuthenticated && !authService.isAuthenticated()) {
-      console.warn('⚠️ OAuth 토큰 없음, 자동 로그아웃 처리')
+      console.warn('⚠️ [Router] OAuth 토큰 만료, 자동 로그아웃 처리')
       await authStore.handleTokenExpired()
       next({ name: 'auth', query: { expired: 'true' } })
       return
@@ -79,7 +87,7 @@ router.beforeEach(async (to, _from, next) => {
 
     // 사용자 정보가 없는 경우
     if (!authStore.isAuthenticated) {
-      console.log('🔒 인증 필요 → 로그인 페이지로 이동')
+      console.log('🔒 [Router] 인증 필요 → 로그인 페이지로 이동')
       next({ name: 'auth' })
       return
     }
@@ -87,7 +95,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // 로그인 페이지인데 이미 인증된 경우 → 대시보드로
   if (to.name === 'auth' && authStore.isAuthenticated) {
-    console.log('✅ 이미 로그인됨 → 대시보드로 이동')
+    console.log('✅ [Router] 이미 로그인됨 → 대시보드로 이동')
     next({ name: 'dashboard' })
     return
   }
