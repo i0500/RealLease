@@ -107,18 +107,20 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
       newNotifications.forEach(newN => {
         const existing = existingMap.get(newN.id)
+        const isAlreadyRead = readNotificationIds.value.has(newN.id)
 
         if (existing) {
-          // 기존 알림이 있으면 daysLeft만 업데이트 (ID와 read 상태 유지)
+          // 기존 알림이 있으면 daysLeft만 업데이트
           existing.daysLeft = newN.daysLeft
           existing.message = newN.message
           existing.priority = newN.priority
           existing.createdAt = newN.createdAt
-        } else {
-          // 새 알림 추가
+        } else if (!isAlreadyRead) {
+          // 읽지 않은 새 알림만 추가
           existingMap.set(newN.id, newN)
           newlyAddedNotifications.push(newN)
         }
+        // 이미 읽은 알림은 추가하지 않음
       })
 
       // 새로 추가된 알림에 대해 푸시 알림 표시 (권한이 있을 때만)
@@ -160,14 +162,27 @@ export const useNotificationsStore = defineStore('notifications', () => {
   }
 
   async function markAsRead(notificationId: string) {
+    // 읽은 알림은 목록에서 완전히 제거
+    notifications.value = notifications.value.filter(n => n.id !== notificationId)
     readNotificationIds.value.add(notificationId)
+
+    // 저장
+    const serialized = serializeNotificationsForStorage(notifications.value)
+    await storageService.set(STORAGE_KEY, serialized)
     await saveReadNotifications()
   }
 
   async function markAllAsRead() {
+    // 모든 알림을 읽은 목록에 추가
     notifications.value.forEach(n => {
       readNotificationIds.value.add(n.id)
     })
+
+    // 모든 알림을 목록에서 제거
+    notifications.value = []
+
+    // 저장
+    await storageService.set(STORAGE_KEY, [])
     await saveReadNotifications()
   }
 

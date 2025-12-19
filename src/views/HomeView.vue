@@ -144,14 +144,22 @@ const menuOptions = computed<MenuOption[]>(() => {
     },
     {
       label: () => h(
-        NBadge,
-        {
-          value: notificationsStore.unreadCount,
-          show: notificationsStore.unreadCount > 0,
-          dot: false,
-          max: 99
-        },
-        { default: () => '알림' }
+        'div',
+        { style: 'display: flex; align-items: center; gap: 8px;' },
+        [
+          '알림',
+          notificationsStore.unreadCount > 0
+            ? h(
+                NTag,
+                {
+                  type: 'error',
+                  size: 'small',
+                  round: true
+                },
+                { default: () => notificationsStore.unreadCount }
+              )
+            : null
+        ]
       ),
       key: 'notifications',
       icon: renderIcon(NotificationIcon)

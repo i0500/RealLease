@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, toRaw } from 'vue'
 import { storageService } from '@/services/storageService'
 import type { NotificationSettings } from '@/types/notification'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/types/notification'
@@ -39,8 +39,10 @@ export const useNotificationSettingsStore = defineStore('notificationSettings', 
    */
   async function saveSettings() {
     try {
-      await storageService.set(STORAGE_KEY, settings.value)
-      console.log('✅ [NotificationSettings] 설정 저장 완료:', settings.value)
+      // Vue reactive proxy를 plain object로 변환하여 IndexedDB에 저장
+      const plainSettings = toRaw(settings.value)
+      await storageService.set(STORAGE_KEY, plainSettings)
+      console.log('✅ [NotificationSettings] 설정 저장 완료:', plainSettings)
     } catch (error) {
       console.error('❌ [NotificationSettings] 설정 저장 실패:', error)
       throw error
