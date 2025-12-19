@@ -257,33 +257,7 @@ export const useContractsStore = defineStore('contracts', () => {
         // 매도현황 파싱
         const parsedSales: SaleContract[] = rows.map((row, index) => {
           const actualRowIndex = headerRowIndex + index + 2 // 헤더 행 위치 + 데이터 행 인덱스 + 2
-
-          if (index < 3) {
-            console.log(`🔍 [ContractsStore.loadContracts] 매도 Row ${index + 1}:`, {
-              rowIndex: actualRowIndex,
-              'A열_공란': row[0],
-              'B열_구분': row[1],
-              'C열_동': row[2],
-              'D열_공란': row[3],
-              'E열_호': row[4],
-              'F열_계약자': row[5],
-              'G열_계약일': row[6],
-              'S열_합계': row[18],
-              fullRow: row.slice(0, 22)
-            })
-          }
-
           const contract = parseRowToSale(row, _headers, sheetId, actualRowIndex)
-
-          if (contract && index < 3) {
-            console.log(`📝 [ContractsStore.loadContracts] 샘플 매도 ${index + 1}:`, {
-              id: contract.id,
-              unit: contract.unit,
-              buyer: contract.buyer,
-              totalAmount: contract.totalAmount,
-              notes: contract.notes
-            })
-          }
           return contract
         }).filter(c => c !== null) as SaleContract[]
 
@@ -309,37 +283,7 @@ export const useContractsStore = defineStore('contracts', () => {
         // 임대차 현황 파싱
         const parsedContracts: RentalContract[] = rows.map((row, index) => {
           const actualRowIndex = headerRowIndex + index + 2 // 헤더 행 위치 + 데이터 행 인덱스 + 2
-
-          if (index < 3) {
-            console.log(`🔍 [ContractsStore.loadContracts] 임대 Row ${index + 1}:`, {
-              rowIndex: actualRowIndex,
-              row0_번호: row[0],
-              row1_동: row[1],
-              row2_호수: row[2],
-              row3_이름: row[3],
-              row4_연락처: row[4],
-              row10_보증금: row[10],
-              row11_월세: row[11],
-              row13_시작일: row[13],
-              row14_종료일: row[14],
-              fullRow: row
-            })
-          }
-
           const contract = parseRowToContract(row, _headers, sheetId, actualRowIndex)
-
-          if (contract && index < 3) {
-            console.log(`📝 [ContractsStore.loadContracts] 샘플 임대 ${index + 1}:`, {
-              id: contract.id,
-              building: contract.building,
-              unit: contract.unit,
-              tenantName: contract.tenantName,
-              phone: contract.phone,
-              contractType: contract.contractType,
-              deposit: contract.deposit,
-              monthlyRent: contract.monthlyRent
-            })
-          }
           return contract
         }).filter(c => c !== null) as RentalContract[]
 
@@ -613,25 +557,11 @@ export const useContractsStore = defineStore('contracts', () => {
           checkForSummaryKeywords(building) ||
           checkForSummaryKeywords(unitNum) ||
           checkForSummaryKeywords(category)) {
-        console.log('⏭️ [parseRowToSale] 합계 행 키워드 감지 - 건너뜀:', {
-          rowIndex,
-          category,
-          building,
-          unitNum,
-          buyer
-        })
         return null
       }
 
       // 3. 필수 필드 검증: 계약자가 있어야 유효
       if (!buyer) {
-        console.log('⏭️ [parseRowToSale] 계약자 없음 - 건너뜀:', {
-          rowIndex,
-          category,
-          building,
-          unitNum,
-          reason: '계약자 정보 없음'
-        })
         return null
       }
 

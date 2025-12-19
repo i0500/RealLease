@@ -23,8 +23,8 @@ export class NotificationService {
 
         if (isExpiringSoon(contract.endDate, contractExpiryDays)) {
           const address = `${contract.building}동 ${contract.unit}호`
-          // Deterministic ID: sheetId-building-unit-type (재로드해도 동일한 ID 유지)
-          const notificationId = `${contract.sheetId}-${contract.building}-${contract.unit}-contract_expiring`
+          // Deterministic ID: building-unit-tenantName-type (시트 간 중복 방지)
+          const notificationId = `${contract.building}-${contract.unit}-${contract.tenantName}-contract_expiring`
           notifications.push({
             id: notificationId,
             contractId: contract.id,
@@ -45,8 +45,8 @@ export class NotificationService {
 
         if (isExpiringSoon(contract.hugEndDate, hugExpiryDays)) {
           const address = `${contract.building}동 ${contract.unit}호`
-          // Deterministic ID: sheetId-building-unit-type (재로드해도 동일한 ID 유지)
-          const notificationId = `${contract.sheetId}-${contract.building}-${contract.unit}-hug_expiring`
+          // Deterministic ID: building-unit-type (시트 간 중복 방지, 호수별 HUG는 고유)
+          const notificationId = `${contract.building}-${contract.unit}-hug_expiring`
           notifications.push({
             id: notificationId,
             contractId: contract.id,
