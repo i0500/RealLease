@@ -128,6 +128,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
       await storageService.set(STORAGE_KEY, serialized)
 
       console.log(`✅ [NotificationsStore] Updated notifications: ${notifications.value.length} total, ${unreadCount.value} unread`)
+
+      // 자동으로 오래된 읽은 알림 정리
+      await cleanupOldReadNotifications()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to check notifications'
       console.error('Check notifications error:', err)
@@ -172,6 +175,38 @@ export const useNotificationsStore = defineStore('notifications', () => {
     await storageService.set(STORAGE_KEY, [])
   }
 
+  /**
+   * 설정한 알림 개월수를 초과한 읽은 알림 자동 정리
+   */
+  async function cleanupOldReadNotifications() {
+    const { contractExpiryNoticeDays, hugExpiryNoticeDays } = settingsStore.settings
+    const maxNoticeDays = Math.max(contractExpiryNoticeDays, hugExpiryNoticeDays)
+    const today = new Date()
+    const cutoffDate = new Date(today.getTime() - maxNoticeDays * 24 * 60 * 60 * 1000)
+
+    const beforeCount = notifications.value.length
+
+    // 읽은 알림 중에서 createdAt이 cutoffDate보다 오래된 것 제거
+    notifications.value = notifications.value.filter(n => {
+      // 미읽음 알림은 유지
+      if (!n.read) return true
+
+      // 읽은 알림은 생성일 기준으로 필터링
+      return n.createdAt >= cutoffDate
+    })
+
+    const afterCount = notifications.value.length
+    const removedCount = beforeCount - afterCount
+
+    if (removedCount > 0) {
+      // 저장 가능한 형태로 직렬화
+      const serialized = serializeNotificationsForStorage(notifications.value)
+      await storageService.set(STORAGE_KEY, serialized)
+
+      console.log(`✅ [NotificationsStore] Cleaned up ${removedCount} old read notifications (${beforeCount} → ${afterCount})`)
+    }
+  }
+
   function clearError() {
     error.value = null
   }
@@ -191,6 +226,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     markAllAsRead,
     clearNotification,
     clearAllNotifications,
+    cleanupOldReadNotifications,
     clearError,
     pushNotificationService
   }
