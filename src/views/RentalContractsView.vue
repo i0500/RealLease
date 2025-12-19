@@ -174,17 +174,7 @@ const desktopColumns = [
     key: 'address',
     width: 120,
     align: 'center' as const,
-    render: (row: RentalContract) => {
-      return h(
-        'a',
-        {
-          href: 'javascript:void(0)',
-          onClick: () => handleView(row),
-          style: 'color: #18a058; cursor: pointer; text-decoration: underline;'
-        },
-        `${row.building}동 ${row.unit}호`
-      )
-    }
+    render: (row: RentalContract) => `${row.building}동 ${row.unit}호`
   },
   {
     title: '계약자',
@@ -254,45 +244,6 @@ const desktopColumns = [
     align: 'center' as const,
     render: (row: RentalContract) =>
       row.hugEndDate ? '가입' : '-'
-  },
-  {
-    title: '작업',
-    key: 'actions',
-    width: 130,
-    fixed: 'right' as const,
-    render: (row: RentalContract) => {
-      return h(
-        NSpace,
-        { size: 'small' },
-        {
-          default: () => [
-            h(
-              NButton,
-              {
-                size: 'small',
-                onClick: (e: Event) => {
-                  e.stopPropagation()
-                  handleEdit(row)
-                }
-              },
-              { default: () => '수정' }
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'error',
-                onClick: (e: Event) => {
-                  e.stopPropagation()
-                  handleDelete(row)
-                }
-              },
-              { default: () => '삭제' }
-            )
-          ]
-        }
-      )
-    }
   }
 ]
 
@@ -740,18 +691,19 @@ function resetForm() {
     <n-modal
       v-model:show="showDetailModal"
       preset="card"
-      title="계약 상세정보"
-      style="width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto"
+      style="width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto"
       :segmented="{ content: true }"
     >
-      <div v-if="viewingContract" class="contract-detail">
-        <!-- 상태 표시 -->
-        <div class="flex items-center justify-between mb-6 p-4 rounded" style="background-color: #f5f7fa;">
+      <template #header>
+        <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-2xl font-bold mb-2">{{ viewingContract.building }}동 {{ viewingContract.unit }}호</h2>
-            <p class="text-sm text-gray-600">{{ viewingContract.tenantName || '공실' }}</p>
+            <h2 class="text-2xl font-bold" style="color: #2c3e50;">
+              {{ viewingContract?.building }}동 {{ viewingContract?.unit }}호
+            </h2>
+            <p class="text-sm text-gray-600 mt-1">임대차 계약 상세 정보</p>
           </div>
           <n-tag
+            v-if="viewingContract"
             :type="
               viewingContract.tenantName && viewingContract.tenantName.trim() !== ''
                 ? 'success'
@@ -762,150 +714,120 @@ function resetForm() {
             {{ viewingContract.tenantName ? '계약중' : '공실' }}
           </n-tag>
         </div>
+      </template>
 
+      <div v-if="viewingContract">
         <!-- 기본 정보 -->
-        <div class="detail-section">
-          <h3 class="section-title">📋 기본 정보</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="label">번호</span>
-              <span class="value">{{ viewingContract.number || '-' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">동-호</span>
-              <span class="value">{{ viewingContract.building }}동 {{ viewingContract.unit }}호</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">계약자명</span>
-              <span class="value">{{ viewingContract.tenantName || '-' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">연락처</span>
-              <span class="value">{{ viewingContract.phone || '-' }}</span>
-            </div>
-            <div v-if="viewingContract.phone2OrContractType" class="detail-item">
-              <span class="label">연락처2</span>
-              <span class="value">{{ viewingContract.phone2OrContractType }}</span>
-            </div>
-            <div v-if="viewingContract.contractType" class="detail-item">
-              <span class="label">계약유형</span>
-              <span class="value">{{ viewingContract.contractType }}</span>
-            </div>
-            <div v-if="viewingContract.idNumber" class="detail-item">
-              <span class="label">주민번호</span>
-              <span class="value">{{ viewingContract.idNumber }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 면적 정보 -->
-        <div v-if="viewingContract.exclusiveArea || viewingContract.supplyArea" class="detail-section">
-          <h3 class="section-title">📐 면적 정보</h3>
-          <div class="detail-grid">
-            <div v-if="viewingContract.exclusiveArea" class="detail-item">
-              <span class="label">전용면적</span>
-              <span class="value">{{ viewingContract.exclusiveArea }}</span>
-            </div>
-            <div v-if="viewingContract.supplyArea" class="detail-item">
-              <span class="label">공급면적</span>
-              <span class="value">{{ viewingContract.supplyArea }}</span>
-            </div>
-          </div>
-        </div>
+        <n-card title="기본 정보" class="mb-4">
+          <n-descriptions bordered :column="2">
+            <n-descriptions-item label="동-호">
+              {{ viewingContract.building }}동 {{ viewingContract.unit }}호
+            </n-descriptions-item>
+            <n-descriptions-item label="계약자명">
+              {{ viewingContract.tenantName || '공실' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="연락처">
+              {{ viewingContract.phone || '-' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="연락처2">
+              {{ viewingContract.phone2OrContractType || '-' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="계약유형">
+              {{ viewingContract.contractType || '-' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="주민번호">
+              {{ viewingContract.idNumber || '-' }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.exclusiveArea" label="전용면적">
+              {{ viewingContract.exclusiveArea }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.supplyArea" label="공급면적">
+              {{ viewingContract.supplyArea }}
+            </n-descriptions-item>
+            <n-descriptions-item label="상태" :span="2">
+              <n-tag :type="viewingContract.tenantName && viewingContract.tenantName.trim() !== '' ? 'success' : 'default'">
+                {{ viewingContract.tenantName ? '계약중' : '공실' }}
+              </n-tag>
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
 
         <!-- 계약 금액 정보 -->
-        <div class="detail-section">
-          <h3 class="section-title">💰 계약 금액</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="label">임대보증금</span>
-              <span class="value font-bold text-blue-600">
+        <n-card title="계약 금액" class="mb-4">
+          <n-descriptions bordered :column="2">
+            <n-descriptions-item label="임대보증금">
+              <span class="font-bold text-xl" style="color: #2080f0;">
                 {{ formatCurrency(viewingContract.deposit) }}
               </span>
-            </div>
-            <div v-if="viewingContract.monthlyRent" class="detail-item">
-              <span class="label">월세</span>
-              <span class="value font-bold text-green-600">
+            </n-descriptions-item>
+            <n-descriptions-item label="월세">
+              <span v-if="viewingContract.monthlyRent" class="font-bold text-xl" style="color: #18a058;">
                 {{ formatCurrency(viewingContract.monthlyRent) }}
               </span>
-            </div>
-          </div>
-        </div>
+              <span v-else>-</span>
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
 
         <!-- 계약 기간 정보 -->
-        <div class="detail-section">
-          <h3 class="section-title">📅 계약 기간</h3>
-          <div class="detail-grid">
-            <div v-if="viewingContract.contractWrittenDate" class="detail-item">
-              <span class="label">계약서작성일</span>
-              <span class="value">{{ formatDate(viewingContract.contractWrittenDate, 'yyyy.MM.dd') }}</span>
-            </div>
-            <div v-if="viewingContract.startDate" class="detail-item">
-              <span class="label">시작일</span>
-              <span class="value">{{ formatDate(viewingContract.startDate, 'yyyy.MM.dd') }}</span>
-            </div>
-            <div v-if="viewingContract.endDate" class="detail-item">
-              <span class="label">종료일</span>
-              <span class="value">{{ formatDate(viewingContract.endDate, 'yyyy.MM.dd') }}</span>
-            </div>
-            <div v-if="viewingContract.actualMoveOutDate" class="detail-item">
-              <span class="label">실제퇴거일</span>
-              <span class="value">{{ formatDate(viewingContract.actualMoveOutDate, 'yyyy.MM.dd') }}</span>
-            </div>
-            <div v-if="viewingContract.contractPeriod" class="detail-item">
-              <span class="label">계약기간</span>
-              <span class="value">{{ viewingContract.contractPeriod }}</span>
-            </div>
-          </div>
-        </div>
+        <n-card title="계약 기간" class="mb-4">
+          <n-descriptions bordered :column="2">
+            <n-descriptions-item v-if="viewingContract.contractWrittenDate" label="계약서작성일">
+              {{ formatDate(viewingContract.contractWrittenDate, 'yyyy.MM.dd') }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.contractPeriod" label="계약기간">
+              {{ viewingContract.contractPeriod }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.startDate" label="시작일">
+              {{ formatDate(viewingContract.startDate, 'yyyy.MM.dd') }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.endDate" label="종료일">
+              {{ formatDate(viewingContract.endDate, 'yyyy.MM.dd') }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.actualMoveOutDate" label="실제퇴거일" :span="2">
+              {{ formatDate(viewingContract.actualMoveOutDate, 'yyyy.MM.dd') }}
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
 
         <!-- HUG 보증 정보 -->
-        <div v-if="viewingContract.hugStartDate || viewingContract.hugEndDate" class="detail-section">
-          <h3 class="section-title">🛡️ HUG 보증보험 정보</h3>
-          <div class="detail-grid">
-            <div v-if="viewingContract.hugStartDate" class="detail-item">
-              <span class="label">보증시작일</span>
-              <span class="value">{{ formatDate(viewingContract.hugStartDate, 'yyyy.MM.dd') }}</span>
-            </div>
-            <div v-if="viewingContract.hugEndDate" class="detail-item">
-              <span class="label">보증종료일</span>
-              <span class="value">{{ formatDate(viewingContract.hugEndDate, 'yyyy.MM.dd') }}</span>
-            </div>
-          </div>
-        </div>
+        <n-card v-if="viewingContract.hugStartDate || viewingContract.hugEndDate" title="HUG 보증보험 정보" class="mb-4">
+          <n-descriptions bordered :column="2">
+            <n-descriptions-item v-if="viewingContract.hugStartDate" label="보증시작일">
+              {{ formatDate(viewingContract.hugStartDate, 'yyyy.MM.dd') }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.hugEndDate" label="보증종료일">
+              {{ formatDate(viewingContract.hugEndDate, 'yyyy.MM.dd') }}
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
 
         <!-- 추가 정보 -->
-        <div v-if="viewingContract.additionalInfo1 || viewingContract.additionalInfo2 || viewingContract.additionalInfo3 || viewingContract.additionalInfo4" class="detail-section">
-          <h3 class="section-title">📝 추가 정보</h3>
-          <div class="detail-grid">
-            <div v-if="viewingContract.additionalInfo1" class="detail-item full-width">
-              <span class="label">추가정보1</span>
-              <span class="value">{{ viewingContract.additionalInfo1 }}</span>
-            </div>
-            <div v-if="viewingContract.additionalInfo2" class="detail-item full-width">
-              <span class="label">추가정보2</span>
-              <span class="value">{{ viewingContract.additionalInfo2 }}</span>
-            </div>
-            <div v-if="viewingContract.additionalInfo3" class="detail-item full-width">
-              <span class="label">추가정보3</span>
-              <span class="value">{{ viewingContract.additionalInfo3 }}</span>
-            </div>
-            <div v-if="viewingContract.additionalInfo4" class="detail-item full-width">
-              <span class="label">추가정보4</span>
-              <span class="value">{{ viewingContract.additionalInfo4 }}</span>
-            </div>
-          </div>
-        </div>
+        <n-card v-if="viewingContract.additionalInfo1 || viewingContract.additionalInfo2 || viewingContract.additionalInfo3 || viewingContract.additionalInfo4" title="추가 정보" class="mb-4">
+          <n-descriptions bordered :column="1">
+            <n-descriptions-item v-if="viewingContract.additionalInfo1" label="추가정보1">
+              {{ viewingContract.additionalInfo1 }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.additionalInfo2" label="추가정보2">
+              {{ viewingContract.additionalInfo2 }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.additionalInfo3" label="추가정보3">
+              {{ viewingContract.additionalInfo3 }}
+            </n-descriptions-item>
+            <n-descriptions-item v-if="viewingContract.additionalInfo4" label="추가정보4">
+              {{ viewingContract.additionalInfo4 }}
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
 
         <!-- 비고 -->
-        <div v-if="viewingContract.notes" class="detail-section">
-          <h3 class="section-title">📌 기타사항/비고</h3>
-          <div class="detail-grid">
-            <div class="detail-item full-width">
-              <span class="value">{{ viewingContract.notes }}</span>
-            </div>
-          </div>
-        </div>
+        <n-card v-if="viewingContract.notes" title="기타사항/비고" class="mb-4">
+          <n-descriptions bordered :column="1">
+            <n-descriptions-item>
+              {{ viewingContract.notes }}
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
       </div>
 
       <template #footer>

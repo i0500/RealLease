@@ -25,7 +25,10 @@ import {
   NSelect,
   NRadio,
   NRadioGroup,
-  useMessage
+  NDescriptions,
+  NDescriptionsItem,
+  useMessage,
+  useDialog
 } from 'naive-ui'
 import { HomeOutline as HomeIcon, AddOutline as AddIcon } from '@vicons/ionicons5'
 
@@ -34,12 +37,15 @@ const route = useRoute()
 const contractsStore = useContractsStore()
 const sheetsStore = useSheetsStore()
 const message = useMessage()
+const dialog = useDialog()
 
 // View state
 const viewMode = ref<'table' | 'card'>('table')
 const searchQuery = ref('')
 const isMobile = ref(false)
 const showAddModal = ref(false)
+const showDetailModal = ref(false)
+const viewingSaleContract = ref<SaleContract | null>(null)
 const saleForm = ref({
   category: '', // 자동 넘버링되므로 사용자는 입력하지 않음
   building: '',
@@ -275,9 +281,71 @@ const mobileColumns = [
 // Computed columns based on screen size
 const columns = computed(() => isMobile.value ? mobileColumns : desktopColumns)
 
-// Handle row click
+// Handle row click - Show detail modal
 function handleRowClick(row: SaleContract) {
-  router.push({ name: 'sale-detail', params: { id: row.id } })
+  viewingSaleContract.value = row
+  showDetailModal.value = true
+}
+
+// Handle edit from detail modal
+function handleEditFromDetail() {
+  if (!viewingSaleContract.value) return
+
+  // Parse unit number from "108-407" format
+  const unitParts = viewingSaleContract.value.unit.split('-')
+  const unitNumber = unitParts[1] || unitParts[0] || ''
+
+  saleForm.value = {
+    category: viewingSaleContract.value.category,
+    building: viewingSaleContract.value.building,
+    unitNumber: unitNumber,
+    buyer: viewingSaleContract.value.buyer,
+    contractDate: viewingSaleContract.value.contractDate ? new Date(viewingSaleContract.value.contractDate).getTime() : null,
+    downPayment2Date: viewingSaleContract.value.downPayment2Date ? new Date(viewingSaleContract.value.downPayment2Date).getTime() : null,
+    downPayment2: viewingSaleContract.value.downPayment2,
+    interimPayment1Date: viewingSaleContract.value.interimPayment1Date ? new Date(viewingSaleContract.value.interimPayment1Date).getTime() : null,
+    interimPayment1: viewingSaleContract.value.interimPayment1,
+    interimPayment2Date: viewingSaleContract.value.interimPayment2Date ? new Date(viewingSaleContract.value.interimPayment2Date).getTime() : null,
+    interimPayment2: viewingSaleContract.value.interimPayment2,
+    interimPayment3Date: viewingSaleContract.value.interimPayment3Date ? new Date(viewingSaleContract.value.interimPayment3Date).getTime() : null,
+    interimPayment3: viewingSaleContract.value.interimPayment3,
+    finalPaymentDate: viewingSaleContract.value.finalPaymentDate ? new Date(viewingSaleContract.value.finalPaymentDate).getTime() : null,
+    finalPayment: viewingSaleContract.value.finalPayment,
+    contractFormat: viewingSaleContract.value.contractFormat,
+    bondTransfer: viewingSaleContract.value.bondTransfer,
+    status: viewingSaleContract.value.status,
+    notes: viewingSaleContract.value.notes
+  }
+
+  showDetailModal.value = false
+  showAddModal.value = true
+}
+
+// Handle delete from detail modal
+async function handleDeleteFromDetail() {
+  if (!viewingSaleContract.value) return
+
+  dialog.warning({
+    title: '매도 계약 삭제',
+    content: `${viewingSaleContract.value.unit} (${viewingSaleContract.value.buyer}) 계약을 삭제하시겠습니까?`,
+    positiveText: '삭제',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      try {
+        await contractsStore.deleteSaleContract(viewingSaleContract.value!.id)
+        message.success('매도 계약이 삭제되었습니다')
+        showDetailModal.value = false
+
+        // Reload contracts
+        if (sheetsStore.currentSheet) {
+          await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
+        }
+      } catch (error) {
+        message.error('매도 계약 삭제에 실패했습니다')
+        console.error('Delete error:', error)
+      }
+    }
+  })
 }
 
 // Status options
@@ -622,6 +690,127 @@ async function handleSubmit() {
           <n-button type="primary" @click="handleSubmit">등록</n-button>
         </n-space>
       </template>
+    </n-modal>
+
+    <!-- Sales Detail Modal -->
+    <n-modal
+      v-model:show="showDetailModal"
+      preset="card"
+      style="width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto"
+      :segmented="{ content: true }"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-2xl font-bold" style="color: #2c3e50;">
+              {{ viewingSaleContract?.building }}동 {{ viewingSaleContract?.unit.split('-')[1] || viewingSaleContract?.unit.split('-')[0] }}호
+            </h2>
+            <p class="text-sm text-gray-600 mt-1">매도현황 상세 정보</p>
+          </div>
+          <n-tag v-if="viewingSaleContract" :type="viewingSaleContract.status === 'completed' ? 'success' : 'info'" size="large">
+            {{ viewingSaleContract.status === 'completed' ? '종결' : '진행중' }}
+          </n-tag>
+        </div>
+      </template>
+
+      <div v-if="viewingSaleContract">
+        <!-- 기본 정보 -->
+        <n-card title="기본 정보" class="mb-4">
+          <n-descriptions bordered :column="2">
+            <n-descriptions-item label="동-호">
+              {{ viewingSaleContract.building }}동 {{ viewingSaleContract.unit.split('-')[1] || viewingSaleContract.unit.split('-')[0] }}호
+            </n-descriptions-item>
+            <n-descriptions-item label="계약자">
+              {{ viewingSaleContract.buyer }}
+            </n-descriptions-item>
+            <n-descriptions-item label="계약일">
+              {{ viewingSaleContract.contractDate ? formatDate(viewingSaleContract.contractDate, 'yyyy.MM.dd') : '-' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="계약형식">
+              {{ viewingSaleContract.contractFormat || '-' }}
+            </n-descriptions-item>
+            <n-descriptions-item label="상태" :span="2">
+              <n-tag :type="viewingSaleContract.status === 'completed' ? 'success' : 'info'">
+                {{ viewingSaleContract.status === 'completed' ? '종결' : '진행중' }}
+              </n-tag>
+            </n-descriptions-item>
+            <n-descriptions-item label="비고" :span="2">
+              {{ viewingSaleContract.notes || '-' }}
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
+
+        <!-- 결제 정보 -->
+        <n-card title="결제 정보 (단위: 천원)" class="mb-4">
+          <n-descriptions bordered :column="1" label-placement="left">
+            <n-descriptions-item label="계약금 2차">
+              <div class="flex justify-between items-center">
+                <span class="font-medium text-blue-600">
+                  {{ viewingSaleContract.downPayment2 > 0 ? viewingSaleContract.downPayment2.toLocaleString() : '-' }}
+                </span>
+                <span v-if="viewingSaleContract.downPayment2Date" class="text-sm text-gray-600">
+                  ({{ formatDate(viewingSaleContract.downPayment2Date, 'yyyy.MM.dd') }})
+                </span>
+              </div>
+            </n-descriptions-item>
+            <n-descriptions-item label="중도금 1차">
+              <div class="flex justify-between items-center">
+                <span class="font-medium text-orange-600">
+                  {{ viewingSaleContract.interimPayment1 > 0 ? viewingSaleContract.interimPayment1.toLocaleString() : '-' }}
+                </span>
+                <span v-if="viewingSaleContract.interimPayment1Date" class="text-sm text-gray-600">
+                  ({{ formatDate(viewingSaleContract.interimPayment1Date, 'yyyy.MM.dd') }})
+                </span>
+              </div>
+            </n-descriptions-item>
+            <n-descriptions-item label="중도금 2차">
+              <div class="flex justify-between items-center">
+                <span class="font-medium text-orange-600">
+                  {{ viewingSaleContract.interimPayment2 > 0 ? viewingSaleContract.interimPayment2.toLocaleString() : '-' }}
+                </span>
+                <span v-if="viewingSaleContract.interimPayment2Date" class="text-sm text-gray-600">
+                  ({{ formatDate(viewingSaleContract.interimPayment2Date, 'yyyy.MM.dd') }})
+                </span>
+              </div>
+            </n-descriptions-item>
+            <n-descriptions-item label="중도금 3차">
+              <div class="flex justify-between items-center">
+                <span class="font-medium text-orange-600">
+                  {{ viewingSaleContract.interimPayment3 > 0 ? viewingSaleContract.interimPayment3.toLocaleString() : '-' }}
+                </span>
+                <span v-if="viewingSaleContract.interimPayment3Date" class="text-sm text-gray-600">
+                  ({{ formatDate(viewingSaleContract.interimPayment3Date, 'yyyy.MM.dd') }})
+                </span>
+              </div>
+            </n-descriptions-item>
+            <n-descriptions-item label="잔금">
+              <div class="flex justify-between items-center">
+                <span class="font-medium text-green-600">
+                  {{ viewingSaleContract.finalPayment > 0 ? viewingSaleContract.finalPayment.toLocaleString() : '-' }}
+                </span>
+                <span v-if="viewingSaleContract.finalPaymentDate" class="text-sm text-gray-600">
+                  ({{ formatDate(viewingSaleContract.finalPaymentDate, 'yyyy.MM.dd') }})
+                </span>
+              </div>
+            </n-descriptions-item>
+            <n-descriptions-item label="총 금액">
+              <span class="text-xl font-bold" style="color: #2c3e50;">
+                {{ viewingSaleContract.totalAmount.toLocaleString() }}
+              </span>
+            </n-descriptions-item>
+            <n-descriptions-item label="채권양도">
+              {{ viewingSaleContract.bondTransfer || '-' }}
+            </n-descriptions-item>
+          </n-descriptions>
+        </n-card>
+
+        <!-- Footer Actions -->
+        <div class="flex justify-end gap-3">
+          <n-button @click="showDetailModal = false">닫기</n-button>
+          <n-button type="primary" @click="handleEditFromDetail">수정</n-button>
+          <n-button type="error" @click="handleDeleteFromDetail">삭제</n-button>
+        </div>
+      </div>
     </n-modal>
   </div>
 </template>
