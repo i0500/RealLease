@@ -353,8 +353,10 @@ function toMillions(thousands: number): string {
 
             <!-- Payment Info (백만원 단위) -->
             <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-              <span v-if="sale.downPayment > 0">계약금 {{ toMillions(sale.downPayment) }}</span>
-              <span v-if="sale.interimPayment > 0">중도금 {{ toMillions(sale.interimPayment) }}</span>
+              <span v-if="sale.downPayment2 > 0">계약금2차 {{ toMillions(sale.downPayment2) }}</span>
+              <span v-if="sale.interimPayment1 > 0">중도1 {{ toMillions(sale.interimPayment1) }}</span>
+              <span v-if="sale.interimPayment2 > 0">중도2 {{ toMillions(sale.interimPayment2) }}</span>
+              <span v-if="sale.interimPayment3 > 0">중도3 {{ toMillions(sale.interimPayment3) }}</span>
               <span v-if="sale.finalPayment > 0">잔금 {{ toMillions(sale.finalPayment) }}</span>
               <span class="text-gray-400">·</span>
               <span class="font-medium text-green-600">합계 {{ toMillions(sale.totalAmount) }}</span>

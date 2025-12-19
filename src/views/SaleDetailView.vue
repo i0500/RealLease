@@ -42,11 +42,18 @@ const editForm = ref({
   unitNumber: '',
   buyer: '',
   contractDate: null as number | null,
-  downPayment: 0,
-  interimPayment: 0,
-  finalPayment: 0,
+  downPayment2Date: null as number | null,
+  downPayment2: 0,
+  interimPayment1Date: null as number | null,
+  interimPayment1: 0,
+  interimPayment2Date: null as number | null,
+  interimPayment2: 0,
+  interimPayment3Date: null as number | null,
+  interimPayment3: 0,
   finalPaymentDate: null as number | null,
+  finalPayment: 0,
   contractFormat: '',
+  bondTransfer: '',
   status: 'active' as 'active' | 'completed',
   notes: ''
 })
@@ -86,7 +93,13 @@ const statusOptions = [
 
 // Computed total amount for edit form
 const totalAmount = computed(() => {
-  return editForm.value.downPayment + editForm.value.interimPayment + editForm.value.finalPayment
+  return (
+    editForm.value.downPayment2 +
+    editForm.value.interimPayment1 +
+    editForm.value.interimPayment2 +
+    editForm.value.interimPayment3 +
+    editForm.value.finalPayment
+  )
 })
 
 // Open edit modal
@@ -103,11 +116,18 @@ function openEditModal() {
     unitNumber: unitNumber,
     buyer: saleContract.value.buyer,
     contractDate: saleContract.value.contractDate ? new Date(saleContract.value.contractDate).getTime() : null,
-    downPayment: saleContract.value.downPayment,
-    interimPayment: saleContract.value.interimPayment,
-    finalPayment: saleContract.value.finalPayment,
+    downPayment2Date: saleContract.value.downPayment2Date ? new Date(saleContract.value.downPayment2Date).getTime() : null,
+    downPayment2: saleContract.value.downPayment2,
+    interimPayment1Date: saleContract.value.interimPayment1Date ? new Date(saleContract.value.interimPayment1Date).getTime() : null,
+    interimPayment1: saleContract.value.interimPayment1,
+    interimPayment2Date: saleContract.value.interimPayment2Date ? new Date(saleContract.value.interimPayment2Date).getTime() : null,
+    interimPayment2: saleContract.value.interimPayment2,
+    interimPayment3Date: saleContract.value.interimPayment3Date ? new Date(saleContract.value.interimPayment3Date).getTime() : null,
+    interimPayment3: saleContract.value.interimPayment3,
     finalPaymentDate: saleContract.value.finalPaymentDate ? new Date(saleContract.value.finalPaymentDate).getTime() : null,
+    finalPayment: saleContract.value.finalPayment,
     contractFormat: saleContract.value.contractFormat,
+    bondTransfer: saleContract.value.bondTransfer,
     status: saleContract.value.status,
     notes: saleContract.value.notes
   }
@@ -136,12 +156,19 @@ async function handleUpdate() {
       unit,
       buyer: editForm.value.buyer,
       contractDate: editForm.value.contractDate ? new Date(editForm.value.contractDate) : undefined,
-      downPayment: editForm.value.downPayment,
-      interimPayment: editForm.value.interimPayment,
-      finalPayment: editForm.value.finalPayment,
+      downPayment2Date: editForm.value.downPayment2Date ? new Date(editForm.value.downPayment2Date) : undefined,
+      downPayment2: editForm.value.downPayment2,
+      interimPayment1Date: editForm.value.interimPayment1Date ? new Date(editForm.value.interimPayment1Date) : undefined,
+      interimPayment1: editForm.value.interimPayment1,
+      interimPayment2Date: editForm.value.interimPayment2Date ? new Date(editForm.value.interimPayment2Date) : undefined,
+      interimPayment2: editForm.value.interimPayment2,
+      interimPayment3Date: editForm.value.interimPayment3Date ? new Date(editForm.value.interimPayment3Date) : undefined,
+      interimPayment3: editForm.value.interimPayment3,
       finalPaymentDate: editForm.value.finalPaymentDate ? new Date(editForm.value.finalPaymentDate) : undefined,
+      finalPayment: editForm.value.finalPayment,
       totalAmount: totalAmount.value,
       contractFormat: editForm.value.contractFormat,
+      bondTransfer: editForm.value.bondTransfer,
       status: editForm.value.status,
       notes: editForm.value.notes
     })
@@ -260,15 +287,45 @@ async function handleDelete() {
       <!-- Payment Details -->
       <n-card title="결제 정보 (단위: 천원)" class="mb-4">
         <n-descriptions bordered :column="1" label-placement="left">
-          <n-descriptions-item label="계약금">
-            <span class="font-medium text-blue-600">
-              {{ saleContract.downPayment > 0 ? saleContract.downPayment.toLocaleString() : '-' }}
-            </span>
+          <n-descriptions-item label="계약금 2차">
+            <div class="flex justify-between items-center">
+              <span class="font-medium text-blue-600">
+                {{ saleContract.downPayment2 > 0 ? saleContract.downPayment2.toLocaleString() : '-' }}
+              </span>
+              <span v-if="saleContract.downPayment2Date" class="text-sm text-gray-600">
+                ({{ formatDate(saleContract.downPayment2Date, 'yyyy.MM.dd') }})
+              </span>
+            </div>
           </n-descriptions-item>
-          <n-descriptions-item label="중도금">
-            <span class="font-medium text-orange-600">
-              {{ saleContract.interimPayment > 0 ? saleContract.interimPayment.toLocaleString() : '-' }}
-            </span>
+          <n-descriptions-item label="중도금 1차">
+            <div class="flex justify-between items-center">
+              <span class="font-medium text-orange-600">
+                {{ saleContract.interimPayment1 > 0 ? saleContract.interimPayment1.toLocaleString() : '-' }}
+              </span>
+              <span v-if="saleContract.interimPayment1Date" class="text-sm text-gray-600">
+                ({{ formatDate(saleContract.interimPayment1Date, 'yyyy.MM.dd') }})
+              </span>
+            </div>
+          </n-descriptions-item>
+          <n-descriptions-item label="중도금 2차">
+            <div class="flex justify-between items-center">
+              <span class="font-medium text-orange-600">
+                {{ saleContract.interimPayment2 > 0 ? saleContract.interimPayment2.toLocaleString() : '-' }}
+              </span>
+              <span v-if="saleContract.interimPayment2Date" class="text-sm text-gray-600">
+                ({{ formatDate(saleContract.interimPayment2Date, 'yyyy.MM.dd') }})
+              </span>
+            </div>
+          </n-descriptions-item>
+          <n-descriptions-item label="중도금 3차">
+            <div class="flex justify-between items-center">
+              <span class="font-medium text-orange-600">
+                {{ saleContract.interimPayment3 > 0 ? saleContract.interimPayment3.toLocaleString() : '-' }}
+              </span>
+              <span v-if="saleContract.interimPayment3Date" class="text-sm text-gray-600">
+                ({{ formatDate(saleContract.interimPayment3Date, 'yyyy.MM.dd') }})
+              </span>
+            </div>
           </n-descriptions-item>
           <n-descriptions-item label="잔금">
             <div class="flex justify-between items-center">
@@ -284,6 +341,9 @@ async function handleDelete() {
             <span class="text-xl font-bold" style="color: #2c3e50;">
               {{ saleContract.totalAmount.toLocaleString() }}
             </span>
+          </n-descriptions-item>
+          <n-descriptions-item label="채권양도">
+            {{ saleContract.bondTransfer || '-' }}
           </n-descriptions-item>
         </n-descriptions>
       </n-card>
@@ -319,23 +379,55 @@ async function handleDelete() {
         <n-form-item label="계약일">
           <n-date-picker v-model:value="editForm.contractDate" type="date" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="계약금 (천원)">
-          <n-input-number v-model:value="editForm.downPayment" :min="0" style="width: 100%" />
+
+        <!-- 계약금 2차 -->
+        <n-form-item label="계약금 2차 일자">
+          <n-date-picker v-model:value="editForm.downPayment2Date" type="date" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="중도금 (천원)">
-          <n-input-number v-model:value="editForm.interimPayment" :min="0" style="width: 100%" />
+        <n-form-item label="계약금 2차 (천원)">
+          <n-input-number v-model:value="editForm.downPayment2" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 중도금 1차 -->
+        <n-form-item label="중도금 1차 일자">
+          <n-date-picker v-model:value="editForm.interimPayment1Date" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="중도금 1차 (천원)">
+          <n-input-number v-model:value="editForm.interimPayment1" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 중도금 2차 -->
+        <n-form-item label="중도금 2차 일자">
+          <n-date-picker v-model:value="editForm.interimPayment2Date" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="중도금 2차 (천원)">
+          <n-input-number v-model:value="editForm.interimPayment2" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 중도금 3차 -->
+        <n-form-item label="중도금 3차 일자">
+          <n-date-picker v-model:value="editForm.interimPayment3Date" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="중도금 3차 (천원)">
+          <n-input-number v-model:value="editForm.interimPayment3" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 잔금 -->
+        <n-form-item label="잔금 일자">
+          <n-date-picker v-model:value="editForm.finalPaymentDate" type="date" style="width: 100%" />
         </n-form-item>
         <n-form-item label="잔금 (천원)">
           <n-input-number v-model:value="editForm.finalPayment" :min="0" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="잔금일자">
-          <n-date-picker v-model:value="editForm.finalPaymentDate" type="date" style="width: 100%" />
-        </n-form-item>
+
         <n-form-item label="합계 (천원)">
           <n-input-number :value="totalAmount" disabled style="width: 100%" />
         </n-form-item>
         <n-form-item label="계약형식">
           <n-input v-model:value="editForm.contractFormat" placeholder="예: 임대일부말소" />
+        </n-form-item>
+        <n-form-item label="채권양도">
+          <n-input v-model:value="editForm.bondTransfer" placeholder="채권양도 정보" />
         </n-form-item>
         <n-form-item label="상태">
           <n-select v-model:value="editForm.status" :options="statusOptions" />

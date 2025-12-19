@@ -36,16 +36,23 @@ const message = useMessage()
 const searchQuery = ref('')
 const showAddModal = ref(false)
 const saleForm = ref({
-  category: '',
+  category: '', // 자동 넘버링되므로 사용자는 입력하지 않음
   building: '',
   unitNumber: '',
   buyer: '',
   contractDate: null as number | null,
-  downPayment: 0,
-  interimPayment: 0,
-  finalPayment: 0,
+  downPayment2Date: null as number | null,
+  downPayment2: 0,
+  interimPayment1Date: null as number | null,
+  interimPayment1: 0,
+  interimPayment2Date: null as number | null,
+  interimPayment2: 0,
+  interimPayment3Date: null as number | null,
+  interimPayment3: 0,
   finalPaymentDate: null as number | null,
+  finalPayment: 0,
   contractFormat: '',
+  bondTransfer: '',
   status: 'active' as 'active' | 'completed',
   notes: ''
 })
@@ -104,19 +111,20 @@ const columns = [
     ellipsis: { tooltip: true }
   },
   {
-    title: '계약금',
-    key: 'downPayment',
+    title: '계약금2',
+    key: 'downPayment2',
     width: 110,
     render: (row: SaleContract) => {
-      return row.downPayment > 0 ? `${row.downPayment.toLocaleString()}` : '-'
+      return row.downPayment2 > 0 ? `${row.downPayment2.toLocaleString()}` : '-'
     }
   },
   {
     title: '중도금',
-    key: 'interimPayment',
+    key: 'interimPayments',
     width: 110,
     render: (row: SaleContract) => {
-      return row.interimPayment > 0 ? `${row.interimPayment.toLocaleString()}` : '-'
+      const total = row.interimPayment1 + row.interimPayment2 + row.interimPayment3
+      return total > 0 ? `${total.toLocaleString()}` : '-'
     }
   },
   {
@@ -172,7 +180,13 @@ const statusOptions = [
 
 // Computed total amount
 const totalAmount = computed(() => {
-  return saleForm.value.downPayment + saleForm.value.interimPayment + saleForm.value.finalPayment
+  return (
+    saleForm.value.downPayment2 +
+    saleForm.value.interimPayment1 +
+    saleForm.value.interimPayment2 +
+    saleForm.value.interimPayment3 +
+    saleForm.value.finalPayment
+  )
 })
 
 // Open add modal
@@ -189,11 +203,18 @@ function resetForm() {
     unitNumber: '',
     buyer: '',
     contractDate: null,
-    downPayment: 0,
-    interimPayment: 0,
-    finalPayment: 0,
+    downPayment2Date: null,
+    downPayment2: 0,
+    interimPayment1Date: null,
+    interimPayment1: 0,
+    interimPayment2Date: null,
+    interimPayment2: 0,
+    interimPayment3Date: null,
+    interimPayment3: 0,
     finalPaymentDate: null,
+    finalPayment: 0,
     contractFormat: '',
+    bondTransfer: '',
     status: 'active',
     notes: ''
   }
@@ -217,17 +238,24 @@ async function handleSubmit() {
     await contractsStore.addSaleContract({
       sheetId: sheetsStore.currentSheet.id,
       rowIndex: 0, // Will be set by API
-      category: saleForm.value.category,
+      category: saleForm.value.category, // 자동 넘버링됨
       building: saleForm.value.building,
       unit,
       buyer: saleForm.value.buyer,
       contractDate: saleForm.value.contractDate ? new Date(saleForm.value.contractDate) : undefined,
-      downPayment: saleForm.value.downPayment,
-      interimPayment: saleForm.value.interimPayment,
-      finalPayment: saleForm.value.finalPayment,
+      downPayment2Date: saleForm.value.downPayment2Date ? new Date(saleForm.value.downPayment2Date) : undefined,
+      downPayment2: saleForm.value.downPayment2,
+      interimPayment1Date: saleForm.value.interimPayment1Date ? new Date(saleForm.value.interimPayment1Date) : undefined,
+      interimPayment1: saleForm.value.interimPayment1,
+      interimPayment2Date: saleForm.value.interimPayment2Date ? new Date(saleForm.value.interimPayment2Date) : undefined,
+      interimPayment2: saleForm.value.interimPayment2,
+      interimPayment3Date: saleForm.value.interimPayment3Date ? new Date(saleForm.value.interimPayment3Date) : undefined,
+      interimPayment3: saleForm.value.interimPayment3,
       finalPaymentDate: saleForm.value.finalPaymentDate ? new Date(saleForm.value.finalPaymentDate) : undefined,
+      finalPayment: saleForm.value.finalPayment,
       totalAmount: totalAmount.value,
       contractFormat: saleForm.value.contractFormat,
+      bondTransfer: saleForm.value.bondTransfer,
       status: saleForm.value.status,
       notes: saleForm.value.notes
     })
@@ -329,8 +357,10 @@ async function handleSubmit() {
           <!-- Line 2: 계약금, 중도금, 잔금, 합계, 상태 (백만원 단위) -->
           <div class="flex items-center justify-between text-xs">
             <div class="flex items-center gap-2 text-gray-600 flex-wrap">
-              <span v-if="sale.downPayment > 0">계약금 {{ toMillions(sale.downPayment) }}</span>
-              <span v-if="sale.interimPayment > 0">중도금 {{ toMillions(sale.interimPayment) }}</span>
+              <span v-if="sale.downPayment2 > 0">계약금2 {{ toMillions(sale.downPayment2) }}</span>
+              <span v-if="sale.interimPayment1 > 0">중도1 {{ toMillions(sale.interimPayment1) }}</span>
+              <span v-if="sale.interimPayment2 > 0">중도2 {{ toMillions(sale.interimPayment2) }}</span>
+              <span v-if="sale.interimPayment3 > 0">중도3 {{ toMillions(sale.interimPayment3) }}</span>
               <span v-if="sale.finalPayment > 0">잔금 {{ toMillions(sale.finalPayment) }}</span>
               <span class="font-medium text-green-600">합계 {{ toMillions(sale.totalAmount) }}</span>
             </div>
@@ -367,10 +397,7 @@ async function handleSubmit() {
 
     <!-- Add Sale Modal -->
     <n-modal v-model:show="showAddModal" preset="dialog" title="매도 계약 등록">
-      <n-form :model="saleForm" label-placement="left" label-width="100">
-        <n-form-item label="구분">
-          <n-input v-model:value="saleForm.category" placeholder="예: 1, 2, 3..." />
-        </n-form-item>
+      <n-form :model="saleForm" label-placement="left" label-width="120">
         <n-form-item label="동" required>
           <n-input v-model:value="saleForm.building" placeholder="예: 108" />
         </n-form-item>
@@ -383,23 +410,55 @@ async function handleSubmit() {
         <n-form-item label="계약일">
           <n-date-picker v-model:value="saleForm.contractDate" type="date" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="계약금 (천원)">
-          <n-input-number v-model:value="saleForm.downPayment" :min="0" style="width: 100%" />
+
+        <!-- 계약금 2차 -->
+        <n-form-item label="계약금 2차 일자">
+          <n-date-picker v-model:value="saleForm.downPayment2Date" type="date" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="중도금 (천원)">
-          <n-input-number v-model:value="saleForm.interimPayment" :min="0" style="width: 100%" />
+        <n-form-item label="계약금 2차 (천원)">
+          <n-input-number v-model:value="saleForm.downPayment2" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 중도금 1차 -->
+        <n-form-item label="중도금 1차 일자">
+          <n-date-picker v-model:value="saleForm.interimPayment1Date" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="중도금 1차 (천원)">
+          <n-input-number v-model:value="saleForm.interimPayment1" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 중도금 2차 -->
+        <n-form-item label="중도금 2차 일자">
+          <n-date-picker v-model:value="saleForm.interimPayment2Date" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="중도금 2차 (천원)">
+          <n-input-number v-model:value="saleForm.interimPayment2" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 중도금 3차 -->
+        <n-form-item label="중도금 3차 일자">
+          <n-date-picker v-model:value="saleForm.interimPayment3Date" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="중도금 3차 (천원)">
+          <n-input-number v-model:value="saleForm.interimPayment3" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 잔금 -->
+        <n-form-item label="잔금 일자">
+          <n-date-picker v-model:value="saleForm.finalPaymentDate" type="date" style="width: 100%" />
         </n-form-item>
         <n-form-item label="잔금 (천원)">
           <n-input-number v-model:value="saleForm.finalPayment" :min="0" style="width: 100%" />
         </n-form-item>
-        <n-form-item label="잔금일자">
-          <n-date-picker v-model:value="saleForm.finalPaymentDate" type="date" style="width: 100%" />
-        </n-form-item>
+
         <n-form-item label="합계 (천원)">
           <n-input-number :value="totalAmount" disabled style="width: 100%" />
         </n-form-item>
         <n-form-item label="계약형식">
           <n-input v-model:value="saleForm.contractFormat" placeholder="예: 임대일부말소" />
+        </n-form-item>
+        <n-form-item label="채권양도">
+          <n-input v-model:value="saleForm.bondTransfer" placeholder="채권양도 정보" />
         </n-form-item>
         <n-form-item label="상태">
           <n-select v-model:value="saleForm.status" :options="statusOptions" />

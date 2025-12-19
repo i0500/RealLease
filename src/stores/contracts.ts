@@ -492,46 +492,35 @@ export const useContractsStore = defineStore('contracts', () => {
     rowIndex: number
   ): SaleContract | null {
     try {
-      // 📊 매도현황 시트 구조 (유연한 파싱):
+      // 📊 매도현황 시트 구조 (올바른 열 매핑):
       // A열 (row[0]): 빈칸 (무시)
       // B열 (row[1]): 구분
       // C열 (row[2]): 동
-      // D열 (row[3]): 하이픈(-) 또는 호수
-      // E열 (row[4]): 호수 (D열이 하이픈인 경우)
+      // E열 (row[4]): 호
       // F열 (row[5]): 계약자
       // G열 (row[6]): 계약일
-      // H열 (row[7]): 계약금
-      // P열 (row[15]): 중도금
-      // Q열 (row[16]): 잔금일자
-      // R열 (row[17]): 잔금
+      // I열 (row[8]): 계약금 2차 일자
+      // J열 (row[9]): 계약금 2차 금액
+      // K열 (row[10]): 중도금 1차 일자
+      // L열 (row[11]): 중도금 1차 금액
+      // M열 (row[12]): 중도금 2차 일자
+      // N열 (row[13]): 중도금 2차 금액
+      // O열 (row[14]): 중도금 3차 일자
+      // P열 (row[15]): 중도금 3차 금액
+      // Q열 (row[16]): 잔금 일자
+      // R열 (row[17]): 잔금 금액
       // S열 (row[18]): 합계
       // T열 (row[19]): 계약형식
-      // U열+ (row[20+]): 비고
+      // U열 (row[20]): 채권양도
+      // V열 (row[21]): 비고 (종결 (note text) 형식)
 
       const category = row[1]?.toString().trim() || ''
       const building = row[2]?.toString().trim() || ''
-
-      // D열이 하이픈인지 확인
-      const colD = row[3]?.toString().trim() || ''
-      const colE = row[4]?.toString().trim() || ''
-
-      let unitNum = ''
-      let hyphen = '-'
-
-      // D열이 하이픈('-')이면 E열이 호수
-      if (colD === '-' || colD === '') {
-        unitNum = colE
-        hyphen = '-'
-      } else {
-        // D열이 하이픈이 아니면 D열이 호수
-        unitNum = colD
-        hyphen = '-'
-      }
-
+      const unitNum = row[4]?.toString().trim() || '' // E열: 호
       const buyer = row[5]?.toString().trim() || ''
 
       // 동-호 조합 (예: "108-407")
-      const unit = building && unitNum ? `${building}${hyphen}${unitNum}` : ''
+      const unit = building && unitNum ? `${building}-${unitNum}` : ''
 
       // 필수 필드 검증: 계약자와 동-호 정보가 있는 경우만 유효
       if (!buyer || !building || !unitNum) {
@@ -539,8 +528,6 @@ export const useContractsStore = defineStore('contracts', () => {
           rowIndex,
           category,
           building,
-          colD,
-          colE,
           unitNum,
           unit,
           buyer,
@@ -554,9 +541,21 @@ export const useContractsStore = defineStore('contracts', () => {
         return null
       }
 
-      // 계약일 파싱
-      const contractDateStr = row[6]?.toString()
-      const contractDate = contractDateStr ? parseDate(contractDateStr) : undefined
+      // 날짜 파싱 헬퍼 함수 (안전한 날짜 처리)
+      const parseDateSafe = (dateStr: string | undefined): Date | undefined => {
+        if (!dateStr || dateStr.trim() === '') return undefined
+        try {
+          const date = parseDate(dateStr)
+          // Invalid Date 체크
+          if (date && !isNaN(date.getTime())) {
+            return date
+          }
+          return undefined
+        } catch (e) {
+          console.log(`날짜 파싱 실패: ${dateStr}`, e)
+          return undefined
+        }
+      }
 
       // 금액 파싱 헬퍼 함수 (단위: 천원)
       const parseAmount = (idx: number): number => {
@@ -565,29 +564,52 @@ export const useContractsStore = defineStore('contracts', () => {
         return parseInt(amountStr.replace(/,/g, '')) || 0
       }
 
-      const downPayment = parseAmount(7) // H열: 계약금
-      const interimPayment = parseAmount(15) // P열: 중도금
-      const finalPayment = parseAmount(17) // R열: 잔금
-      const totalAmount = parseAmount(18) // S열: 합계
+      // 계약일
+      const contractDate = parseDateSafe(row[6]?.toString())
 
-      // 잔금일자 파싱
-      const finalPaymentDateStr = row[16]?.toString()
-      const finalPaymentDate = finalPaymentDateStr ? parseDate(finalPaymentDateStr) : undefined
+      // 계약금 2차 (I-J열)
+      const downPayment2Date = parseDateSafe(row[8]?.toString())
+      const downPayment2 = parseAmount(9)
 
-      // 계약형식
+      // 중도금 1차 (K-L열)
+      const interimPayment1Date = parseDateSafe(row[10]?.toString())
+      const interimPayment1 = parseAmount(11)
+
+      // 중도금 2차 (M-N열)
+      const interimPayment2Date = parseDateSafe(row[12]?.toString())
+      const interimPayment2 = parseAmount(13)
+
+      // 중도금 3차 (O-P열)
+      const interimPayment3Date = parseDateSafe(row[14]?.toString())
+      const interimPayment3 = parseAmount(15)
+
+      // 잔금 (Q-R열)
+      const finalPaymentDate = parseDateSafe(row[16]?.toString())
+      const finalPayment = parseAmount(17)
+
+      // 합계 (S열)
+      const totalAmount = parseAmount(18)
+
+      // 계약형식 (T열)
       const contractFormat = row[19]?.toString().trim() || ''
 
-      // 비고 (U열, V열 등 여러 컬럼 확인)
-      const notesU = row[20]?.toString().trim() || ''
-      const notesV = row[21]?.toString().trim() || ''
-      const notesRaw = notesV || notesU // V열 우선, 없으면 U열
+      // 채권양도 (U열)
+      const bondTransfer = row[20]?.toString().trim() || ''
+
+      // 비고 (V열) - "종결 (note text)" 형식 파싱
+      const notesRaw = row[21]?.toString().trim() || ''
 
       // 상태 판별: 비고에 "종결" 포함 여부
-      // "종결 (임차인 매수)" 같은 경우도 "종결"로 인식
       const status: 'active' | 'completed' = notesRaw.includes('종결') ? 'completed' : 'active'
 
-      // 비고
-      const notes = notesRaw
+      // 비고에서 괄호 안 내용만 추출 (종결 (임차인 매수) → 임차인 매수)
+      let notes = notesRaw
+      const match = notesRaw.match(/종결\s*\((.*?)\)/)
+      if (match && match[1]) {
+        notes = match[1].trim()
+      } else if (notesRaw.includes('종결')) {
+        notes = notesRaw.replace('종결', '').trim()
+      }
 
       return {
         id: `sale-${category}-${unit}`.replace(/\s+/g, '-'),
@@ -598,12 +620,19 @@ export const useContractsStore = defineStore('contracts', () => {
         unit,
         buyer,
         contractDate,
-        downPayment,
-        interimPayment,
-        finalPayment,
+        downPayment2Date,
+        downPayment2,
+        interimPayment1Date,
+        interimPayment1,
+        interimPayment2Date,
+        interimPayment2,
+        interimPayment3Date,
+        interimPayment3,
         finalPaymentDate,
+        finalPayment,
         totalAmount,
         contractFormat,
+        bondTransfer,
         status,
         notes,
         metadata: {
@@ -808,8 +837,20 @@ export const useContractsStore = defineStore('contracts', () => {
         throw new Error('Sheet not found')
       }
 
+      // 1. 구분(category) 자동 넘버링
+      // 기존 계약자가 있는 매도 계약 건수를 세서 다음 번호 부여
+      // 예: 기존 6건 → 신규는 7번
+      const existingCount = saleContracts.value.filter(c =>
+        c.sheetId === contract.sheetId &&
+        c.buyer &&
+        c.buyer.trim() !== '' &&
+        !c.metadata.deletedAt
+      ).length
+      const autoCategory = (existingCount + 1).toString()
+
       const newContract: SaleContract = {
         ...contract,
+        category: autoCategory, // 자동 넘버링된 구분 번호
         id: generateId(),
         metadata: {
           createdAt: new Date(),
@@ -817,7 +858,11 @@ export const useContractsStore = defineStore('contracts', () => {
         }
       }
 
-      // 시트에 행 추가
+      // 2. 시트에 행 추가
+      // Note: Google Sheets API의 appendRow는 시트 맨 아래에 추가됨
+      // 구분 번호 순서대로 정렬하려면 시트에서 수동 정렬 필요
+      // 또는 batchUpdate로 특정 위치에 삽입 가능하나 복잡도 증가
+      // 현재는 appendRow 사용 (데이터는 정확하게 들어가고, 시트에서 정렬 가능)
       const row = saleContractToRow(newContract)
       const range = sheet.tabName ? `${sheet.tabName}!A:Z` : 'A:Z'
       await sheetsService.appendRow(sheet.spreadsheetId, range, row)
@@ -911,39 +956,94 @@ export const useContractsStore = defineStore('contracts', () => {
 
   // SaleContract를 시트 row로 변환
   function saleContractToRow(contract: SaleContract): any[] {
-    // 매도현황 시트 구조에 맞춰 row 생성
-    // A열 (row[0]): 빈칸 또는 구분 번호
+    // 매도현황 시트 구조에 맞춰 row 생성 (올바른 열 매핑)
+    // A열 (row[0]): 빈칸
     // B열 (row[1]): 구분
     // C열 (row[2]): 동
-    // D열 (row[3]): 하이픈
-    // E열 (row[4]): 호수
+    // D열 (row[3]): 빈칸
+    // E열 (row[4]): 호
     // F열 (row[5]): 계약자
     // G열 (row[6]): 계약일
-    // H열 (row[7]): 계약금
-    // P열 (row[15]): 중도금
-    // Q열 (row[16]): 잔금일자
-    // R열 (row[17]): 잔금
+    // H열 (row[7]): 빈칸
+    // I열 (row[8]): 계약금 2차 일자
+    // J열 (row[9]): 계약금 2차 금액
+    // K열 (row[10]): 중도금 1차 일자
+    // L열 (row[11]): 중도금 1차 금액
+    // M열 (row[12]): 중도금 2차 일자
+    // N열 (row[13]): 중도금 2차 금액
+    // O열 (row[14]): 중도금 3차 일자
+    // P열 (row[15]): 중도금 3차 금액
+    // Q열 (row[16]): 잔금 일자
+    // R열 (row[17]): 잔금 금액
     // S열 (row[18]): 합계
     // T열 (row[19]): 계약형식
-    // U열 (row[20]): 비고
+    // U열 (row[20]): 채권양도
+    // V열 (row[21]): 비고 (종결 (note text) 형식)
 
-    const row = new Array(21).fill('')
+    const row = new Array(22).fill('')
 
-    row[1] = contract.category
-    row[2] = contract.building
-    row[3] = '-'
+    // 안전한 날짜 포맷 함수
+    const formatDateSafe = (date: Date | undefined): string => {
+      if (!date) return ''
+      try {
+        // Invalid Date 체크
+        if (isNaN(date.getTime())) {
+          return ''
+        }
+        return date.toISOString().substring(0, 10).replace(/-/g, '/')
+      } catch (e) {
+        console.log('날짜 포맷 실패:', date, e)
+        return ''
+      }
+    }
+
+    // 기본 정보
+    row[1] = contract.category || '' // B열: 구분
+    row[2] = contract.building || '' // C열: 동
+    // D열 (row[3]): 빈칸
     // 동-호에서 호수 추출 (예: "108-407" -> "407")
     const unitParts = contract.unit.split('-')
-    row[4] = unitParts[1] || contract.unit
-    row[5] = contract.buyer
-    row[6] = contract.contractDate ? contract.contractDate.toISOString().substring(0, 10).replace(/-/g, '/') : ''
-    row[7] = contract.downPayment
-    row[15] = contract.interimPayment
-    row[16] = contract.finalPaymentDate ? contract.finalPaymentDate.toISOString().substring(0, 10).replace(/-/g, '/') : ''
-    row[17] = contract.finalPayment
-    row[18] = contract.totalAmount
-    row[19] = contract.contractFormat
-    row[20] = contract.notes
+    row[4] = unitParts[1] || contract.unit || '' // E열: 호
+    row[5] = contract.buyer || '' // F열: 계약자
+    row[6] = formatDateSafe(contract.contractDate) // G열: 계약일
+
+    // H열 (row[7]): 빈칸
+
+    // 계약금 2차 (I-J열)
+    row[8] = formatDateSafe(contract.downPayment2Date) // I열: 계약금 2차 일자
+    row[9] = contract.downPayment2 || 0 // J열: 계약금 2차 금액
+
+    // 중도금 1차 (K-L열)
+    row[10] = formatDateSafe(contract.interimPayment1Date) // K열: 중도금 1차 일자
+    row[11] = contract.interimPayment1 || 0 // L열: 중도금 1차 금액
+
+    // 중도금 2차 (M-N열)
+    row[12] = formatDateSafe(contract.interimPayment2Date) // M열: 중도금 2차 일자
+    row[13] = contract.interimPayment2 || 0 // N열: 중도금 2차 금액
+
+    // 중도금 3차 (O-P열)
+    row[14] = formatDateSafe(contract.interimPayment3Date) // O열: 중도금 3차 일자
+    row[15] = contract.interimPayment3 || 0 // P열: 중도금 3차 금액
+
+    // 잔금 (Q-R열)
+    row[16] = formatDateSafe(contract.finalPaymentDate) // Q열: 잔금 일자
+    row[17] = contract.finalPayment || 0 // R열: 잔금 금액
+
+    // 합계 (S열)
+    row[18] = contract.totalAmount || 0 // S열: 합계
+
+    // 계약형식 (T열)
+    row[19] = contract.contractFormat || '' // T열: 계약형식
+
+    // 채권양도 (U열)
+    row[20] = contract.bondTransfer || '' // U열: 채권양도
+
+    // 비고 (V열) - "종결 (note text)" 형식으로 결합
+    if (contract.status === 'completed') {
+      row[21] = contract.notes ? `종결 (${contract.notes})` : '종결'
+    } else {
+      row[21] = contract.notes || ''
+    }
 
     return row
   }
