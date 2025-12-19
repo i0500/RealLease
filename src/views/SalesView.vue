@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatDate } from '@/utils/dateUtils'
+import { formatCurrency } from '@/utils/formatUtils'
 import type { SaleContract } from '@/types/contract'
 import {
   NCard,
@@ -22,6 +23,8 @@ import {
   NInputNumber,
   NDatePicker,
   NSelect,
+  NRadio,
+  NRadioGroup,
   useMessage
 } from 'naive-ui'
 import { HomeOutline as HomeIcon, AddOutline as AddIcon } from '@vicons/ionicons5'
@@ -33,6 +36,7 @@ const sheetsStore = useSheetsStore()
 const message = useMessage()
 
 // View state
+const viewMode = ref<'table' | 'card'>('table')
 const searchQuery = ref('')
 const showAddModal = ref(false)
 const saleForm = ref({
@@ -172,12 +176,6 @@ function handleRowClick(row: SaleContract) {
   router.push({ name: 'sale-detail', params: { id: row.id } })
 }
 
-// Convert thousands to millions (천원 → 백만원)
-function toMillions(thousands: number): string {
-  if (thousands === 0) return '0'
-  return (thousands / 1000).toFixed(0)
-}
-
 // Status options
 const statusOptions = [
   { label: '진행중', value: 'active' },
@@ -305,18 +303,24 @@ async function handleSubmit() {
       </n-alert>
 
       <!-- Search and filters -->
-      <n-card v-if="sheetsStore.currentSheet" class="mb-4">
-        <n-space vertical>
-          <n-input
-            v-model:value="searchQuery"
-            placeholder="동-호, 계약자, 구분으로 검색..."
-            clearable
-          />
-          <div class="text-sm text-gray-600">
-            총 {{ filteredSales.length }}건의 매도 계약
-          </div>
-        </n-space>
-      </n-card>
+      <n-space v-if="sheetsStore.currentSheet" class="mb-4" align="center">
+        <n-input
+          v-model:value="searchQuery"
+          placeholder="동-호, 계약자, 구분으로 검색..."
+          clearable
+          style="width: 300px"
+        />
+
+        <!-- 뷰 모드 선택 -->
+        <n-radio-group v-model:value="viewMode">
+          <n-radio value="table">테이블</n-radio>
+          <n-radio value="card">카드</n-radio>
+        </n-radio-group>
+
+        <div class="text-sm text-gray-600">
+          총 {{ filteredSales.length }}건
+        </div>
+      </n-space>
     </div>
 
     <!-- Loading state -->
@@ -336,68 +340,101 @@ async function handleSubmit() {
       {{ contractsStore.error }}
     </n-alert>
 
-    <!-- Data list/table -->
-    <div v-else-if="sheetsStore.currentSheet">
-      <!-- Mobile card layout (below md) -->
-      <div class="md:hidden space-y-3">
-        <div
-          v-for="sale in filteredSales"
-          :key="sale.id"
-          class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
-          @click="handleRowClick(sale)"
-        >
-          <!-- Line 1: 동-호, 계약자, 계약일 -->
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 text-sm">
-              <span class="font-semibold text-green-600">
-                {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
-              </span>
-              <span class="text-gray-400">·</span>
-              <span class="font-medium">{{ sale.buyer }}</span>
-              <span v-if="sale.contractDate" class="text-gray-500 text-xs">
-                {{ formatDate(sale.contractDate, 'MM.dd') }}
-              </span>
-            </div>
-          </div>
+    <!-- Empty State -->
+    <n-empty v-else-if="sheetsStore.currentSheet && filteredSales.length === 0" description="매도 계약이 없습니다">
+      <template #extra>
+        <n-button type="primary" @click="openAddModal">첫 매도 계약 추가하기</n-button>
+      </template>
+    </n-empty>
 
-          <!-- Line 2: 계약금, 중도금, 잔금, 합계, 상태 (백만원 단위) -->
-          <div class="flex items-center justify-between text-xs">
-            <div class="flex items-center gap-2 text-gray-600 flex-wrap">
-              <span v-if="sale.downPayment2 > 0">계약금2 {{ toMillions(sale.downPayment2) }}</span>
-              <span v-if="sale.interimPayment1 > 0">중도1 {{ toMillions(sale.interimPayment1) }}</span>
-              <span v-if="sale.interimPayment2 > 0">중도2 {{ toMillions(sale.interimPayment2) }}</span>
-              <span v-if="sale.interimPayment3 > 0">중도3 {{ toMillions(sale.interimPayment3) }}</span>
-              <span v-if="sale.finalPayment > 0">잔금 {{ toMillions(sale.finalPayment) }}</span>
-              <span class="font-medium text-green-600">합계 {{ toMillions(sale.totalAmount) }}</span>
-            </div>
+    <!-- Table View -->
+    <n-card v-else-if="sheetsStore.currentSheet && viewMode === 'table'">
+      <n-data-table
+        :columns="columns"
+        :data="filteredSales"
+        :scroll-x="900"
+        :pagination="{ pageSize: 20 }"
+        :bordered="false"
+        striped
+        :row-props="(row: SaleContract) => ({
+          style: 'cursor: pointer;',
+          onClick: () => handleRowClick(row)
+        })"
+      />
+    </n-card>
+
+    <!-- Card View -->
+    <div v-else-if="sheetsStore.currentSheet && viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <n-card
+        v-for="sale in filteredSales"
+        :key="sale.id"
+        hoverable
+        class="sale-card"
+        style="cursor: pointer"
+        @click="handleRowClick(sale)"
+      >
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-lg">{{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호</span>
             <n-tag
               :type="sale.status === 'completed' ? 'success' : 'info'"
               size="small"
-              class="flex-shrink-0"
             >
               {{ sale.status === 'completed' ? '종결' : '진행중' }}
             </n-tag>
           </div>
+        </template>
+
+        <div class="sale-info space-y-3">
+          <div class="info-row">
+            <span class="label">👤 계약자</span>
+            <span class="value">{{ sale.buyer }}</span>
+          </div>
+
+          <div v-if="sale.contractDate" class="info-row">
+            <span class="label">📅 계약일</span>
+            <span class="value">{{ formatDate(sale.contractDate, 'yyyy.MM.dd') }}</span>
+          </div>
+
+          <div v-if="sale.downPayment2 > 0" class="info-row">
+            <span class="label">💰 계약금2</span>
+            <span class="value font-bold text-blue-600">{{ formatCurrency(sale.downPayment2 * 1000) }}</span>
+          </div>
+
+          <div v-if="sale.interimPayment1 > 0" class="info-row">
+            <span class="label">💳 중도금1</span>
+            <span class="value font-semibold text-purple-600">{{ formatCurrency(sale.interimPayment1 * 1000) }}</span>
+          </div>
+
+          <div v-if="sale.interimPayment2 > 0" class="info-row">
+            <span class="label">💳 중도금2</span>
+            <span class="value font-semibold text-purple-600">{{ formatCurrency(sale.interimPayment2 * 1000) }}</span>
+          </div>
+
+          <div v-if="sale.interimPayment3 > 0" class="info-row">
+            <span class="label">💳 중도금3</span>
+            <span class="value font-semibold text-purple-600">{{ formatCurrency(sale.interimPayment3 * 1000) }}</span>
+          </div>
+
+          <div v-if="sale.finalPayment > 0" class="info-row">
+            <span class="label">💵 잔금</span>
+            <span class="value font-bold text-orange-600">{{ formatCurrency(sale.finalPayment * 1000) }}</span>
+          </div>
+
+          <div class="info-row border-t-2 border-gray-300 pt-2 mt-2">
+            <span class="label font-bold">📊 합계</span>
+            <span class="value font-bold text-green-600 text-lg">{{ formatCurrency(sale.totalAmount * 1000) }}</span>
+          </div>
+
+          <div v-if="sale.contractFormat" class="info-row">
+            <span class="label">📋 계약형식</span>
+            <span class="value">{{ sale.contractFormat }}</span>
+          </div>
         </div>
 
-        <n-empty v-if="filteredSales.length === 0" description="매도 계약이 없습니다" class="py-10" />
-      </div>
-
-      <!-- PC table layout (md and above) -->
-      <n-card class="hidden md:block">
-        <n-data-table
-          v-if="filteredSales.length > 0"
-          :columns="columns"
-          :data="filteredSales"
-          :scroll-x="900"
-          :pagination="{ pageSize: 20 }"
-          striped
-          :row-props="(row: SaleContract) => ({
-            style: 'cursor: pointer;',
-            onClick: () => handleRowClick(row)
-          })"
-        />
-        <n-empty v-else description="매도 계약이 없습니다" class="py-10" />
+        <template #footer>
+          <div class="text-sm text-gray-500 text-center">클릭하여 상세정보 보기</div>
+        </template>
       </n-card>
     </div>
 
@@ -493,6 +530,60 @@ async function handleSubmit() {
 @media (min-width: 768px) {
   .sales-view {
     padding: 2rem;
+  }
+}
+
+.sale-card {
+  transition: all 0.3s ease;
+}
+
+.sale-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sale-info {
+  font-size: 14px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row .label {
+  flex-shrink: 0;
+  font-weight: 500;
+  color: #666;
+  min-width: 90px;
+}
+
+.info-row .value {
+  flex: 1;
+  text-align: right;
+  color: #2c3e50;
+  word-break: keep-all;
+}
+
+@media (max-width: 768px) {
+  .sale-info {
+    font-size: 13px;
+  }
+
+  .info-row .label {
+    min-width: 80px;
+    font-size: 12px;
+  }
+
+  .info-row .value {
+    font-size: 13px;
   }
 }
 </style>

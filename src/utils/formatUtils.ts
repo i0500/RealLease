@@ -1,12 +1,16 @@
 export function formatCurrency(amount: number): string {
   if (amount >= 100000000) {
     const billions = amount / 100000000
-    return `${billions}억`
+    // 소수점 2자리까지 표시, 불필요한 .00 제거
+    const formatted = billions % 1 === 0 ? billions.toString() : billions.toFixed(2)
+    return `${formatted}억`
   } else if (amount >= 10000) {
     const thousands = amount / 10000
-    return `${thousands}만`
+    // 소수점 2자리까지 표시, 불필요한 .00 제거
+    const formatted = thousands % 1 === 0 ? thousands.toString() : thousands.toFixed(2)
+    return `${formatted}만`
   }
-  return amount.toString()
+  return amount.toLocaleString()
 }
 
 export function formatPhoneNumber(phone: string): string {

@@ -82,12 +82,7 @@ const contractForm = ref({
 onMounted(async () => {
   // 모바일 화면 감지 (768px 이하)
   const checkMobile = () => {
-    const mobile = window.innerWidth < 768
-    isMobile.value = mobile
-    // 모바일에서는 자동으로 카드 뷰
-    if (mobile) {
-      viewMode.value = 'card'
-    }
+    isMobile.value = window.innerWidth < 768
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
@@ -490,8 +485,8 @@ function resetForm() {
           <span class="sm:hidden">추가</span>
         </n-button>
 
-        <!-- 데스크톱에서만 뷰 모드 선택 표시 -->
-        <n-radio-group v-if="!isMobile" v-model:value="viewMode">
+        <!-- PC/모바일 모두 뷰 모드 선택 표시 -->
+        <n-radio-group v-model:value="viewMode">
           <n-radio value="table">테이블</n-radio>
           <n-radio value="card">카드</n-radio>
         </n-radio-group>
@@ -571,14 +566,14 @@ function resetForm() {
           <div class="info-row">
             <span class="label">💰 보증금</span>
             <span class="value font-bold text-blue-600">
-              {{ isMobile ? `${(contract.deposit / 10000).toFixed(0)}억` : formatCurrency(contract.deposit) }}
+              {{ formatCurrency(contract.deposit) }}
             </span>
           </div>
 
           <div v-if="contract.monthlyRent" class="info-row">
             <span class="label">🏠 월세</span>
             <span class="value font-bold text-green-600">
-              {{ isMobile ? `${(contract.monthlyRent / 10000).toFixed(0)}만` : formatCurrency(contract.monthlyRent) }}
+              {{ formatCurrency(contract.monthlyRent) }}
             </span>
           </div>
 
