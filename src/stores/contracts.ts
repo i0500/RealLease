@@ -39,12 +39,6 @@ export const useContractsStore = defineStore('contracts', () => {
         cells.some(cell => cell === keyword.toLowerCase())
       ).length
 
-      console.log(`🔎 [findHeaderRowIndex] Row ${i} 검사:`, {
-        cells: cells.slice(0, 10),
-        saleMatches: `${saleMatches}/${saleHeaders.length}`,
-        rentalMatches: `${rentalMatches}/${rentalHeaders.length}`
-      })
-
       // 3개 이상의 헤더 키워드가 매칭되면 헤더 행으로 판단
       if (saleMatches >= 3 || rentalMatches >= 3) {
         console.log(`✅ [findHeaderRowIndex] 헤더 행 발견: Row ${i}`)
@@ -595,14 +589,6 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       if (!isValidBuildingOrUnit(building) || !isValidBuildingOrUnit(unitNum)) {
-        console.log('⏭️ [parseRowToSale] 유효하지 않은 동/호 - 건너뜀:', {
-          rowIndex,
-          category,
-          building: `"${building}"`,
-          unitNum: `"${unitNum}"`,
-          buyer,
-          reason: '동/호가 없거나 숫자를 포함하지 않음'
-        })
         return null
       }
 
@@ -873,14 +859,6 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       if (!isValidBuildingOrUnit(building) || !isValidBuildingOrUnit(unit)) {
-        console.log('⏭️ [parseRowToContract] 유효하지 않은 동/호 - 건너뜀:', {
-          rowIndex,
-          number,
-          building: `"${building}"`,
-          unit: `"${unit}"`,
-          tenantName,
-          reason: '동/호가 없거나 숫자를 포함하지 않음'
-        })
         return null
       }
 
@@ -900,13 +878,6 @@ export const useContractsStore = defineStore('contracts', () => {
           checkForSummaryKeywords(building) ||
           checkForSummaryKeywords(unit) ||
           checkForSummaryKeywords(number)) {
-        console.log('⏭️ [parseRowToContract] 합계 행 키워드 감지 - 건너뜀:', {
-          rowIndex,
-          number,
-          building,
-          unit,
-          tenantName
-        })
         return null
       }
 
@@ -914,12 +885,6 @@ export const useContractsStore = defineStore('contracts', () => {
       // 동/호는 있지만 계약자, 연락처, 보증금, 계약유형, 시작일, 종료일이 모두 없으면 무효
       const hasMinimalData = tenantName || phone || deposit > 0 || contractType || startDate || endDate
       if (!hasMinimalData) {
-        console.log('⏭️ [parseRowToContract] 필수 데이터 부족 - 건너뜀:', {
-          rowIndex,
-          building,
-          unit,
-          reason: '계약자/연락처/보증금/계약유형/계약일 모두 없음'
-        })
         return null
       }
 
@@ -927,15 +892,6 @@ export const useContractsStore = defineStore('contracts', () => {
       // X열(additionalInfo4)에 "매매계약" 텍스트가 있고, Y열(notes)에 "말소" 텍스트가 있으면
       // 매매계약으로 전환된 건이므로 임대차 리스트에서 제외
       if (additionalInfo4.includes('매매계약') && notes.includes('말소')) {
-        console.log('⏭️ [parseRowToContract] 매매계약 건 감지 - 건너뜀:', {
-          rowIndex,
-          building,
-          unit,
-          tenantName,
-          additionalInfo4,
-          notes,
-          reason: '매매계약으로 전환 (말소)'
-        })
         return null
       }
 

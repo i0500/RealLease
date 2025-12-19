@@ -144,12 +144,6 @@ async function loadData() {
     console.log(`📋 [DashboardView.loadData] "${currentSheetName}" 그룹의 시트 ${groupSheets.length}개 발견`)
 
     for (const sheet of groupSheets) {
-      console.log('📋 [DashboardView.loadData] 시트 처리:', {
-        name: sheet.name,
-        tabName: sheet.tabName || '(기본 탭)',
-        sheetType: sheet.sheetType
-      })
-
       // ✅ sheetType 사용 (이미 저장되어 있음)
       await contractsStore.loadContracts(sheet.id, sheet.sheetType)
     }
@@ -181,8 +175,8 @@ watch(
       console.log('🔄 [DashboardView] 시트 변경 감지, 데이터 재로드:', newSheetId)
       loadData()
     }
-  },
-  { immediate: true }
+  }
+  // immediate 제거: onMounted에서 이미 loadData() 호출하므로 중복 호출 방지
 )
 
 // Navigation handlers
