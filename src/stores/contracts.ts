@@ -583,14 +583,25 @@ export const useContractsStore = defineStore('contracts', () => {
       const unit = building && unitNum ? `${building}-${unitNum}` : ''
 
       // 🔍 합계 행 및 무관한 데이터 필터링
-      // 1. 동(building)과 호(unitNum)가 모두 없으면 무효 (합계 정보일 가능성)
-      if (!building || !unitNum) {
-        console.log('⏭️ [parseRowToSale] 동/호 정보 없음 - 건너뜀:', {
+      // 1. 동/호 유효성 검증 (더 엄격한 검증)
+      const isValidBuildingOrUnit = (value: string): boolean => {
+        if (!value) return false
+        const trimmed = value.trim()
+        // 빈 문자열, "-"만 있는 경우, 단위만 있는 경우 무효
+        if (trimmed === '' || trimmed === '-') return false
+        if (trimmed === '동' || trimmed === '호') return false
+        // 숫자가 포함되어야 유효 (예: "108", "108동", "307호", "1707")
+        return /\d/.test(trimmed)
+      }
+
+      if (!isValidBuildingOrUnit(building) || !isValidBuildingOrUnit(unitNum)) {
+        console.log('⏭️ [parseRowToSale] 유효하지 않은 동/호 - 건너뜀:', {
           rowIndex,
           category,
-          building,
-          unitNum,
-          buyer
+          building: `"${building}"`,
+          unitNum: `"${unitNum}"`,
+          buyer,
+          reason: '동/호가 없거나 숫자를 포함하지 않음'
         })
         return null
       }
@@ -846,14 +857,25 @@ export const useContractsStore = defineStore('contracts', () => {
       const notes = row[24]?.toString().trim() || ''
 
       // 🔍 합계 행 및 무관한 데이터 필터링
-      // 1. 동(building)과 호(unit)가 모두 없으면 무효 (합계 정보일 가능성)
-      if (!building || !unit) {
-        console.log('⏭️ [parseRowToContract] 동/호 정보 없음 - 건너뜀:', {
+      // 1. 동/호 유효성 검증 (더 엄격한 검증)
+      const isValidBuildingOrUnit = (value: string): boolean => {
+        if (!value) return false
+        const trimmed = value.trim()
+        // 빈 문자열, "-"만 있는 경우, 단위만 있는 경우 무효
+        if (trimmed === '' || trimmed === '-') return false
+        if (trimmed === '동' || trimmed === '호') return false
+        // 숫자가 포함되어야 유효 (예: "108", "108동", "307호", "1707")
+        return /\d/.test(trimmed)
+      }
+
+      if (!isValidBuildingOrUnit(building) || !isValidBuildingOrUnit(unit)) {
+        console.log('⏭️ [parseRowToContract] 유효하지 않은 동/호 - 건너뜀:', {
           rowIndex,
           number,
-          building,
-          unit,
-          tenantName
+          building: `"${building}"`,
+          unit: `"${unit}"`,
+          tenantName,
+          reason: '동/호가 없거나 숫자를 포함하지 않음'
         })
         return null
       }
