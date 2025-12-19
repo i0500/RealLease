@@ -23,6 +23,8 @@ import {
   NForm,
   NFormItem,
   NDivider,
+  NCheckboxGroup,
+  NCheckbox,
   useMessage,
   useDialog
 } from 'naive-ui'
@@ -54,6 +56,11 @@ const sheetForm = ref({
   tabName: ''
 })
 
+// Tab selection state
+const availableTabs = ref<Array<{ title: string; gid: string; index: number }>>([])
+const selectedTabs = ref<string[]>([])
+const loadingTabs = ref(false)
+
 // Sync state
 const syncingSheetId = ref<string | null>(null)
 
@@ -74,7 +81,53 @@ function handleAddSheet() {
     sheetUrl: '',
     tabName: ''
   }
+  availableTabs.value = []
+  selectedTabs.value = []
   showAddSheetModal.value = true
+}
+
+// Fetch available tabs from spreadsheet
+async function fetchAvailableTabs() {
+  if (!sheetForm.value.sheetUrl) {
+    message.error('시트 URL을 먼저 입력해주세요')
+    return
+  }
+
+  try {
+    loadingTabs.value = true
+
+    // Extract spreadsheet ID from URL
+    const urlMatch = sheetForm.value.sheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
+    if (!urlMatch || !urlMatch[1]) {
+      message.error('올바른 구글 시트 URL이 아닙니다')
+      return
+    }
+
+    const spreadsheetId = urlMatch[1]
+    console.log('📋 [SettingsView] 스프레드시트 메타데이터 조회:', spreadsheetId)
+
+    // Get metadata using sheetsService
+    const { sheetsService } = await import('@/services/google/sheetsService')
+    const metadata = await sheetsService.getSpreadsheetMetadata(spreadsheetId)
+
+    if (metadata.sheets && metadata.sheets.length > 0) {
+      availableTabs.value = metadata.sheets.map((sheet: any) => ({
+        title: sheet.properties?.title || '(이름 없음)',
+        gid: sheet.properties?.sheetId?.toString() || '0',
+        index: sheet.properties?.index || 0
+      }))
+
+      console.log('✅ [SettingsView] 탭 목록 조회 완료:', availableTabs.value)
+      message.success(`${availableTabs.value.length}개의 탭을 찾았습니다`)
+    } else {
+      message.warning('탭 정보를 찾을 수 없습니다')
+    }
+  } catch (error) {
+    console.error('❌ [SettingsView] 탭 목록 조회 실패:', error)
+    message.error('탭 목록을 불러오는데 실패했습니다. 시트 공유 권한을 확인해주세요.')
+  } finally {
+    loadingTabs.value = false
+  }
 }
 
 async function handleSaveSheet() {
@@ -84,13 +137,45 @@ async function handleSaveSheet() {
       return
     }
 
-    await sheetsStore.addSheet(
-      sheetForm.value.name,
-      sheetForm.value.sheetUrl,
-      sheetForm.value.tabName || undefined
-    )
+    // 탭 선택이 있는 경우
+    if (selectedTabs.value.length > 0) {
+      console.log('📋 [SettingsView] 선택된 탭으로 시트 추가:', selectedTabs.value)
 
-    message.success('시트가 추가되었습니다')
+      // 선택된 각 탭을 별도의 SheetConfig로 저장
+      for (const tabTitle of selectedTabs.value) {
+        const tabInfo = availableTabs.value.find(t => t.title === tabTitle)
+        if (!tabInfo) continue
+
+        // 탭 이름에 따라 시트 이름 생성
+        const sheetName = selectedTabs.value.length > 1
+          ? `${sheetForm.value.name} - ${tabInfo.title}`
+          : sheetForm.value.name
+
+        console.log(`➕ [SettingsView] 시트 추가:`, {
+          name: sheetName,
+          tabTitle: tabInfo.title,
+          gid: tabInfo.gid
+        })
+
+        await sheetsStore.addSheet(
+          sheetName,
+          sheetForm.value.sheetUrl,
+          tabInfo.title
+        )
+      }
+
+      message.success(`${selectedTabs.value.length}개의 시트가 추가되었습니다`)
+    } else {
+      // 탭 선택이 없으면 기존 방식대로 (첫 번째 탭 사용)
+      await sheetsStore.addSheet(
+        sheetForm.value.name,
+        sheetForm.value.sheetUrl,
+        sheetForm.value.tabName || undefined
+      )
+
+      message.success('시트가 추가되었습니다')
+    }
+
     showAddSheetModal.value = false
   } catch (error) {
     console.error('Failed to add sheet:', error)
@@ -366,26 +451,49 @@ function handleResetApp() {
         </n-form-item>
 
         <n-form-item label="시트 URL" required>
-          <n-input
-            v-model:value="sheetForm.sheetUrl"
-            type="textarea"
-            :autosize="{ minRows: 2, maxRows: 4 }"
-            placeholder="https://docs.google.com/spreadsheets/d/..."
-          />
+          <n-space vertical style="width: 100%">
+            <n-input
+              v-model:value="sheetForm.sheetUrl"
+              type="textarea"
+              :autosize="{ minRows: 2, maxRows: 4 }"
+              placeholder="https://docs.google.com/spreadsheets/d/..."
+            />
+            <n-button
+              type="primary"
+              :loading="loadingTabs"
+              :disabled="!sheetForm.sheetUrl"
+              @click="fetchAvailableTabs"
+            >
+              📋 탭 목록 불러오기
+            </n-button>
+          </n-space>
         </n-form-item>
 
-        <n-form-item label="탭 이름 (선택)">
-          <n-input
-            v-model:value="sheetForm.tabName"
-            placeholder="예: 임대차현황 (비워두면 첫 번째 탭 사용)"
-          />
+        <!-- Tab selection (shown after fetching) -->
+        <n-form-item v-if="availableTabs.length > 0" label="탭 선택" required>
+          <n-space vertical style="width: 100%">
+            <n-alert type="success" size="small">
+              {{ availableTabs.length }}개의 탭을 찾았습니다. 등록할 탭을 선택하세요:
+            </n-alert>
+            <n-checkbox-group v-model:value="selectedTabs">
+              <n-space vertical>
+                <n-checkbox
+                  v-for="tab in availableTabs"
+                  :key="tab.gid"
+                  :value="tab.title"
+                  :label="`${tab.index + 1}. ${tab.title} (gid: ${tab.gid})`"
+                />
+              </n-space>
+            </n-checkbox-group>
+          </n-space>
         </n-form-item>
 
         <n-alert type="info" class="mt-4">
           <strong>안내:</strong><br />
           1. 구글 스프레드시트를 열고 상단의 URL을 복사해주세요<br />
           2. 시트는 "공유 가능한 링크가 있는 모든 사용자" 권한이 필요합니다<br />
-          3. 탭 이름을 지정하지 않으면 첫 번째 탭을 사용합니다
+          3. "탭 목록 불러오기" 버튼을 클릭하여 사용 가능한 탭을 확인하세요<br />
+          4. 여러 탭을 선택하면 각각 별도의 시트로 등록됩니다
         </n-alert>
       </n-form>
 
