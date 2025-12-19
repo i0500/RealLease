@@ -60,6 +60,12 @@ const editForm = ref({
 
 // Load data on mount
 onMounted(async () => {
+  // 🔧 FIX: 새로고침 시 sheets가 로드되지 않은 경우를 대비해 먼저 로드
+  if (sheetsStore.sheets.length === 0) {
+    console.log('📦 [SaleDetailView] Sheets 데이터 로딩 중...')
+    await sheetsStore.loadSheets()
+  }
+
   if (sheetsStore.currentSheet) {
     await contractsStore.loadContracts(sheetsStore.currentSheet.id)
   }

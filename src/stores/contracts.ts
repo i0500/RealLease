@@ -187,9 +187,18 @@ export const useContractsStore = defineStore('contracts', () => {
       // 헤더 행 추출
       const _headers = data[headerRowIndex]!
 
-      // 🔍 시트 타입 자동 감지
-      const sheetType = detectSheetType(_headers)
-      console.log('🔖 [ContractsStore.loadContracts] 감지된 시트 타입:', sheetType)
+      // 🔍 시트 타입 결정 (tabName 우선, 없으면 자동 감지)
+      let sheetType: SheetType
+      if (sheet.tabName && sheet.tabName.includes('현재현황')) {
+        sheetType = 'rental'
+        console.log('🔖 [ContractsStore.loadContracts] tabName으로 임대차현황 시트 인식:', sheet.tabName)
+      } else if (sheet.tabName && sheet.tabName.includes('매도현황')) {
+        sheetType = 'sale'
+        console.log('🔖 [ContractsStore.loadContracts] tabName으로 매도현황 시트 인식:', sheet.tabName)
+      } else {
+        sheetType = detectSheetType(_headers)
+        console.log('🔖 [ContractsStore.loadContracts] 헤더로 시트 타입 자동 감지:', sheetType)
+      }
 
       // 🔧 FIX: 헤더 행 및 빈 행 필터링 (강화)
       const isHeaderRow = (row: any[], type: SheetType) => {

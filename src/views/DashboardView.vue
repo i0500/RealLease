@@ -52,8 +52,13 @@ async function loadData() {
 }
 
 // 마운트 시 데이터 로드
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  // 🔧 FIX: 새로고침 시 sheets가 로드되지 않은 경우를 대비해 먼저 로드
+  if (sheetsStore.sheets.length === 0) {
+    console.log('📦 [DashboardView] Sheets 데이터 로딩 중...')
+    await sheetsStore.loadSheets()
+  }
+  await loadData()
 })
 
 // 시트 변경 감지하여 데이터 재로드 (새로고침 문제 해결)
