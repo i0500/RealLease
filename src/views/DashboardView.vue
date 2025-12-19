@@ -14,12 +14,55 @@ const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
 const sheetsStore = useSheetsStore()
 
-// 임대차 통계
-const rentalStats = computed(() => ({
-  total: contractsStore.activeContracts.length, // 계약자 이름 있는 건수
-  vacant: contractsStore.vacantContracts.length, // 공실 (계약자 없는 건)
-  expiring: contractsStore.expiringContracts.length // 만료예정 (3개월 이내)
-}))
+// 현재 선택된 시트의 임대차 계약만 필터링
+const currentSheetContracts = computed(() => {
+  if (!sheetsStore.currentSheet) return []
+  return contractsStore.contracts.filter(c =>
+    c.sheetId === sheetsStore.currentSheet!.id && !c.metadata.deletedAt
+  )
+})
+
+// 현재 시트의 최근 계약 (시작일 기준 최근 5개)
+const recentContracts = computed(() => {
+  return [...currentSheetContracts.value]
+    .filter(c => c.startDate)
+    .sort((a, b) => {
+      const dateA = a.startDate?.getTime() || 0
+      const dateB = b.startDate?.getTime() || 0
+      return dateB - dateA // 최신순
+    })
+    .slice(0, 5)
+})
+
+// 보증보험 만료 예정 (3개월 이내)
+const hugExpiringContracts = computed(() => {
+  const today = new Date()
+  const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+
+  return currentSheetContracts.value.filter(c => {
+    if (!c.hugEndDate) return false
+    return c.hugEndDate >= today && c.hugEndDate <= threeMonthsLater
+  })
+})
+
+// 임대차 통계 (현재 선택된 시트만)
+const rentalStats = computed(() => {
+  const total = currentSheetContracts.value.filter(c => c.tenantName && c.tenantName.trim() !== '').length
+  const vacant = currentSheetContracts.value.filter(c => !c.tenantName || c.tenantName.trim() === '').length
+
+  // 계약 만료예정 (3개월 이내)
+  const today = new Date()
+  const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+  const expiring = currentSheetContracts.value.filter(c => {
+    if (!c.endDate) return false
+    return c.endDate >= today && c.endDate <= threeMonthsLater
+  }).length
+
+  // 보증보험 만료예정
+  const hugExpiring = hugExpiringContracts.value.length
+
+  return { total, vacant, expiring, hugExpiring }
+})
 
 // 매도현황 통계
 const saleStats = computed(() => ({
@@ -33,6 +76,7 @@ const stats = computed(() => ({
   rentalTotal: rentalStats.value.total,
   rentalVacant: rentalStats.value.vacant,
   rentalExpiring: rentalStats.value.expiring,
+  hugExpiring: rentalStats.value.hugExpiring, // 보증보험 만료예정
   saleTotal: saleStats.value.total,
   saleActive: saleStats.value.active,
   saleCompleted: saleStats.value.completed,
@@ -43,7 +87,8 @@ const stats = computed(() => ({
 async function loadData() {
   if (sheetsStore.currentSheet) {
     try {
-      await contractsStore.loadContracts(sheetsStore.currentSheet.id)
+      // 임대차현황 데이터만 로드 (명시적으로 'rental' 타입 전달)
+      await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'rental')
       await notificationsStore.checkNotifications()
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
@@ -219,7 +264,7 @@ function toMillions(thousands: number): string {
           </n-card>
 
           <n-card hoverable class="cursor-pointer text-center" @click="navigateToNotifications()">
-            <n-statistic label="미확인 알림" :value="stats.notifications" />
+            <n-statistic label="보증만료 예정" :value="stats.hugExpiring" />
           </n-card>
         </div>
       </div>
@@ -271,9 +316,9 @@ function toMillions(thousands: number): string {
 
       <!-- 최근 계약 (시작일 기준 최근 5개) -->
       <n-card title="최근 계약">
-        <div v-if="contractsStore.recentContracts.length > 0" class="space-y-3">
+        <div v-if="recentContracts.length > 0" class="space-y-3">
           <div
-            v-for="contract in contractsStore.recentContracts"
+            v-for="contract in recentContracts"
             :key="contract.id"
             class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all"
             @click="handleContractClick(contract)"
