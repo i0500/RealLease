@@ -250,11 +250,15 @@ export const useContractsStore = defineStore('contracts', () => {
           if (index < 3) {
             console.log(`🔍 [ContractsStore.loadContracts] 매도 Row ${index + 1}:`, {
               rowIndex: actualRowIndex,
-              row0_구분: row[0],
-              row1_동호: row[1],
-              row2_계약자: row[2],
-              row15_합계: row[15],
-              fullRow: row.slice(0, 20)
+              'A열_공란': row[0],
+              'B열_구분': row[1],
+              'C열_동': row[2],
+              'D열_공란': row[3],
+              'E열_호': row[4],
+              'F열_계약자': row[5],
+              'G열_계약일': row[6],
+              'S열_합계': row[18],
+              fullRow: row.slice(0, 22)
             })
           }
 
