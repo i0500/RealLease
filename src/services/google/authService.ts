@@ -9,6 +9,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
@@ -16,9 +17,11 @@ import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
 export class AuthService {
   private currentUser: FirebaseUser | null = null
   private authStateListener: (() => void) | null = null
+  private googleAccessToken: string | null = null
 
   constructor() {
     this.initializeAuthListener()
+    this.loadGoogleAccessToken()
   }
 
   /**
@@ -37,10 +40,60 @@ export class AuthService {
           uid: user.uid,
           displayName: user.displayName
         })
+
+        // 로그인 상태 복원 시 저장된 Access Token 로드
+        this.loadGoogleAccessToken()
       } else {
         console.log('🚪 [AuthService] User signed out')
+        this.googleAccessToken = null
       }
     })
+  }
+
+  /**
+   * 저장된 Google Access Token 로드
+   */
+  private loadGoogleAccessToken(): void {
+    // localStorage 우선, 없으면 sessionStorage 체크
+    const localToken = localStorage.getItem('google_access_token')
+    if (localToken) {
+      this.googleAccessToken = localToken
+      console.log('🔑 [AuthService] Google Access Token loaded from localStorage')
+      return
+    }
+
+    const sessionToken = sessionStorage.getItem('google_access_token')
+    if (sessionToken) {
+      this.googleAccessToken = sessionToken
+      console.log('🔑 [AuthService] Google Access Token loaded from sessionStorage')
+      return
+    }
+  }
+
+  /**
+   * Google Access Token 저장
+   * @param token - Google OAuth Access Token
+   * @param keepSignedIn - localStorage vs sessionStorage 선택
+   */
+  private saveGoogleAccessToken(token: string, keepSignedIn: boolean): void {
+    const storage = keepSignedIn ? localStorage : sessionStorage
+    storage.setItem('google_access_token', token)
+
+    // 반대쪽 storage에서 제거 (중복 방지)
+    const otherStorage = keepSignedIn ? sessionStorage : localStorage
+    otherStorage.removeItem('google_access_token')
+
+    console.log(`💾 [AuthService] Google Access Token saved to ${keepSignedIn ? 'localStorage' : 'sessionStorage'}`)
+  }
+
+  /**
+   * Google Access Token 제거
+   */
+  private clearGoogleAccessToken(): void {
+    localStorage.removeItem('google_access_token')
+    sessionStorage.removeItem('google_access_token')
+    this.googleAccessToken = null
+    console.log('🗑️ [AuthService] Google Access Token cleared')
   }
 
   /**
@@ -57,6 +110,16 @@ export class AuthService {
       // Google Sign-In 팝업
       const result = await signInWithPopup(auth, googleProvider)
       this.currentUser = result.user
+
+      // Google OAuth Credentials에서 Access Token 추출
+      const credential = GoogleAuthProvider.credentialFromResult(result)
+      if (credential && credential.accessToken) {
+        this.googleAccessToken = credential.accessToken
+        this.saveGoogleAccessToken(credential.accessToken, keepSignedIn)
+        console.log('✅ [AuthService] Google OAuth Access Token obtained')
+      } else {
+        console.warn('⚠️ [AuthService] No Google Access Token in credential')
+      }
 
       console.log('✅ [AuthService] Sign-in successful:', {
         email: this.currentUser.email,
@@ -88,6 +151,7 @@ export class AuthService {
       console.log('🚪 [AuthService] Signing out...')
       await firebaseSignOut(auth)
       this.currentUser = null
+      this.clearGoogleAccessToken()
       console.log('✅ [AuthService] Sign-out successful')
     } catch (error) {
       console.error('❌ [AuthService] Sign-out failed:', error)
@@ -112,23 +176,16 @@ export class AuthService {
 
   /**
    * Google Sheets API용 Access Token 조회
-   * Firebase는 자동으로 토큰을 갱신하므로 항상 유효한 토큰을 반환합니다
+   * Google OAuth Access Token을 반환합니다 (Firebase ID Token이 아님!)
    */
   async getAccessToken(): Promise<string | null> {
-    if (!this.currentUser) {
-      console.log('ℹ️ [AuthService] No user signed in, cannot get access token')
+    if (!this.googleAccessToken) {
+      console.log('ℹ️ [AuthService] No Google Access Token available')
       return null
     }
 
-    try {
-      // Firebase ID 토큰 가져오기 (자동 갱신됨)
-      const idToken = await this.currentUser.getIdToken()
-      console.log('🔑 [AuthService] Access token retrieved')
-      return idToken
-    } catch (error) {
-      console.error('❌ [AuthService] Failed to get access token:', error)
-      return null
-    }
+    console.log('🔑 [AuthService] Returning Google OAuth Access Token')
+    return this.googleAccessToken
   }
 
   /**
