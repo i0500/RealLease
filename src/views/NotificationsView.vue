@@ -38,15 +38,10 @@ const showRead = ref(false)
 
 // Load notifications on mount
 onMounted(async () => {
-  if (sheetsStore.currentSheet) {
-    try {
-      await contractsStore.loadContracts(sheetsStore.currentSheet.id)
-      await notificationsStore.checkNotifications()
-    } catch (error) {
-      console.error('Failed to load notifications:', error)
-      message.error('알림을 불러오는데 실패했습니다')
-    }
-  }
+  // 🔧 FIX: 알림 중복 생성 방지
+  // checkNotifications()는 DashboardView에서만 호출하고,
+  // 여기서는 이미 로드된 알림만 표시
+  console.log('✅ [NotificationsView] 알림 페이지 로드 - 기존 알림 표시')
 })
 
 // Filter options

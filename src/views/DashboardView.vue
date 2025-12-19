@@ -186,7 +186,7 @@ watch(
 )
 
 // Navigation handlers
-function navigateToContracts(status?: 'vacant' | 'expiring') {
+function navigateToContracts(status?: 'vacant' | 'expiring' | 'hugExpiring') {
   if (!sheetsStore.currentSheet) {
     console.warn('No current sheet selected')
     return
@@ -224,10 +224,6 @@ function navigateToSales(status?: 'active' | 'completed') {
       params: { sheetId: sheetsStore.currentSheet.id }
     })
   }
-}
-
-function navigateToNotifications() {
-  router.push({ name: 'notifications' })
 }
 
 function handleNotificationClick(notification: Notification) {
@@ -350,7 +346,7 @@ function toMillions(thousands: number): string {
             <n-statistic label="만료예정" :value="stats.rentalExpiring" />
           </n-card>
 
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToNotifications()">
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('hugExpiring')">
             <n-statistic label="보증만료 예정" :value="stats.hugExpiring" />
           </n-card>
         </div>

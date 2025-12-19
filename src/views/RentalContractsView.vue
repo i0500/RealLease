@@ -42,7 +42,7 @@ const dialog = useDialog()
 const isMobile = ref(false)
 const viewMode = ref<'table' | 'card'>('table')
 const searchQuery = ref('')
-const filterStatus = ref<'all' | 'vacant' | 'expiring'>('all')
+const filterStatus = ref<'all' | 'vacant' | 'expiring' | 'hugExpiring'>('all')
 
 // Modal state
 const showContractModal = ref(false)
@@ -125,8 +125,8 @@ onMounted(async () => {
   }
 
   // Apply status filter if provided
-  if (status && (status === 'vacant' || status === 'expiring')) {
-    filterStatus.value = status
+  if (status && (status === 'vacant' || status === 'expiring' || status === 'hugExpiring')) {
+    filterStatus.value = status as 'vacant' | 'expiring' | 'hugExpiring'
   }
 })
 
@@ -173,6 +173,14 @@ const filteredContracts = computed(() => {
     result = result.filter((c) => {
       if (!c.endDate) return false
       return c.endDate >= today && c.endDate <= threeMonthsLater
+    })
+  } else if (filterStatus.value === 'hugExpiring') {
+    // 🆕 HUG 보증보험 만료 예정 필터
+    const today = new Date()
+    const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+    result = result.filter((c) => {
+      if (!c.hugEndDate) return false
+      return c.hugEndDate >= today && c.hugEndDate <= threeMonthsLater
     })
   }
 
@@ -273,7 +281,8 @@ const desktopColumns = [
 const statusOptions = [
   { label: '전체', value: 'all' },
   { label: '공실', value: 'vacant' },
-  { label: '만료예정', value: 'expiring' }
+  { label: '만료예정', value: 'expiring' },
+  { label: '보증만료예정', value: 'hugExpiring' }
 ]
 
 // Actions
