@@ -139,6 +139,12 @@ function handleSaleClick(saleId: string) {
     }
   })
 }
+
+// Convert thousands to millions (천원 → 백만원)
+function toMillions(thousands: number): string {
+  if (thousands === 0) return '0'
+  return (thousands / 1000).toFixed(0)
+}
 </script>
 
 <template>
@@ -345,13 +351,13 @@ function handleSaleClick(saleId: string) {
               </n-tag>
             </div>
 
-            <!-- Payment Info -->
+            <!-- Payment Info (백만원 단위) -->
             <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-              <span v-if="sale.downPayment > 0">계약금 {{ sale.downPayment.toLocaleString() }}</span>
-              <span v-if="sale.interimPayment > 0">중도금 {{ sale.interimPayment.toLocaleString() }}</span>
-              <span v-if="sale.finalPayment > 0">잔금 {{ sale.finalPayment.toLocaleString() }}</span>
+              <span v-if="sale.downPayment > 0">계약금 {{ toMillions(sale.downPayment) }}</span>
+              <span v-if="sale.interimPayment > 0">중도금 {{ toMillions(sale.interimPayment) }}</span>
+              <span v-if="sale.finalPayment > 0">잔금 {{ toMillions(sale.finalPayment) }}</span>
               <span class="text-gray-400">·</span>
-              <span class="font-medium text-green-600">합계 {{ sale.totalAmount.toLocaleString() }}</span>
+              <span class="font-medium text-green-600">합계 {{ toMillions(sale.totalAmount) }}</span>
             </div>
           </div>
         </div>

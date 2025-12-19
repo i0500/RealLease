@@ -73,7 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function signIn() {
+  async function signIn(keepSignedIn: boolean = true) {
     try {
       isLoading.value = true
       error.value = null
@@ -87,8 +87,8 @@ export const useAuthStore = defineStore('auth', () => {
           email: 'test@reallease.dev',
           name: '테스트 사용자'
         }
-        saveUserToStorage(user.value)
-        console.log('🔐 개발 모드 로그인:', user.value)
+        saveUserToStorage(user.value, keepSignedIn)
+        console.log('🔐 개발 모드 로그인:', user.value, keepSignedIn ? '(로그인 상태 유지)' : '(세션만)')
         return
       }
 
@@ -98,15 +98,15 @@ export const useAuthStore = defineStore('auth', () => {
       const userInfo = await authService.getUserInfo()
       if (userInfo) {
         user.value = userInfo
-        saveUserToStorage(user.value)
-        console.log('🔐 로그인 성공:', user.value)
+        saveUserToStorage(user.value, keepSignedIn)
+        console.log('🔐 로그인 성공:', user.value, keepSignedIn ? '(로그인 상태 유지)' : '(세션만)')
       } else {
         // fallback: 사용자 정보를 가져오지 못한 경우
         user.value = {
           email: 'user@example.com',
           name: 'User'
         }
-        saveUserToStorage(user.value)
+        saveUserToStorage(user.value, keepSignedIn)
         console.warn('⚠️ 사용자 정보를 가져오지 못했습니다. 기본값 사용')
       }
     } catch (err) {
@@ -140,10 +140,15 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
   }
 
-  // 사용자 정보 localStorage 저장/복원
-  function saveUserToStorage(userData: User) {
+  // 사용자 정보 저장/복원 (localStorage 또는 sessionStorage)
+  function saveUserToStorage(userData: User, persistent: boolean = true) {
     try {
-      localStorage.setItem('reallease_user', JSON.stringify(userData))
+      const storage = persistent ? localStorage : sessionStorage
+      storage.setItem('reallease_user', JSON.stringify(userData))
+
+      // 다른 storage에서는 제거 (중복 저장 방지)
+      const otherStorage = persistent ? sessionStorage : localStorage
+      otherStorage.removeItem('reallease_user')
     } catch (err) {
       console.error('Failed to save user to storage:', err)
     }
@@ -151,8 +156,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   function loadUserFromStorage(): User | null {
     try {
-      const userData = localStorage.getItem('reallease_user')
-      return userData ? JSON.parse(userData) : null
+      // localStorage 우선, 없으면 sessionStorage 체크
+      const localData = localStorage.getItem('reallease_user')
+      if (localData) return JSON.parse(localData)
+
+      const sessionData = sessionStorage.getItem('reallease_user')
+      if (sessionData) return JSON.parse(sessionData)
+
+      return null
     } catch (err) {
       console.error('Failed to load user from storage:', err)
       return null
@@ -162,6 +173,7 @@ export const useAuthStore = defineStore('auth', () => {
   function clearUserFromStorage() {
     try {
       localStorage.removeItem('reallease_user')
+      sessionStorage.removeItem('reallease_user')
     } catch (err) {
       console.error('Failed to clear user from storage:', err)
     }

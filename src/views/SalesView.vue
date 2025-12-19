@@ -148,6 +148,12 @@ function handleRowClick(row: SaleContract) {
   router.push({ name: 'sale-detail', params: { id: row.id } })
 }
 
+// Convert thousands to millions (천원 → 백만원)
+function toMillions(thousands: number): string {
+  if (thousands === 0) return '0'
+  return (thousands / 1000).toFixed(0)
+}
+
 // Status options
 const statusOptions = [
   { label: '진행중', value: 'active' },
@@ -310,16 +316,18 @@ async function handleSubmit() {
             </div>
           </div>
 
-          <!-- Line 2: 계약금, 잔금, 합계, 상태 -->
+          <!-- Line 2: 계약금, 중도금, 잔금, 합계, 상태 (백만원 단위) -->
           <div class="flex items-center justify-between text-xs">
-            <div class="flex items-center gap-2 text-gray-600">
-              <span v-if="sale.downPayment > 0">계약금 {{ sale.downPayment.toLocaleString() }}</span>
-              <span v-if="sale.finalPayment > 0">잔금 {{ sale.finalPayment.toLocaleString() }}</span>
-              <span class="font-medium text-green-600">합계 {{ sale.totalAmount.toLocaleString() }}</span>
+            <div class="flex items-center gap-2 text-gray-600 flex-wrap">
+              <span v-if="sale.downPayment > 0">계약금 {{ toMillions(sale.downPayment) }}</span>
+              <span v-if="sale.interimPayment > 0">중도금 {{ toMillions(sale.interimPayment) }}</span>
+              <span v-if="sale.finalPayment > 0">잔금 {{ toMillions(sale.finalPayment) }}</span>
+              <span class="font-medium text-green-600">합계 {{ toMillions(sale.totalAmount) }}</span>
             </div>
             <n-tag
               :type="sale.status === 'completed' ? 'success' : 'info'"
               size="small"
+              class="flex-shrink-0"
             >
               {{ sale.status === 'completed' ? '종결' : '진행중' }}
             </n-tag>

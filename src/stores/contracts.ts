@@ -492,12 +492,12 @@ export const useContractsStore = defineStore('contracts', () => {
     rowIndex: number
   ): SaleContract | null {
     try {
-      // 📊 매도현황 시트 구조 (고정 인덱스):
+      // 📊 매도현황 시트 구조 (유연한 파싱):
       // A열 (row[0]): 빈칸 (무시)
       // B열 (row[1]): 구분
       // C열 (row[2]): 동
-      // D열 (row[3]): 하이픈 (-)
-      // E열 (row[4]): 호수
+      // D열 (row[3]): 하이픈(-) 또는 호수
+      // E열 (row[4]): 호수 (D열이 하이픈인 경우)
       // F열 (row[5]): 계약자
       // G열 (row[6]): 계약일
       // H열 (row[7]): 계약금
@@ -510,19 +510,37 @@ export const useContractsStore = defineStore('contracts', () => {
 
       const category = row[1]?.toString().trim() || ''
       const building = row[2]?.toString().trim() || ''
-      const hyphen = row[3]?.toString().trim() || '-'
-      const unitNum = row[4]?.toString().trim() || ''
+
+      // D열이 하이픈인지 확인
+      const colD = row[3]?.toString().trim() || ''
+      const colE = row[4]?.toString().trim() || ''
+
+      let unitNum = ''
+      let hyphen = '-'
+
+      // D열이 하이픈('-')이면 E열이 호수
+      if (colD === '-' || colD === '') {
+        unitNum = colE
+        hyphen = '-'
+      } else {
+        // D열이 하이픈이 아니면 D열이 호수
+        unitNum = colD
+        hyphen = '-'
+      }
+
       const buyer = row[5]?.toString().trim() || ''
 
       // 동-호 조합 (예: "108-407")
       const unit = building && unitNum ? `${building}${hyphen}${unitNum}` : ''
 
-      // 필수 필드 검증: 계약자가 있는 경우만 유효한 매도 계약으로 처리
-      if (!buyer || !unit) {
+      // 필수 필드 검증: 계약자와 동-호 정보가 있는 경우만 유효
+      if (!buyer || !building || !unitNum) {
         console.log('⏭️ [parseRowToSale] 필수 필드 누락으로 건너뜀:', {
           rowIndex,
           category,
           building,
+          colD,
+          colE,
           unitNum,
           unit,
           buyer,

@@ -1,22 +1,36 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { NCard, NButton, NAlert, NIcon, NDivider } from 'naive-ui'
+import { NCard, NButton, NAlert, NIcon, NDivider, NCheckbox } from 'naive-ui'
 import { LogoGoogle, LockClosedOutline, ShieldCheckmarkOutline } from '@vicons/ionicons5'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const isSigningIn = ref(false)
 const error = ref<string | null>(null)
+const keepSignedIn = ref(true) // 기본값: 로그인 상태 유지
+
+// 토큰 만료로 인한 자동 로그아웃 메시지
+const expiredMessage = computed(() => {
+  return route.query.expired === 'true' ? '로그인 세션이 만료되었습니다. 다시 로그인해주세요.' : null
+})
+
+onMounted(() => {
+  // 만료 메시지가 있으면 에러로 표시
+  if (expiredMessage.value) {
+    error.value = expiredMessage.value
+  }
+})
 
 async function handleSignIn() {
   try {
     isSigningIn.value = true
     error.value = null
 
-    await authStore.signIn()
+    await authStore.signIn(keepSignedIn.value)
 
     // 로그인 성공 시 홈으로 이동
     router.push({ name: 'home' })
@@ -97,6 +111,12 @@ async function handleSignIn() {
             </template>
             Google 계정으로 로그인
           </n-button>
+
+          <div class="mt-4">
+            <n-checkbox v-model:checked="keepSignedIn">
+              <span class="text-sm text-gray-600">로그인 상태 유지</span>
+            </n-checkbox>
+          </div>
 
           <n-divider class="my-6">
             <span class="text-xs text-gray-400">안내</span>
