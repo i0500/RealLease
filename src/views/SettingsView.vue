@@ -141,30 +141,35 @@ async function handleSaveSheet() {
     if (selectedTabs.value.length > 0) {
       console.log('📋 [SettingsView] 선택된 탭으로 시트 추가:', selectedTabs.value)
 
-      // 선택된 각 탭을 별도의 SheetConfig로 저장
+      // 선택된 각 탭을 별도의 SheetConfig로 저장 (같은 그룹명 사용)
       for (const tabTitle of selectedTabs.value) {
         const tabInfo = availableTabs.value.find(t => t.title === tabTitle)
         if (!tabInfo) continue
 
-        // 탭 이름에 따라 시트 이름 생성
-        const sheetName = selectedTabs.value.length > 1
-          ? `${sheetForm.value.name} - ${tabInfo.title}`
-          : sheetForm.value.name
+        // ✅ 탭 이름에 따라 시트 타입 자동 판별
+        let sheetType: 'rental' | 'sale' | undefined
+        if (tabInfo.title.includes('매도현황')) {
+          sheetType = 'sale'
+        } else if (tabInfo.title.includes('현재현황') || tabInfo.title.includes('전체현황') || tabInfo.title.includes('임대차')) {
+          sheetType = 'rental'
+        }
 
         console.log(`➕ [SettingsView] 시트 추가:`, {
-          name: sheetName,
+          name: sheetForm.value.name, // ← 파일명만 사용 (탭 이름 제거)
           tabTitle: tabInfo.title,
-          gid: tabInfo.gid
+          gid: tabInfo.gid,
+          sheetType
         })
 
         await sheetsStore.addSheet(
-          sheetName,
+          sheetForm.value.name, // ← 모든 탭이 같은 그룹명 사용
           sheetForm.value.sheetUrl,
-          tabInfo.title
+          tabInfo.title,
+          sheetType // ← sheetType 전달
         )
       }
 
-      message.success(`${selectedTabs.value.length}개의 시트가 추가되었습니다`)
+      message.success(`${selectedTabs.value.length}개의 탭이 "${sheetForm.value.name}" 그룹으로 추가되었습니다`)
     } else {
       // 탭 선택이 없으면 기존 방식대로 (첫 번째 탭 사용)
       await sheetsStore.addSheet(

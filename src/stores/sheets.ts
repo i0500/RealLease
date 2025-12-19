@@ -53,11 +53,12 @@ export const useSheetsStore = defineStore('sheets', () => {
     }))
   }
 
-  async function addSheet(name: string, sheetUrl: string, tabName?: string) {
+  async function addSheet(name: string, sheetUrl: string, tabName?: string, sheetType?: 'rental' | 'sale') {
     console.log('➕ [SheetsStore.addSheet] 시작', {
       name,
       sheetUrl,
       tabName,
+      sheetType,
       timestamp: new Date().toISOString()
     })
 
@@ -134,6 +135,7 @@ export const useSheetsStore = defineStore('sheets', () => {
         spreadsheetId,
         tabName,
         gid,
+        sheetType, // ✅ 시트 타입 저장
         createdAt: new Date()
       }
 
