@@ -74,7 +74,7 @@ const filteredNotifications = computed(() => {
 
   // Read/unread filter
   if (!showRead.value) {
-    result = result.filter((n) => !notificationsStore.readNotificationIds.has(n.id))
+    result = result.filter((n) => !n.read)
   }
 
   return result
@@ -150,7 +150,7 @@ function getDaysLeftColor(daysLeft: number) {
 }
 
 function isRead(notificationId: string) {
-  return notificationsStore.readNotificationIds.has(notificationId)
+  return notificationsStore.notifications.find(n => n.id === notificationId)?.read || false
 }
 </script>
 
