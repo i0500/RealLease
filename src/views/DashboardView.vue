@@ -83,16 +83,46 @@ const stats = computed(() => ({
   notifications: notificationsStore.unreadCount
 }))
 
-// 데이터 로드 함수
+// 데이터 로드 함수 - 모든 시트의 데이터를 로드하여 전체 통계 표시
 async function loadData() {
-  if (sheetsStore.currentSheet) {
-    try {
-      // 임대차현황 데이터만 로드 (명시적으로 'rental' 타입 전달)
-      await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'rental')
-      await notificationsStore.checkNotifications()
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error)
+  if (sheetsStore.sheets.length === 0) {
+    console.log('📋 [DashboardView.loadData] 등록된 시트가 없습니다')
+    return
+  }
+
+  try {
+    console.log('🔄 [DashboardView.loadData] 모든 시트 데이터 로딩 시작')
+
+    // 모든 시트를 순회하며 타입별로 로드
+    for (const sheet of sheetsStore.sheets) {
+      console.log('📋 [DashboardView.loadData] 시트 처리:', {
+        name: sheet.name,
+        tabName: sheet.tabName || '(기본 탭)'
+      })
+
+      // tabName으로 시트 타입 판별
+      let sheetType: 'rental' | 'sale' | undefined
+
+      if (sheet.tabName) {
+        if (sheet.tabName.includes('현재현황') || sheet.tabName.includes('전체현황')) {
+          sheetType = 'rental'
+          console.log('✅ [DashboardView.loadData] 임대차현황 시트 인식:', sheet.tabName)
+        } else if (sheet.tabName.includes('매도현황')) {
+          sheetType = 'sale'
+          console.log('✅ [DashboardView.loadData] 매도현황 시트 인식:', sheet.tabName)
+        }
+      }
+
+      // 시트 데이터 로드
+      await contractsStore.loadContracts(sheet.id, sheetType)
     }
+
+    // 알림 확인
+    await notificationsStore.checkNotifications()
+
+    console.log('✅ [DashboardView.loadData] 모든 시트 데이터 로딩 완료')
+  } catch (error) {
+    console.error('❌ [DashboardView.loadData] 데이터 로딩 실패:', error)
   }
 }
 
