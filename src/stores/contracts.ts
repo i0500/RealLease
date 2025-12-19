@@ -952,7 +952,7 @@ export const useContractsStore = defineStore('contracts', () => {
 
       const newContract: SaleContract = {
         ...contract,
-        category: autoCategory, // 자동 넘버링된 구분 번호
+        category: autoCategory, // 자동 넘버링된 구분 번호 (무조건 덮어씀)
         id: generateId(),
         metadata: {
           createdAt: new Date(),
@@ -960,14 +960,58 @@ export const useContractsStore = defineStore('contracts', () => {
         }
       }
 
-      // 2. 시트에 행 추가
-      // Note: Google Sheets API의 appendRow는 시트 맨 아래에 추가됨
-      // 구분 번호 순서대로 정렬하려면 시트에서 수동 정렬 필요
-      // 또는 batchUpdate로 특정 위치에 삽입 가능하나 복잡도 증가
-      // 현재는 appendRow 사용 (데이터는 정확하게 들어가고, 시트에서 정렬 가능)
+      // 2. 빈 리스트 찾기 및 덮어쓰기 로직
+      // 시트에서 autoCategory에 해당하는 행을 찾아서 빈 리스트인지 확인
+      // 빈 리스트 조건: category와 building은 있지만 buyer나 contractDate가 없음
+      const range = sheet.tabName ? `${sheet.tabName}!A1:Z1000` : 'A1:Z1000'
+      const sheetData = await sheetsService.readRange(sheet.spreadsheetId, range, sheet.gid)
+
+      // 빈 리스트 찾기: category가 autoCategory와 같고, buyer나 contractDate가 없는 행
+      let emptyRowIndex: number | null = null
+      for (let i = 0; i < sheetData.length; i++) {
+        const row = sheetData[i]
+        if (!row) continue // row가 undefined인 경우 스킵
+
+        const rowCategory = row[1]?.toString().trim() || '' // B열: 구분
+        const rowBuilding = row[2]?.toString().trim() || '' // C열: 동
+        const rowBuyer = row[5]?.toString().trim() || '' // F열: 계약자
+        const rowContractDate = row[6]?.toString().trim() || '' // G열: 계약일
+
+        // 구분번호가 일치하고, 동은 있지만 계약자나 계약일이 없으면 빈 리스트
+        if (
+          rowCategory === autoCategory &&
+          rowBuilding &&
+          (!rowBuyer || !rowContractDate)
+        ) {
+          emptyRowIndex = i + 1 // 1-based index for Sheets API
+          console.log(`📝 [addSaleContract] 빈 리스트 발견 (덮어쓰기): row ${emptyRowIndex}, category=${autoCategory}`)
+          break
+        }
+      }
+
       const row = saleContractToRow(newContract)
-      const range = sheet.tabName ? `${sheet.tabName}!A:Z` : 'A:Z'
-      await sheetsService.appendRow(sheet.spreadsheetId, range, row)
+
+      if (emptyRowIndex !== null) {
+        // 3-1. 빈 리스트 덮어쓰기 (updateRow 사용)
+        const updateRange = sheet.tabName
+          ? `${sheet.tabName}!A${emptyRowIndex}:Z${emptyRowIndex}`
+          : `A${emptyRowIndex}:Z${emptyRowIndex}`
+        await sheetsService.updateRow(sheet.spreadsheetId, updateRange, row)
+
+        // rowIndex 설정
+        newContract.rowIndex = emptyRowIndex
+
+        console.log(`✅ [addSaleContract] 빈 리스트 덮어쓰기 완료: row ${emptyRowIndex}`)
+      } else {
+        // 3-2. 빈 리스트가 없으면 맨 아래에 추가 (appendRow 사용)
+        const appendRange = sheet.tabName ? `${sheet.tabName}!A:Z` : 'A:Z'
+        await sheetsService.appendRow(sheet.spreadsheetId, appendRange, row)
+
+        // rowIndex는 추가된 위치 (sheetData.length + 1)
+        newContract.rowIndex = sheetData.length + 1
+
+        console.log(`✅ [addSaleContract] 새 행 추가 완료: row ${newContract.rowIndex}`)
+      }
 
       saleContracts.value.push(newContract)
 
