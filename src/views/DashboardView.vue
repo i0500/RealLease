@@ -206,16 +206,24 @@ function navigateToContracts(status?: 'vacant' | 'expiring') {
   }
 }
 
-function navigateToSales() {
+function navigateToSales(status?: 'active' | 'completed') {
   if (!sheetsStore.currentSheet) {
     console.warn('No current sheet selected')
     return
   }
 
-  router.push({
-    name: 'sales',
-    params: { sheetId: sheetsStore.currentSheet.id }
-  })
+  if (status) {
+    router.push({
+      name: 'sales',
+      params: { sheetId: sheetsStore.currentSheet.id },
+      query: { status }
+    })
+  } else {
+    router.push({
+      name: 'sales',
+      params: { sheetId: sheetsStore.currentSheet.id }
+    })
+  }
 }
 
 function navigateToNotifications() {
@@ -356,11 +364,11 @@ function toMillions(thousands: number): string {
             <n-statistic label="전체 매도" :value="stats.saleTotal" />
           </n-card>
 
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales()">
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales('active')">
             <n-statistic label="진행중" :value="stats.saleActive" />
           </n-card>
 
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales()">
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales('completed')">
             <n-statistic label="종결" :value="stats.saleCompleted" />
           </n-card>
         </div>

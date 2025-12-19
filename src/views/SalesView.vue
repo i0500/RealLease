@@ -42,6 +42,7 @@ const dialog = useDialog()
 // View state
 const viewMode = ref<'table' | 'card'>('table')
 const searchQuery = ref('')
+const statusFilter = ref<'all' | 'active' | 'completed'>('all')
 const isMobile = ref(false)
 const showAddModal = ref(false)
 const showDetailModal = ref(false)
@@ -86,7 +87,12 @@ onMounted(async () => {
 
   // Extract sheetId from route params and query
   const sheetId = route.params.sheetId as string
-  const { id } = route.query
+  const { id, status } = route.query
+
+  // status 쿼리 파라미터로 필터 설정 (대시보드에서 진입 시)
+  if (status && (status === 'active' || status === 'completed')) {
+    statusFilter.value = status as 'active' | 'completed'
+  }
 
   if (sheetId) {
     // Set current sheet based on route param
@@ -140,6 +146,12 @@ watch(
 const filteredSales = computed(() => {
   let sales = contractsStore.saleContracts
 
+  // Status 필터 적용
+  if (statusFilter.value !== 'all') {
+    sales = sales.filter(sale => sale.status === statusFilter.value)
+  }
+
+  // 검색어 필터 적용
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     sales = sales.filter(
@@ -442,13 +454,20 @@ async function handleSubmit() {
       </n-alert>
 
       <!-- Search and filters -->
-      <n-space v-if="sheetsStore.currentSheet" class="mb-4" align="center">
+      <n-space v-if="sheetsStore.currentSheet" class="mb-4" align="center" :wrap="true">
         <n-input
           v-model:value="searchQuery"
           placeholder="동-호, 계약자, 구분으로 검색..."
           clearable
           style="width: 300px"
         />
+
+        <!-- 상태 필터 -->
+        <n-radio-group v-model:value="statusFilter">
+          <n-radio value="all">전체</n-radio>
+          <n-radio value="active">진행중</n-radio>
+          <n-radio value="completed">종결</n-radio>
+        </n-radio-group>
 
         <!-- 뷰 모드 선택 -->
         <n-radio-group v-model:value="viewMode">
@@ -866,6 +885,12 @@ async function handleSubmit() {
 
 .sale-info {
   font-size: 14px;
+}
+
+/* 세부정보 팝업 테이블 값 중앙정렬 */
+:deep(.n-descriptions-item__content) {
+  text-align: center;
+  justify-content: center;
 }
 
 .info-row {

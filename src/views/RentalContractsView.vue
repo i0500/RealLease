@@ -937,6 +937,12 @@ function resetForm() {
   font-size: 14px;
 }
 
+/* 세부정보 팝업 테이블 값 중앙정렬 */
+:deep(.n-descriptions-item__content) {
+  text-align: center;
+  justify-content: center;
+}
+
 .info-row {
   display: flex;
   justify-content: space-between;
