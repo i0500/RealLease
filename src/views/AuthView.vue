@@ -114,8 +114,11 @@ async function handleSignIn() {
 
           <div class="mt-4">
             <n-checkbox v-model:checked="keepSignedIn">
-              <span class="text-sm text-gray-600">로그인 상태 유지</span>
+              <span class="text-sm text-gray-600">자동 로그인 유지 (권장)</span>
             </n-checkbox>
+            <p class="text-xs text-gray-400 mt-1 ml-6">
+              ※ Google 보안 정책에 따라 주기적으로 재인증이 필요할 수 있습니다
+            </p>
           </div>
 
           <n-divider class="my-6">

@@ -149,6 +149,26 @@ watch(
   { immediate: false }
 )
 
+// 계약 상태 가져오기
+function getContractStatus(contract: RentalContract): { text: string; type: 'success' | 'warning' | 'default' } {
+  // 공실
+  if (!contract.tenantName || contract.tenantName.trim() === '') {
+    return { text: '공실', type: 'default' }
+  }
+
+  // 만료예정 (3개월 이내)
+  if (contract.endDate) {
+    const today = new Date()
+    const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+    if (contract.endDate >= today && contract.endDate <= threeMonthsLater) {
+      return { text: '만료예정', type: 'warning' }
+    }
+  }
+
+  // 계약중
+  return { text: '계약중', type: 'success' }
+}
+
 // Filtered contracts
 const filteredContracts = computed(() => {
   let result = contractsStore.contracts.filter(c => !c.metadata.deletedAt)
@@ -467,12 +487,19 @@ function resetForm() {
     <div class="header mb-6">
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-bold" style="color: #2c3e50;">임대차 현황</h1>
-        <n-button @click="() => router.push('/')" secondary>
-          <template #icon>
-            <n-icon><HomeIcon /></n-icon>
-          </template>
-          메인 화면
-        </n-button>
+        <n-space>
+          <n-button type="primary" @click="handleAdd">
+            <template #icon>➕</template>
+            <span class="hidden sm:inline">계약 추가</span>
+            <span class="sm:hidden">추가</span>
+          </n-button>
+          <n-button @click="() => router.push('/')" secondary>
+            <template #icon>
+              <n-icon><HomeIcon /></n-icon>
+            </template>
+            메인 화면
+          </n-button>
+        </n-space>
       </div>
 
       <!-- Filters and Search -->
@@ -491,12 +518,6 @@ function resetForm() {
           :options="statusOptions"
           style="width: 120px"
         />
-
-        <n-button type="primary" @click="handleAdd">
-          <template #icon>➕</template>
-          <span class="hidden sm:inline">계약 추가</span>
-          <span class="sm:hidden">추가</span>
-        </n-button>
 
         <!-- PC/모바일 모두 뷰 모드 선택 표시 -->
         <n-radio-group v-model:value="viewMode">
@@ -560,11 +581,11 @@ function resetForm() {
             {{ contract.building }}동 {{ contract.unit }}호
           </h4>
           <n-tag
-            :type="contract.tenantName && contract.tenantName.trim() !== '' ? 'success' : 'default'"
+            :type="getContractStatus(contract).type"
             size="small"
             class="ml-2 flex-shrink-0"
           >
-            {{ contract.tenantName ? '계약중' : '공실' }}
+            {{ getContractStatus(contract).text }}
           </n-tag>
         </div>
 
@@ -575,8 +596,8 @@ function resetForm() {
           <span v-if="contract.contractType" class="font-medium">{{ contract.contractType }}</span>
           <span v-if="contract.deposit > 0" class="text-gray-400">·</span>
           <span v-if="contract.deposit > 0" class="font-medium">
-            보증금 {{ (contract.deposit / 10000).toFixed(0) }}억
-            <span v-if="contract.monthlyRent > 0"> / 월세 {{ (contract.monthlyRent / 10000).toFixed(0) }}만</span>
+            보증금 {{ formatCurrency(contract.deposit) }}
+            <span v-if="contract.monthlyRent > 0"> / 월세 {{ formatCurrency(contract.monthlyRent) }}</span>
           </span>
         </div>
 

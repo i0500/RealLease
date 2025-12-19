@@ -826,7 +826,7 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       return {
-        id: generateId(),
+        id: `rental-${sheetId}-${rowIndex}`,
         sheetId,
         rowIndex,
         number,
