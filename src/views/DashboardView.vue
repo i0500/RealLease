@@ -488,7 +488,7 @@ function handleSaleClick(saleId: string) {
               <span v-if="contract.deposit > 0" class="text-gray-400">·</span>
               <span v-if="contract.deposit > 0" class="font-medium">
                 보증금 {{ formatCurrency(contract.deposit) }}
-                <span v-if="contract.monthlyRent > 0"> / 월세 {{ formatCurrency(contract.monthlyRent) }}</span>
+                <span v-if="contract.monthlyRent > 0"> / 월세 {{ (contract.monthlyRent / 1000).toLocaleString() }}천</span>
               </span>
             </div>
 
@@ -626,7 +626,7 @@ function handleSaleClick(saleId: string) {
             </n-descriptions-item>
             <n-descriptions-item label="월세">
               <span v-if="viewingContract.monthlyRent" class="font-bold text-xl" style="color: #18a058;">
-                {{ formatCurrency(viewingContract.monthlyRent) }}
+                {{ (viewingContract.monthlyRent / 1000).toLocaleString() }}천
               </span>
               <span v-else>-</span>
             </n-descriptions-item>
