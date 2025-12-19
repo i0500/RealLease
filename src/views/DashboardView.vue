@@ -14,11 +14,19 @@ const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
 const sheetsStore = useSheetsStore()
 
-// 현재 선택된 시트의 임대차 계약만 필터링
+// 현재 선택된 파일(그룹)의 모든 시트에서 임대차 계약 필터링
 const currentSheetContracts = computed(() => {
   if (!sheetsStore.currentSheet) return []
+
+  // 같은 name(그룹)을 가진 모든 시트 ID 찾기
+  const currentGroupName = sheetsStore.currentSheet.name
+  const groupSheetIds = sheetsStore.sheets
+    .filter(s => s.name === currentGroupName)
+    .map(s => s.id)
+
+  // 그룹에 속한 모든 시트의 계약 필터링
   return contractsStore.contracts.filter(c =>
-    c.sheetId === sheetsStore.currentSheet!.id && !c.metadata.deletedAt
+    groupSheetIds.includes(c.sheetId) && !c.metadata.deletedAt
   )
 })
 
@@ -64,12 +72,43 @@ const rentalStats = computed(() => {
   return { total, vacant, expiring, hugExpiring }
 })
 
-// 매도현황 통계
-const saleStats = computed(() => ({
-  total: contractsStore.saleContracts.length,
-  active: contractsStore.activeSaleContracts.length,
-  completed: contractsStore.completedSaleContracts.length
-}))
+// 현재 그룹의 매도 계약만 필터링
+const currentGroupSaleContracts = computed(() => {
+  if (!sheetsStore.currentSheet) return []
+
+  const currentGroupName = sheetsStore.currentSheet.name
+  const groupSheetIds = sheetsStore.sheets
+    .filter(s => s.name === currentGroupName)
+    .map(s => s.id)
+
+  return contractsStore.saleContracts.filter(c =>
+    groupSheetIds.includes(c.sheetId)
+  )
+})
+
+// 매도현황 통계 (현재 선택된 파일 그룹의 시트만)
+const saleStats = computed(() => {
+  if (!sheetsStore.currentSheet) {
+    return { total: 0, active: 0, completed: 0 }
+  }
+
+  // 같은 name(그룹)을 가진 모든 시트 ID 찾기
+  const currentGroupName = sheetsStore.currentSheet.name
+  const groupSheetIds = sheetsStore.sheets
+    .filter(s => s.name === currentGroupName)
+    .map(s => s.id)
+
+  // 그룹에 속한 시트의 매도 계약만 필터링
+  const groupSaleContracts = contractsStore.saleContracts.filter(c =>
+    groupSheetIds.includes(c.sheetId)
+  )
+
+  return {
+    total: groupSaleContracts.length,
+    active: groupSaleContracts.filter(c => c.status === 'active').length,
+    completed: groupSaleContracts.filter(c => c.status === 'completed').length
+  }
+})
 
 // 전체 통계
 const stats = computed(() => ({
@@ -387,11 +426,11 @@ function toMillions(thousands: number): string {
         <n-empty v-else description="계약이 없습니다" />
       </n-card>
 
-      <!-- 최근 매도 -->
-      <n-card v-if="contractsStore.saleContracts.length > 0" title="최근 매도" class="mt-4 md:mt-6">
+      <!-- 최근 매도 (현재 선택된 파일 그룹의 시트만) -->
+      <n-card v-if="saleStats.total > 0" title="최근 매도" class="mt-4 md:mt-6">
         <div class="space-y-3">
           <div
-            v-for="sale in contractsStore.saleContracts.slice(0, 5)"
+            v-for="sale in currentGroupSaleContracts.slice(0, 5)"
             :key="sale.id"
             class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
             @click="handleSaleClick(sale.id)"
