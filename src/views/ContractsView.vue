@@ -25,11 +25,11 @@ import {
   NDatePicker,
   NRadio,
   NRadioGroup,
-  NSwitch,
   useMessage,
   useDialog
 } from 'naive-ui'
 import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
+import { h } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -42,34 +42,40 @@ const dialog = useDialog()
 const isMobile = ref(false)
 const viewMode = ref<'table' | 'card'>('table')
 const searchQuery = ref('')
-const filterType = ref<'all' | 'jeonse' | 'wolse'>('all')
-const filterStatus = ref<'all' | 'active' | 'expired' | 'terminated'>('all')
+const filterStatus = ref<'all' | 'vacant' | 'expiring'>('all')
 
 // Modal state
 const showContractModal = ref(false)
 const showDetailModal = ref(false)
 const editingContract = ref<RentalContract | null>(null)
 const viewingContract = ref<RentalContract | null>(null)
+
+// 새로운 RentalContract 구조에 맞춘 폼
 const contractForm = ref({
-  tenant: { name: '', phone: '', email: '', idNumber: '' },
-  property: { address: '', type: '', unit: '' },
-  contract: {
-    type: 'wolse' as 'jeonse' | 'wolse',
-    deposit: 0,
-    monthlyRent: 0,
-    startDate: null as number | null,
-    endDate: null as number | null,
-    status: 'active' as 'active' | 'expired' | 'terminated',
-    contractType: 'new' as 'new' | 'renewal' | 'change'
-  },
-  hug: {
-    guaranteed: false,
-    startDate: null as number | null,
-    endDate: null as number | null,
-    amount: 0,
-    insuranceNumber: ''
-  },
-  realtor: { name: '', phone: '', address: '', fee: 0 }
+  number: '',
+  building: '',
+  unit: '',
+  tenantName: '',
+  phone: '',
+  phone2OrContractType: '',
+  contractType: '',
+  idNumber: '',
+  exclusiveArea: '',
+  supplyArea: '',
+  deposit: 0,
+  monthlyRent: 0,
+  contractWrittenDate: null as number | null,
+  startDate: null as number | null,
+  endDate: null as number | null,
+  actualMoveOutDate: null as number | null,
+  contractPeriod: '',
+  hugStartDate: null as number | null,
+  hugEndDate: null as number | null,
+  additionalInfo1: '',
+  additionalInfo2: '',
+  additionalInfo3: '',
+  additionalInfo4: '',
+  notes: ''
 })
 
 // Load contracts on mount
@@ -108,34 +114,36 @@ onMounted(async () => {
   }
 
   // Apply status filter if provided
-  if (status && (status === 'active' || status === 'expired')) {
+  if (status && (status === 'vacant' || status === 'expiring')) {
     filterStatus.value = status
   }
 })
 
 // Filtered contracts
 const filteredContracts = computed(() => {
-  let result = contractsStore.contracts
+  let result = contractsStore.contracts.filter(c => !c.metadata.deletedAt)
 
   // Search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(
       (c) =>
-        c.tenant.name.toLowerCase().includes(query) ||
-        c.property.address.toLowerCase().includes(query) ||
-        c.tenant.phone.includes(query)
+        c.tenantName.toLowerCase().includes(query) ||
+        `${c.building}동 ${c.unit}호`.toLowerCase().includes(query) ||
+        c.phone.includes(query)
     )
   }
 
-  // Type filter
-  if (filterType.value !== 'all') {
-    result = result.filter((c) => c.contract.type === filterType.value)
-  }
-
   // Status filter
-  if (filterStatus.value !== 'all') {
-    result = result.filter((c) => c.contract.status === filterStatus.value)
+  if (filterStatus.value === 'vacant') {
+    result = result.filter((c) => !c.tenantName || c.tenantName.trim() === '')
+  } else if (filterStatus.value === 'expiring') {
+    const today = new Date()
+    const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+    result = result.filter((c) => {
+      if (!c.endDate) return false
+      return c.endDate >= today && c.endDate <= threeMonthsLater
+    })
   }
 
   return result
@@ -144,8 +152,8 @@ const filteredContracts = computed(() => {
 // Table columns
 const columns = [
   {
-    title: '임차인',
-    key: 'tenant.name',
+    title: '동-호',
+    key: 'address',
     render: (row: RentalContract) => {
       return h(
         'a',
@@ -154,57 +162,64 @@ const columns = [
           onClick: () => handleView(row),
           style: 'color: #18a058; cursor: pointer; text-decoration: underline;'
         },
-        row.tenant.name
+        `${row.building}동 ${row.unit}호`
       )
     }
   },
   {
-    title: '물건지',
-    key: 'property.address',
-    render: (row: RentalContract) => `${row.property.address} ${row.property.unit || ''}`
+    title: '계약자',
+    key: 'tenantName',
+    render: (row: RentalContract) => row.tenantName || '공실'
   },
   {
-    title: '계약구분',
-    key: 'contract.type',
-    render: (row: RentalContract) => (
-      row.contract.type === 'jeonse' ? '전세' : '월세'
-    )
+    title: '계약유형',
+    key: 'contractType',
+    render: (row: RentalContract) => row.contractType || '-'
   },
   {
     title: '보증금',
-    key: 'contract.deposit',
-    render: (row: RentalContract) => formatCurrency(row.contract.deposit)
+    key: 'deposit',
+    render: (row: RentalContract) => formatCurrency(row.deposit)
   },
   {
     title: '월세',
-    key: 'contract.monthlyRent',
+    key: 'monthlyRent',
     render: (row: RentalContract) =>
-      row.contract.monthlyRent ? formatCurrency(row.contract.monthlyRent) : '-'
+      row.monthlyRent ? formatCurrency(row.monthlyRent) : '-'
   },
   {
     title: '계약기간',
-    key: 'contract.period',
-    render: (row: RentalContract) =>
-      `${formatDate(row.contract.startDate)} ~ ${formatDate(row.contract.endDate)}`
+    key: 'period',
+    render: (row: RentalContract) => {
+      if (!row.startDate || !row.endDate) return '-'
+      return `${formatDate(row.startDate, 'yyyy.MM.dd')} ~ ${formatDate(row.endDate, 'yyyy.MM.dd')}`
+    }
   },
   {
     title: '상태',
-    key: 'contract.status',
+    key: 'status',
     render: (row: RentalContract) => {
-      const statusMap = {
-        active: { text: '진행중', type: 'success' as const },
-        expired: { text: '만료', type: 'error' as const },
-        terminated: { text: '해지', type: 'warning' as const }
+      const hasName = row.tenantName && row.tenantName.trim() !== ''
+      const isExpiring = row.endDate && (() => {
+        const today = new Date()
+        const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+        return row.endDate >= today && row.endDate <= threeMonthsLater
+      })()
+
+      if (!hasName) {
+        return h(NTag, { type: 'default' }, { default: () => '공실' })
+      } else if (isExpiring) {
+        return h(NTag, { type: 'warning' }, { default: () => '만료예정' })
+      } else {
+        return h(NTag, { type: 'success' }, { default: () => '계약중' })
       }
-      const status = statusMap[row.contract.status]
-      return h(NTag, { type: status.type }, { default: () => status.text })
     }
   },
   {
     title: 'HUG보증',
-    key: 'hug.guaranteed',
+    key: 'hugEndDate',
     render: (row: RentalContract) =>
-      row.hug?.guaranteed ? '가입' : '-'
+      row.hugEndDate ? '가입' : '-'
   },
   {
     title: '작업',
@@ -240,23 +255,10 @@ const columns = [
 ]
 
 // Filter options
-const typeOptions = [
-  { label: '전체', value: 'all' },
-  { label: '전세', value: 'jeonse' },
-  { label: '월세', value: 'wolse' }
-]
-
 const statusOptions = [
   { label: '전체', value: 'all' },
-  { label: '진행중', value: 'active' },
-  { label: '만료', value: 'expired' },
-  { label: '해지', value: 'terminated' }
-]
-
-const contractTypeOptions = [
-  { label: '신규', value: 'new' },
-  { label: '갱신', value: 'renewal' },
-  { label: '변경', value: 'change' }
+  { label: '공실', value: 'vacant' },
+  { label: '만료예정', value: 'expiring' }
 ]
 
 // Actions
@@ -289,62 +291,39 @@ function handleEdit(contract: RentalContract) {
   editingContract.value = contract
   // Populate form with contract data
   contractForm.value = {
-    tenant: {
-      name: contract.tenant.name,
-      phone: contract.tenant.phone,
-      email: contract.tenant.email || '',
-      idNumber: contract.tenant.idNumber || ''
-    },
-    property: {
-      address: contract.property.address,
-      type: contract.property.type,
-      unit: contract.property.unit || ''
-    },
-    contract: {
-      type: contract.contract.type,
-      deposit: contract.contract.deposit,
-      monthlyRent: contract.contract.monthlyRent || 0,
-      startDate: contract.contract.startDate.getTime(),
-      endDate: contract.contract.endDate.getTime(),
-      status: contract.contract.status,
-      contractType: contract.contract.contractType
-    },
-    hug: contract.hug
-      ? {
-          guaranteed: contract.hug.guaranteed,
-          startDate: contract.hug.startDate.getTime(),
-          endDate: contract.hug.endDate.getTime(),
-          amount: contract.hug.amount,
-          insuranceNumber: contract.hug.insuranceNumber || ''
-        }
-      : {
-          guaranteed: false,
-          startDate: null,
-          endDate: null,
-          amount: 0,
-          insuranceNumber: ''
-        },
-    realtor: contract.realtor
-      ? {
-          name: contract.realtor.name,
-          phone: contract.realtor.phone,
-          address: contract.realtor.address || '',
-          fee: contract.realtor.fee || 0
-        }
-      : {
-          name: '',
-          phone: '',
-          address: '',
-          fee: 0
-        }
+    number: contract.number,
+    building: contract.building,
+    unit: contract.unit,
+    tenantName: contract.tenantName,
+    phone: contract.phone,
+    phone2OrContractType: contract.phone2OrContractType,
+    contractType: contract.contractType,
+    idNumber: contract.idNumber,
+    exclusiveArea: contract.exclusiveArea,
+    supplyArea: contract.supplyArea,
+    deposit: contract.deposit,
+    monthlyRent: contract.monthlyRent,
+    contractWrittenDate: contract.contractWrittenDate?.getTime() || null,
+    startDate: contract.startDate?.getTime() || null,
+    endDate: contract.endDate?.getTime() || null,
+    actualMoveOutDate: contract.actualMoveOutDate?.getTime() || null,
+    contractPeriod: contract.contractPeriod,
+    hugStartDate: contract.hugStartDate?.getTime() || null,
+    hugEndDate: contract.hugEndDate?.getTime() || null,
+    additionalInfo1: contract.additionalInfo1,
+    additionalInfo2: contract.additionalInfo2,
+    additionalInfo3: contract.additionalInfo3,
+    additionalInfo4: contract.additionalInfo4,
+    notes: contract.notes
   }
   showContractModal.value = true
 }
 
 function handleDelete(contract: RentalContract) {
+  const contractLabel = contract.tenantName || `${contract.building}동 ${contract.unit}호`
   dialog.warning({
     title: '계약 삭제',
-    content: `${contract.tenant.name}님의 계약을 삭제하시겠습니까?`,
+    content: `${contractLabel} 계약을 삭제하시겠습니까?`,
     positiveText: '삭제',
     negativeText: '취소',
     onPositiveClick: async () => {
@@ -366,51 +345,51 @@ async function handleSave() {
       return
     }
 
-    if (!contractForm.value.contract.startDate || !contractForm.value.contract.endDate) {
-      message.error('계약 시작일과 종료일을 입력해주세요')
+    // 필수 필드 검증
+    if (!contractForm.value.building || !contractForm.value.unit) {
+      message.error('동과 호를 입력해주세요')
       return
     }
 
     const contractData: any = {
       sheetId: sheetsStore.currentSheet.id,
       rowIndex: editingContract.value?.rowIndex || 0,
-      tenant: {
-        name: contractForm.value.tenant.name,
-        phone: contractForm.value.tenant.phone,
-        email: contractForm.value.tenant.email || '',
-        idNumber: contractForm.value.tenant.idNumber || ''
-      },
-      property: {
-        address: contractForm.value.property.address,
-        type: contractForm.value.property.type,
-        unit: contractForm.value.property.unit || ''
-      },
-      contract: {
-        type: contractForm.value.contract.type,
-        deposit: contractForm.value.contract.deposit,
-        monthlyRent: contractForm.value.contract.monthlyRent || 0,
-        startDate: new Date(contractForm.value.contract.startDate),
-        endDate: new Date(contractForm.value.contract.endDate),
-        status: contractForm.value.contract.status,
-        contractType: contractForm.value.contract.contractType
-      },
-      hug: contractForm.value.hug.guaranteed && contractForm.value.hug.startDate && contractForm.value.hug.endDate
-        ? {
-            guaranteed: true,
-            startDate: new Date(contractForm.value.hug.startDate),
-            endDate: new Date(contractForm.value.hug.endDate),
-            amount: contractForm.value.hug.amount,
-            insuranceNumber: contractForm.value.hug.insuranceNumber || ''
-          }
+      number: contractForm.value.number,
+      building: contractForm.value.building,
+      unit: contractForm.value.unit,
+      tenantName: contractForm.value.tenantName,
+      phone: contractForm.value.phone,
+      phone2OrContractType: contractForm.value.phone2OrContractType,
+      contractType: contractForm.value.contractType,
+      idNumber: contractForm.value.idNumber,
+      exclusiveArea: contractForm.value.exclusiveArea,
+      supplyArea: contractForm.value.supplyArea,
+      deposit: contractForm.value.deposit,
+      monthlyRent: contractForm.value.monthlyRent,
+      contractWrittenDate: contractForm.value.contractWrittenDate
+        ? new Date(contractForm.value.contractWrittenDate)
         : undefined,
-      realtor: contractForm.value.realtor.name
-        ? {
-            name: contractForm.value.realtor.name,
-            phone: contractForm.value.realtor.phone,
-            address: contractForm.value.realtor.address || '',
-            fee: contractForm.value.realtor.fee || 0
-          }
-        : undefined
+      startDate: contractForm.value.startDate
+        ? new Date(contractForm.value.startDate)
+        : undefined,
+      endDate: contractForm.value.endDate
+        ? new Date(contractForm.value.endDate)
+        : undefined,
+      actualMoveOutDate: contractForm.value.actualMoveOutDate
+        ? new Date(contractForm.value.actualMoveOutDate)
+        : undefined,
+      contractPeriod: contractForm.value.contractPeriod,
+      hugStartDate: contractForm.value.hugStartDate
+        ? new Date(contractForm.value.hugStartDate)
+        : undefined,
+      hugEndDate: contractForm.value.hugEndDate
+        ? new Date(contractForm.value.hugEndDate)
+        : undefined,
+      additionalInfo1: contractForm.value.additionalInfo1,
+      additionalInfo2: contractForm.value.additionalInfo2,
+      additionalInfo3: contractForm.value.additionalInfo3,
+      additionalInfo4: contractForm.value.additionalInfo4,
+      notes: contractForm.value.notes
     }
 
     if (editingContract.value) {
@@ -431,37 +410,39 @@ async function handleSave() {
 
 function resetForm() {
   contractForm.value = {
-    tenant: { name: '', phone: '', email: '', idNumber: '' },
-    property: { address: '', type: '', unit: '' },
-    contract: {
-      type: 'wolse',
-      deposit: 0,
-      monthlyRent: 0,
-      startDate: null,
-      endDate: null,
-      status: 'active',
-      contractType: 'new'
-    },
-    hug: {
-      guaranteed: false,
-      startDate: null,
-      endDate: null,
-      amount: 0,
-      insuranceNumber: ''
-    },
-    realtor: { name: '', phone: '', address: '', fee: 0 }
+    number: '',
+    building: '',
+    unit: '',
+    tenantName: '',
+    phone: '',
+    phone2OrContractType: '',
+    contractType: '',
+    idNumber: '',
+    exclusiveArea: '',
+    supplyArea: '',
+    deposit: 0,
+    monthlyRent: 0,
+    contractWrittenDate: null,
+    startDate: null,
+    endDate: null,
+    actualMoveOutDate: null,
+    contractPeriod: '',
+    hugStartDate: null,
+    hugEndDate: null,
+    additionalInfo1: '',
+    additionalInfo2: '',
+    additionalInfo3: '',
+    additionalInfo4: '',
+    notes: ''
   }
 }
-
-// Import h from vue for rendering
-import { h } from 'vue'
 </script>
 
 <template>
   <div class="contracts-view">
     <div class="header mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold" style="color: #2c3e50;">계약 관리</h1>
+        <h1 class="text-2xl font-bold" style="color: #2c3e50;">임대차 현황</h1>
         <n-button @click="() => router.push('/')" secondary>
           <template #icon>
             <n-icon><HomeIcon /></n-icon>
@@ -474,18 +455,12 @@ import { h } from 'vue'
       <n-space class="mb-4" align="center">
         <n-input
           v-model:value="searchQuery"
-          placeholder="임차인명, 주소, 연락처 검색"
+          placeholder="계약자명, 동-호, 연락처 검색"
           clearable
           style="width: 300px"
         >
           <template #prefix>🔍</template>
         </n-input>
-
-        <n-select
-          v-model:value="filterType"
-          :options="typeOptions"
-          style="width: 120px"
-        />
 
         <n-select
           v-model:value="filterStatus"
@@ -553,67 +528,61 @@ import { h } from 'vue'
       >
         <template #header>
           <div class="flex items-center justify-between">
-            <span class="font-bold text-lg">{{ contract.tenant.name }}</span>
+            <span class="font-bold text-lg">{{ contract.building }}동 {{ contract.unit }}호</span>
             <n-tag
               :type="
-                contract.contract.status === 'active'
+                contract.tenantName && contract.tenantName.trim() !== ''
                   ? 'success'
-                  : contract.contract.status === 'expired'
-                  ? 'error'
-                  : 'warning'
+                  : 'default'
               "
               size="small"
             >
-              {{
-                contract.contract.status === 'active'
-                  ? '진행중'
-                  : contract.contract.status === 'expired'
-                  ? '만료'
-                  : '해지'
-              }}
+              {{ contract.tenantName ? '계약중' : '공실' }}
             </n-tag>
           </div>
         </template>
         <div class="contract-info space-y-3">
           <div class="info-row">
-            <span class="label">📍 물건지</span>
-            <span class="value">{{ contract.property.address }} {{ contract.property.unit }}</span>
+            <span class="label">👤 계약자</span>
+            <span class="value">{{ contract.tenantName || '공실' }}</span>
           </div>
 
-          <div class="info-row">
-            <span class="label">📝 계약구분</span>
-            <span class="value font-semibold">
-              {{ contract.contract.type === 'jeonse' ? '전세' : '월세' }}
-            </span>
+          <div v-if="contract.contractType" class="info-row">
+            <span class="label">📝 계약유형</span>
+            <span class="value font-semibold">{{ contract.contractType }}</span>
           </div>
 
           <div class="info-row">
             <span class="label">💰 보증금</span>
-            <span class="value font-bold text-blue-600">{{ formatCurrency(contract.contract.deposit) }}</span>
-          </div>
-
-          <div v-if="contract.contract.monthlyRent" class="info-row">
-            <span class="label">🏠 월세</span>
-            <span class="value font-bold text-green-600">{{ formatCurrency(contract.contract.monthlyRent) }}</span>
-          </div>
-
-          <div class="info-row">
-            <span class="label">📅 계약기간</span>
-            <span class="value text-sm">
-              {{ formatDate(contract.contract.startDate) }}<br class="sm:hidden" />
-              <span class="hidden sm:inline"> ~ </span>
-              {{ formatDate(contract.contract.endDate) }}
+            <span class="value font-bold text-blue-600">
+              {{ isMobile ? `${(contract.deposit / 10000).toFixed(0)}억` : formatCurrency(contract.deposit) }}
             </span>
           </div>
 
-          <div v-if="contract.hug?.guaranteed" class="info-row">
-            <span class="label">🛡️ HUG보증</span>
-            <span class="value text-green-600">가입</span>
+          <div v-if="contract.monthlyRent" class="info-row">
+            <span class="label">🏠 월세</span>
+            <span class="value font-bold text-green-600">
+              {{ isMobile ? `${(contract.monthlyRent / 10000).toFixed(0)}만` : formatCurrency(contract.monthlyRent) }}
+            </span>
           </div>
 
-          <div class="info-row">
+          <div v-if="contract.startDate && contract.endDate" class="info-row">
+            <span class="label">📅 계약기간</span>
+            <span class="value text-sm">
+              {{ formatDate(contract.startDate, 'yyyy.MM.dd') }}<br class="sm:hidden" />
+              <span class="hidden sm:inline"> ~ </span>
+              {{ formatDate(contract.endDate, 'yyyy.MM.dd') }}
+            </span>
+          </div>
+
+          <div v-if="contract.hugEndDate" class="info-row">
+            <span class="label">🛡️ HUG보증</span>
+            <span class="value text-green-600">가입 (~ {{ formatDate(contract.hugEndDate, 'yyyy.MM.dd') }})</span>
+          </div>
+
+          <div v-if="contract.phone" class="info-row">
             <span class="label">📞 연락처</span>
-            <span class="value">{{ contract.tenant.phone }}</span>
+            <span class="value">{{ contract.phone }}</span>
           </div>
         </div>
 
@@ -635,156 +604,161 @@ import { h } from 'vue'
         <!-- 상태 표시 -->
         <div class="flex items-center justify-between mb-6 p-4 rounded" style="background-color: #f5f7fa;">
           <div>
-            <h2 class="text-2xl font-bold mb-2">{{ viewingContract.tenant.name }}</h2>
-            <p class="text-sm text-gray-600">{{ viewingContract.property.address }}</p>
+            <h2 class="text-2xl font-bold mb-2">{{ viewingContract.building }}동 {{ viewingContract.unit }}호</h2>
+            <p class="text-sm text-gray-600">{{ viewingContract.tenantName || '공실' }}</p>
           </div>
           <n-tag
             :type="
-              viewingContract.contract.status === 'active'
+              viewingContract.tenantName && viewingContract.tenantName.trim() !== ''
                 ? 'success'
-                : viewingContract.contract.status === 'expired'
-                ? 'error'
-                : 'warning'
+                : 'default'
             "
             size="large"
           >
-            {{
-              viewingContract.contract.status === 'active'
-                ? '진행중'
-                : viewingContract.contract.status === 'expired'
-                ? '만료'
-                : '해지'
-            }}
+            {{ viewingContract.tenantName ? '계약중' : '공실' }}
           </n-tag>
         </div>
 
-        <!-- 임차인 정보 -->
+        <!-- 기본 정보 -->
         <div class="detail-section">
-          <h3 class="section-title">👤 임차인 정보</h3>
+          <h3 class="section-title">📋 기본 정보</h3>
           <div class="detail-grid">
             <div class="detail-item">
-              <span class="label">이름</span>
-              <span class="value">{{ viewingContract.tenant.name }}</span>
+              <span class="label">번호</span>
+              <span class="value">{{ viewingContract.number || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">동-호</span>
+              <span class="value">{{ viewingContract.building }}동 {{ viewingContract.unit }}호</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">계약자명</span>
+              <span class="value">{{ viewingContract.tenantName || '-' }}</span>
             </div>
             <div class="detail-item">
               <span class="label">연락처</span>
-              <span class="value">{{ viewingContract.tenant.phone }}</span>
+              <span class="value">{{ viewingContract.phone || '-' }}</span>
             </div>
-            <div v-if="viewingContract.tenant.email" class="detail-item">
-              <span class="label">이메일</span>
-              <span class="value">{{ viewingContract.tenant.email }}</span>
+            <div v-if="viewingContract.phone2OrContractType" class="detail-item">
+              <span class="label">연락처2</span>
+              <span class="value">{{ viewingContract.phone2OrContractType }}</span>
             </div>
-            <div v-if="viewingContract.tenant.idNumber" class="detail-item">
-              <span class="label">주민번호</span>
-              <span class="value">{{ viewingContract.tenant.idNumber }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 물건 정보 -->
-        <div class="detail-section">
-          <h3 class="section-title">🏠 물건 정보</h3>
-          <div class="detail-grid">
-            <div class="detail-item full-width">
-              <span class="label">주소</span>
-              <span class="value">{{ viewingContract.property.address }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">물건유형</span>
-              <span class="value">{{ viewingContract.property.type }}</span>
-            </div>
-            <div v-if="viewingContract.property.unit" class="detail-item">
-              <span class="label">호수</span>
-              <span class="value">{{ viewingContract.property.unit }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 계약 정보 -->
-        <div class="detail-section">
-          <h3 class="section-title">📝 계약 정보</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="label">계약구분</span>
-              <span class="value font-bold">
-                {{ viewingContract.contract.type === 'jeonse' ? '전세' : '월세' }}
-              </span>
-            </div>
-            <div class="detail-item">
+            <div v-if="viewingContract.contractType" class="detail-item">
               <span class="label">계약유형</span>
-              <span class="value">
-                {{
-                  viewingContract.contract.contractType === 'new'
-                    ? '신규'
-                    : viewingContract.contract.contractType === 'renewal'
-                    ? '갱신'
-                    : '변경'
-                }}
-              </span>
+              <span class="value">{{ viewingContract.contractType }}</span>
             </div>
+            <div v-if="viewingContract.idNumber" class="detail-item">
+              <span class="label">주민번호</span>
+              <span class="value">{{ viewingContract.idNumber }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 면적 정보 -->
+        <div v-if="viewingContract.exclusiveArea || viewingContract.supplyArea" class="detail-section">
+          <h3 class="section-title">📐 면적 정보</h3>
+          <div class="detail-grid">
+            <div v-if="viewingContract.exclusiveArea" class="detail-item">
+              <span class="label">전용면적</span>
+              <span class="value">{{ viewingContract.exclusiveArea }}</span>
+            </div>
+            <div v-if="viewingContract.supplyArea" class="detail-item">
+              <span class="label">공급면적</span>
+              <span class="value">{{ viewingContract.supplyArea }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 계약 금액 정보 -->
+        <div class="detail-section">
+          <h3 class="section-title">💰 계약 금액</h3>
+          <div class="detail-grid">
             <div class="detail-item">
-              <span class="label">보증금</span>
+              <span class="label">임대보증금</span>
               <span class="value font-bold text-blue-600">
-                {{ formatCurrency(viewingContract.contract.deposit) }}
+                {{ formatCurrency(viewingContract.deposit) }}
               </span>
             </div>
-            <div v-if="viewingContract.contract.monthlyRent" class="detail-item">
+            <div v-if="viewingContract.monthlyRent" class="detail-item">
               <span class="label">월세</span>
               <span class="value font-bold text-green-600">
-                {{ formatCurrency(viewingContract.contract.monthlyRent) }}
+                {{ formatCurrency(viewingContract.monthlyRent) }}
               </span>
             </div>
-            <div class="detail-item full-width">
+          </div>
+        </div>
+
+        <!-- 계약 기간 정보 -->
+        <div class="detail-section">
+          <h3 class="section-title">📅 계약 기간</h3>
+          <div class="detail-grid">
+            <div v-if="viewingContract.contractWrittenDate" class="detail-item">
+              <span class="label">계약서작성일</span>
+              <span class="value">{{ formatDate(viewingContract.contractWrittenDate, 'yyyy.MM.dd') }}</span>
+            </div>
+            <div v-if="viewingContract.startDate" class="detail-item">
+              <span class="label">시작일</span>
+              <span class="value">{{ formatDate(viewingContract.startDate, 'yyyy.MM.dd') }}</span>
+            </div>
+            <div v-if="viewingContract.endDate" class="detail-item">
+              <span class="label">종료일</span>
+              <span class="value">{{ formatDate(viewingContract.endDate, 'yyyy.MM.dd') }}</span>
+            </div>
+            <div v-if="viewingContract.actualMoveOutDate" class="detail-item">
+              <span class="label">실제퇴거일</span>
+              <span class="value">{{ formatDate(viewingContract.actualMoveOutDate, 'yyyy.MM.dd') }}</span>
+            </div>
+            <div v-if="viewingContract.contractPeriod" class="detail-item">
               <span class="label">계약기간</span>
-              <span class="value">
-                {{ formatDate(viewingContract.contract.startDate) }} ~
-                {{ formatDate(viewingContract.contract.endDate) }}
-              </span>
+              <span class="value">{{ viewingContract.contractPeriod }}</span>
             </div>
           </div>
         </div>
 
         <!-- HUG 보증 정보 -->
-        <div v-if="viewingContract.hug?.guaranteed" class="detail-section">
-          <h3 class="section-title">🛡️ HUG 전세보증 정보</h3>
+        <div v-if="viewingContract.hugStartDate || viewingContract.hugEndDate" class="detail-section">
+          <h3 class="section-title">🛡️ HUG 보증보험 정보</h3>
           <div class="detail-grid">
-            <div class="detail-item">
-              <span class="label">보증금액</span>
-              <span class="value">{{ formatCurrency(viewingContract.hug.amount) }}</span>
+            <div v-if="viewingContract.hugStartDate" class="detail-item">
+              <span class="label">보증시작일</span>
+              <span class="value">{{ formatDate(viewingContract.hugStartDate, 'yyyy.MM.dd') }}</span>
             </div>
-            <div class="detail-item">
-              <span class="label">보험번호</span>
-              <span class="value">{{ viewingContract.hug.insuranceNumber || '-' }}</span>
-            </div>
-            <div class="detail-item full-width">
-              <span class="label">보증기간</span>
-              <span class="value">
-                {{ formatDate(viewingContract.hug.startDate) }} ~
-                {{ formatDate(viewingContract.hug.endDate) }}
-              </span>
+            <div v-if="viewingContract.hugEndDate" class="detail-item">
+              <span class="label">보증종료일</span>
+              <span class="value">{{ formatDate(viewingContract.hugEndDate, 'yyyy.MM.dd') }}</span>
             </div>
           </div>
         </div>
 
-        <!-- 부동산 정보 -->
-        <div v-if="viewingContract.realtor" class="detail-section">
-          <h3 class="section-title">🏢 부동산 정보</h3>
+        <!-- 추가 정보 -->
+        <div v-if="viewingContract.additionalInfo1 || viewingContract.additionalInfo2 || viewingContract.additionalInfo3 || viewingContract.additionalInfo4" class="detail-section">
+          <h3 class="section-title">📝 추가 정보</h3>
           <div class="detail-grid">
-            <div class="detail-item">
-              <span class="label">상호</span>
-              <span class="value">{{ viewingContract.realtor.name }}</span>
+            <div v-if="viewingContract.additionalInfo1" class="detail-item full-width">
+              <span class="label">추가정보1</span>
+              <span class="value">{{ viewingContract.additionalInfo1 }}</span>
             </div>
-            <div class="detail-item">
-              <span class="label">연락처</span>
-              <span class="value">{{ viewingContract.realtor.phone }}</span>
+            <div v-if="viewingContract.additionalInfo2" class="detail-item full-width">
+              <span class="label">추가정보2</span>
+              <span class="value">{{ viewingContract.additionalInfo2 }}</span>
             </div>
-            <div v-if="viewingContract.realtor.address" class="detail-item full-width">
-              <span class="label">주소</span>
-              <span class="value">{{ viewingContract.realtor.address }}</span>
+            <div v-if="viewingContract.additionalInfo3" class="detail-item full-width">
+              <span class="label">추가정보3</span>
+              <span class="value">{{ viewingContract.additionalInfo3 }}</span>
             </div>
-            <div v-if="viewingContract.realtor.fee" class="detail-item">
-              <span class="label">중개수수료</span>
-              <span class="value">{{ formatCurrency(viewingContract.realtor.fee) }}</span>
+            <div v-if="viewingContract.additionalInfo4" class="detail-item full-width">
+              <span class="label">추가정보4</span>
+              <span class="value">{{ viewingContract.additionalInfo4 }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 비고 -->
+        <div v-if="viewingContract.notes" class="detail-section">
+          <h3 class="section-title">📌 기타사항/비고</h3>
+          <div class="detail-grid">
+            <div class="detail-item full-width">
+              <span class="value">{{ viewingContract.notes }}</span>
             </div>
           </div>
         </div>
@@ -806,101 +780,97 @@ import { h } from 'vue'
       :title="editingContract ? '계약 수정' : '계약 추가'"
       style="width: 800px; max-height: 80vh; overflow-y: auto"
     >
-      <n-form label-placement="left" label-width="120px">
-        <!-- Tenant Information -->
-        <h3 class="text-lg font-semibold mb-3">임차인 정보</h3>
-        <n-form-item label="이름" required>
-          <n-input v-model:value="contractForm.tenant.name" />
+      <n-form label-placement="left" label-width="140px">
+        <!-- 기본 정보 -->
+        <h3 class="text-lg font-semibold mb-3">기본 정보</h3>
+        <n-form-item label="동" required>
+          <n-input v-model:value="contractForm.building" placeholder="예: 101" />
         </n-form-item>
-        <n-form-item label="연락처" required>
-          <n-input v-model:value="contractForm.tenant.phone" />
+        <n-form-item label="호" required>
+          <n-input v-model:value="contractForm.unit" placeholder="예: 1001" />
         </n-form-item>
-        <n-form-item label="이메일">
-          <n-input v-model:value="contractForm.tenant.email" />
-        </n-form-item>
-        <n-form-item label="주민번호">
-          <n-input v-model:value="contractForm.tenant.idNumber" />
-        </n-form-item>
-
-        <!-- Property Information -->
-        <h3 class="text-lg font-semibold mb-3 mt-6">물건 정보</h3>
-        <n-form-item label="주소" required>
-          <n-input v-model:value="contractForm.property.address" />
-        </n-form-item>
-        <n-form-item label="물건유형">
-          <n-input v-model:value="contractForm.property.type" placeholder="아파트, 오피스텔 등" />
-        </n-form-item>
-        <n-form-item label="호수">
-          <n-input v-model:value="contractForm.property.unit" />
-        </n-form-item>
-
-        <!-- Contract Information -->
-        <h3 class="text-lg font-semibold mb-3 mt-6">계약 정보</h3>
-        <n-form-item label="계약구분" required>
-          <n-radio-group v-model:value="contractForm.contract.type">
-            <n-radio value="jeonse">전세</n-radio>
-            <n-radio value="wolse">월세</n-radio>
-          </n-radio-group>
-        </n-form-item>
-        <n-form-item label="계약유형" required>
-          <n-select
-            v-model:value="contractForm.contract.contractType"
-            :options="contractTypeOptions"
-          />
-        </n-form-item>
-        <n-form-item label="보증금" required>
-          <n-input-number v-model:value="contractForm.contract.deposit" :min="0" style="width: 100%" />
-        </n-form-item>
-        <n-form-item v-if="contractForm.contract.type === 'wolse'" label="월세">
-          <n-input-number v-model:value="contractForm.contract.monthlyRent" :min="0" style="width: 100%" />
-        </n-form-item>
-        <n-form-item label="계약시작일" required>
-          <n-date-picker v-model:value="contractForm.contract.startDate" type="date" style="width: 100%" />
-        </n-form-item>
-        <n-form-item label="계약종료일" required>
-          <n-date-picker v-model:value="contractForm.contract.endDate" type="date" style="width: 100%" />
-        </n-form-item>
-        <n-form-item label="계약상태">
-          <n-radio-group v-model:value="contractForm.contract.status">
-            <n-radio value="active">진행중</n-radio>
-            <n-radio value="expired">만료</n-radio>
-            <n-radio value="terminated">해지</n-radio>
-          </n-radio-group>
-        </n-form-item>
-
-        <!-- HUG Guarantee Information -->
-        <h3 class="text-lg font-semibold mb-3 mt-6">HUG 전세보증 정보</h3>
-        <n-form-item label="HUG 가입여부">
-          <n-switch v-model:value="contractForm.hug.guaranteed" />
-        </n-form-item>
-        <template v-if="contractForm.hug.guaranteed">
-          <n-form-item label="보증금액">
-            <n-input-number v-model:value="contractForm.hug.amount" :min="0" style="width: 100%" />
-          </n-form-item>
-          <n-form-item label="보증시작일">
-            <n-date-picker v-model:value="contractForm.hug.startDate" type="date" style="width: 100%" />
-          </n-form-item>
-          <n-form-item label="보증종료일">
-            <n-date-picker v-model:value="contractForm.hug.endDate" type="date" style="width: 100%" />
-          </n-form-item>
-          <n-form-item label="보험번호">
-            <n-input v-model:value="contractForm.hug.insuranceNumber" />
-          </n-form-item>
-        </template>
-
-        <!-- Realtor Information -->
-        <h3 class="text-lg font-semibold mb-3 mt-6">부동산 정보</h3>
-        <n-form-item label="상호">
-          <n-input v-model:value="contractForm.realtor.name" />
+        <n-form-item label="계약자명">
+          <n-input v-model:value="contractForm.tenantName" placeholder="공실인 경우 비워두세요" />
         </n-form-item>
         <n-form-item label="연락처">
-          <n-input v-model:value="contractForm.realtor.phone" />
+          <n-input v-model:value="contractForm.phone" />
         </n-form-item>
-        <n-form-item label="주소">
-          <n-input v-model:value="contractForm.realtor.address" />
+        <n-form-item label="연락처2">
+          <n-input v-model:value="contractForm.phone2OrContractType" placeholder="갱신/신규 등" />
         </n-form-item>
-        <n-form-item label="중개수수료">
-          <n-input-number v-model:value="contractForm.realtor.fee" :min="0" style="width: 100%" />
+        <n-form-item label="계약유형">
+          <n-input v-model:value="contractForm.contractType" placeholder="예: 신규, 갱신" />
+        </n-form-item>
+        <n-form-item label="주민번호">
+          <n-input v-model:value="contractForm.idNumber" />
+        </n-form-item>
+
+        <!-- 면적 정보 -->
+        <h3 class="text-lg font-semibold mb-3 mt-6">면적 정보</h3>
+        <n-form-item label="전용면적">
+          <n-input v-model:value="contractForm.exclusiveArea" placeholder="예: 84㎡" />
+        </n-form-item>
+        <n-form-item label="공급면적">
+          <n-input v-model:value="contractForm.supplyArea" placeholder="예: 102㎡" />
+        </n-form-item>
+
+        <!-- 계약 금액 -->
+        <h3 class="text-lg font-semibold mb-3 mt-6">계약 금액</h3>
+        <n-form-item label="임대보증금" required>
+          <n-input-number v-model:value="contractForm.deposit" :min="0" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="월세">
+          <n-input-number v-model:value="contractForm.monthlyRent" :min="0" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 계약 기간 -->
+        <h3 class="text-lg font-semibold mb-3 mt-6">계약 기간</h3>
+        <n-form-item label="계약서작성일">
+          <n-date-picker v-model:value="contractForm.contractWrittenDate" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="시작일">
+          <n-date-picker v-model:value="contractForm.startDate" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="종료일">
+          <n-date-picker v-model:value="contractForm.endDate" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="실제퇴거일">
+          <n-date-picker v-model:value="contractForm.actualMoveOutDate" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="계약기간">
+          <n-input v-model:value="contractForm.contractPeriod" placeholder="예: 2년 또는 4개월" />
+        </n-form-item>
+
+        <!-- HUG 보증보험 -->
+        <h3 class="text-lg font-semibold mb-3 mt-6">HUG 보증보험</h3>
+        <n-form-item label="보증시작일">
+          <n-date-picker v-model:value="contractForm.hugStartDate" type="date" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="보증종료일">
+          <n-date-picker v-model:value="contractForm.hugEndDate" type="date" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 추가 정보 -->
+        <h3 class="text-lg font-semibold mb-3 mt-6">추가 정보</h3>
+        <n-form-item label="추가정보1">
+          <n-input v-model:value="contractForm.additionalInfo1" placeholder="갱신/퇴거/고민중 등" />
+        </n-form-item>
+        <n-form-item label="추가정보2">
+          <n-input v-model:value="contractForm.additionalInfo2" />
+        </n-form-item>
+        <n-form-item label="추가정보3">
+          <n-input v-model:value="contractForm.additionalInfo3" />
+        </n-form-item>
+        <n-form-item label="추가정보4">
+          <n-input v-model:value="contractForm.additionalInfo4" />
+        </n-form-item>
+        <n-form-item label="기타사항/비고">
+          <n-input
+            v-model:value="contractForm.notes"
+            type="textarea"
+            :rows="3"
+            placeholder="기타 특이사항 입력"
+          />
         </n-form-item>
       </n-form>
 

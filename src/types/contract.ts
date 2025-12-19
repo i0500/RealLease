@@ -3,43 +3,72 @@ export interface RentalContract {
   sheetId: string
   rowIndex: number
 
-  tenant: {
-    name: string
-    phone: string
-    email?: string
-    idNumber?: string
-  }
+  // A열: 공란
+  // B열: 번호 (자동 넘버링)
+  number: string
 
-  property: {
-    address: string
-    type: string
-    unit?: string
-  }
+  // C열: 동
+  building: string
 
-  contract: {
-    type: 'jeonse' | 'wolse'
-    deposit: number
-    monthlyRent?: number
-    startDate: Date
-    endDate: Date
-    status: 'active' | 'expired' | 'terminated'
-    contractType: 'new' | 'renewal' | 'change'
-  }
+  // D열: 호
+  unit: string
 
-  hug?: {
-    guaranteed: boolean
-    startDate: Date
-    endDate: Date
-    amount: number
-    insuranceNumber?: string
-  }
+  // E열: 계약자이름
+  tenantName: string
 
-  realtor?: {
-    name: string
-    phone: string
-    address?: string
-    fee?: number
-  }
+  // F열: 연락처
+  phone: string
+
+  // G열: 연락처2 (일부 "갱신/신규" 텍스트)
+  phone2OrContractType: string
+
+  // H열: 계약유형
+  contractType: string
+
+  // I열: 주민번호
+  idNumber: string
+
+  // J열: 전용면积
+  exclusiveArea: string
+
+  // K열: 공급면적
+  supplyArea: string
+
+  // L열: 임대보증금 (232,000,000 형태)
+  deposit: number
+
+  // M열: 월세 (945,000 형태)
+  monthlyRent: number
+
+  // N열: 계약서작성일
+  contractWrittenDate?: Date
+
+  // O열: 시작일 (24-10-25 형태)
+  startDate?: Date
+
+  // P열: 종료일 (26/05/26(화) 형태)
+  endDate?: Date
+
+  // Q열: 실제퇴거일
+  actualMoveOutDate?: Date
+
+  // R열: 계약기간 (1, 2 = 년, "4개월" = 개월)
+  contractPeriod: string
+
+  // S열: 보증보험 시작일 (24-7-9 형태)
+  hugStartDate?: Date
+
+  // T열: 보증보험 종료일 (26-7-8 형태, 3개월 전 알림)
+  hugEndDate?: Date
+
+  // U, V, W, X열: 갱신/퇴거/고민중/보증보험 내용 등
+  additionalInfo1: string // U열
+  additionalInfo2: string // V열
+  additionalInfo3: string // W열
+  additionalInfo4: string // X열
+
+  // Y열: 기타사항/비고
+  notes: string
 
   metadata: {
     createdAt: Date

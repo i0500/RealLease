@@ -57,13 +57,41 @@ export const useContractsStore = defineStore('contracts', () => {
   }
 
   // 임대차 계약 computed
+  // 계약자 이름이 있는 계약 (실제 계약 중인 계약)
   const activeContracts = computed(() =>
-    contracts.value.filter(c => c.contract.status === 'active')
+    contracts.value.filter(c => c.tenantName && c.tenantName.trim() !== '' && !c.metadata.deletedAt)
   )
 
-  const expiredContracts = computed(() =>
-    contracts.value.filter(c => c.contract.status === 'expired')
+  // 공실: 계약자 이름이 없는 계약
+  const vacantContracts = computed(() =>
+    contracts.value.filter(c => (!c.tenantName || c.tenantName.trim() === '') && !c.metadata.deletedAt)
   )
+
+  // 만료예정: 종료일이 3개월 이내인 계약
+  const expiringContracts = computed(() => {
+    const today = new Date()
+    const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+
+    return contracts.value.filter(c => {
+      if (!c.endDate || c.metadata.deletedAt) return false
+      return c.endDate >= today && c.endDate <= threeMonthsLater
+    })
+  })
+
+  // 최근 계약: 시작일 기준 최근 5개
+  const recentContracts = computed(() => {
+    return [...contracts.value]
+      .filter(c => c.startDate && !c.metadata.deletedAt)
+      .sort((a, b) => {
+        const dateA = a.startDate?.getTime() || 0
+        const dateB = b.startDate?.getTime() || 0
+        return dateB - dateA // 최신순
+      })
+      .slice(0, 5)
+  })
+
+  // 기존 호환성을 위한 expiredContracts (deprecated)
+  const expiredContracts = computed(() => expiringContracts.value)
 
   const contractsBySheet = computed(() => {
     const grouped: Record<string, RentalContract[]> = {}
@@ -288,14 +316,13 @@ export const useContractsStore = defineStore('contracts', () => {
           if (contract && index < 3) {
             console.log(`📝 [ContractsStore.loadContracts] 샘플 임대 ${index + 1}:`, {
               id: contract.id,
-              'property.address': contract.property.address,
-              'property.unit': contract.property.unit,
-              'tenant.name': contract.tenant.name,
-              'tenant.phone': contract.tenant.phone,
-              'contract.type': contract.contract.type,
-              'contract.deposit': contract.contract.deposit,
-              'contract.monthlyRent': contract.contract.monthlyRent,
-              'contract.status': contract.contract.status
+              building: contract.building,
+              unit: contract.unit,
+              tenantName: contract.tenantName,
+              phone: contract.phone,
+              contractType: contract.contractType,
+              deposit: contract.deposit,
+              monthlyRent: contract.monthlyRent
             })
           }
           return contract
@@ -303,8 +330,8 @@ export const useContractsStore = defineStore('contracts', () => {
 
         console.log('✅ [ContractsStore.loadContracts] 임대 파싱 완료:', {
           parsedCount: parsedContracts.length,
-          activeCount: parsedContracts.filter(c => c.contract.status === 'active').length,
-          expiredCount: parsedContracts.filter(c => c.contract.status === 'expired').length
+          activeCount: parsedContracts.filter(c => c.tenantName && c.tenantName.trim() !== '').length,
+          vacantCount: parsedContracts.filter(c => !c.tenantName || c.tenantName.trim() === '').length
         })
 
         // 기존 계약 중 현재 시트의 계약 제거 후 새 데이터 추가
@@ -344,8 +371,19 @@ export const useContractsStore = defineStore('contracts', () => {
         throw new Error('Sheet not found')
       }
 
+      // 1. 번호(number) 자동 넘버링
+      // 기존 계약 중 동과 호가 있는 건수를 세서 다음 번호 부여
+      // 예: 기존 10건 → 신규는 11번
+      const existingCount = contracts.value.filter(c =>
+        c.sheetId === contract.sheetId &&
+        (c.building || c.unit) &&
+        !c.metadata.deletedAt
+      ).length
+      const autoNumber = (existingCount + 1).toString()
+
       const newContract: RentalContract = {
         ...contract,
+        number: autoNumber, // 자동 넘버링된 번호
         id: generateId(),
         metadata: {
           createdAt: new Date(),
@@ -353,7 +391,8 @@ export const useContractsStore = defineStore('contracts', () => {
         }
       }
 
-      // 시트에 행 추가
+      // Note: appendRow adds to bottom of sheet
+      // For sequential ordering, manual sorting in sheet required
       const row = contractToRow(newContract)
       const range = sheet.tabName ? `${sheet.tabName}!A:Z` : 'A:Z'
       await sheetsService.appendRow(sheet.spreadsheetId, range, row)
@@ -653,119 +692,137 @@ export const useContractsStore = defineStore('contracts', () => {
     rowIndex: number
   ): RentalContract | null {
     try {
-      // 🔧 첫 번째 컬럼이 공란인 경우 offset 조정
-      const firstCell = row[0]?.toString().trim() || ''
-      const offset = firstCell === '' ? 1 : 0
+      // 안전한 날짜 파싱 함수
+      const parseDateSafe = (dateStr: string | undefined): Date | undefined => {
+        if (!dateStr || dateStr.trim() === '') return undefined
+        try {
+          const date = parseDate(dateStr)
+          if (date && !isNaN(date.getTime())) {
+            return date
+          }
+          return undefined
+        } catch (e) {
+          console.log(`날짜 파싱 실패: ${dateStr}`, e)
+          return undefined
+        }
+      }
 
-      // 실제 엑셀 시트 구조 (offset 적용):
-      // row[0+offset]: 번호
-      // row[1+offset]: 동 (108)
-      // row[2+offset]: 호수 (108, 305, 306...)
-      // row[3+offset]: 이름
-      // row[4+offset]: 연락처
-      // row[5+offset]: 연락처 2
-      // row[6+offset]: 계약유형 (최초/갱신)
-      // row[7+offset]: 주민번호
-      // row[8+offset]: 전용면적
-      // row[9+offset]: 공급면적
-      // row[10+offset]: 임대보증금
-      // row[11+offset]: 월세
-      // row[12+offset]: 계약서 작성일
-      // row[13+offset]: 시작일
-      // row[14+offset]: 종료일
+      // 안전한 숫자 파싱 함수
+      const parseAmount = (index: number): number => {
+        const str = row[index]?.toString() || '0'
+        return parseInt(str.replace(/,/g, '')) || 0
+      }
 
-      const idxName = 3 + offset
-      const idxStartDate = 13 + offset
-      const idxEndDate = 14 + offset
+      // Google Sheets 열 매핑 (사용자 요구사항)
+      // A열(row[0]): 공란
+      // B열(row[1]): 번호
+      const number = row[1]?.toString().trim() || ''
 
-      // 필수 필드 검증 (이름, 시작일, 종료일이 없으면 건너뛰기)
-      if (!row[idxName] || !row[idxStartDate] || !row[idxEndDate]) {
-        console.log('⏭️ [parseRowToContract] 필수 필드 누락으로 건너뜀:', {
-          rowIndex,
-          offset,
-          name: row[idxName],
-          startDate: row[idxStartDate],
-          endDate: row[idxEndDate],
-          fullRow: row
-        })
+      // C열(row[2]): 동
+      const building = row[2]?.toString().trim() || ''
+
+      // D열(row[3]): 호
+      const unit = row[3]?.toString().trim() || ''
+
+      // E열(row[4]): 계약자이름
+      const tenantName = row[4]?.toString().trim() || ''
+
+      // F열(row[5]): 연락처
+      const phone = row[5]?.toString().trim() || ''
+
+      // G열(row[6]): 연락처2 (또는 "갱신/신규")
+      const phone2OrContractType = row[6]?.toString().trim() || ''
+
+      // H열(row[7]): 계약유형
+      const contractType = row[7]?.toString().trim() || ''
+
+      // I열(row[8]): 주민번호
+      const idNumber = row[8]?.toString().trim() || ''
+
+      // J열(row[9]): 전용면적
+      const exclusiveArea = row[9]?.toString().trim() || ''
+
+      // K열(row[10]): 공급면적
+      const supplyArea = row[10]?.toString().trim() || ''
+
+      // L열(row[11]): 임대보증금
+      const deposit = parseAmount(11)
+
+      // M열(row[12]): 월세
+      const monthlyRent = parseAmount(12)
+
+      // N열(row[13]): 계약서작성일
+      const contractWrittenDate = parseDateSafe(row[13]?.toString())
+
+      // O열(row[14]): 시작일
+      const startDate = parseDateSafe(row[14]?.toString())
+
+      // P열(row[15]): 종료일
+      const endDate = parseDateSafe(row[15]?.toString())
+
+      // Q열(row[16]): 실제퇴거일
+      const actualMoveOutDate = parseDateSafe(row[16]?.toString())
+
+      // R열(row[17]): 계약기간
+      const contractPeriod = row[17]?.toString().trim() || ''
+
+      // S열(row[18]): 보증보험 시작일
+      const hugStartDate = parseDateSafe(row[18]?.toString())
+
+      // T열(row[19]): 보증보험 종료일
+      const hugEndDate = parseDateSafe(row[19]?.toString())
+
+      // U열(row[20]): additionalInfo1
+      const additionalInfo1 = row[20]?.toString().trim() || ''
+
+      // V열(row[21]): additionalInfo2
+      const additionalInfo2 = row[21]?.toString().trim() || ''
+
+      // W열(row[22]): additionalInfo3
+      const additionalInfo3 = row[22]?.toString().trim() || ''
+
+      // X열(row[23]): additionalInfo4
+      const additionalInfo4 = row[23]?.toString().trim() || ''
+
+      // Y열(row[24]): 기타사항/비고
+      const notes = row[24]?.toString().trim() || ''
+
+      // 필수 필드 검증 (번호와 동이 있으면 유효한 행으로 판단)
+      // 계약자 이름이 없으면 공실로 간주
+      if (!number && !building) {
         return null
       }
-
-      // 날짜 파싱 및 검증
-      const startDate = parseDate(row[idxStartDate])
-      const endDate = parseDate(row[idxEndDate])
-
-      // Invalid Date 체크
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.log('⏭️ [parseRowToContract] 잘못된 날짜 형식으로 건너뜀:', {
-          rowIndex,
-          offset,
-          startDate: row[idxStartDate],
-          endDate: row[idxEndDate],
-          parsedStart: startDate,
-          parsedEnd: endDate
-        })
-        return null
-      }
-
-      // 동-호수 조합으로 주소 생성
-      const building = row[1 + offset]?.toString() || ''
-      const unit = row[2 + offset]?.toString() || ''
-      const address = building ? `${building}동 ${unit}호` : unit
-
-      // 보증금 파싱 (쉼표 제거)
-      const depositStr = row[10 + offset]?.toString() || '0'
-      const deposit = parseInt(depositStr.replace(/,/g, '')) || 0
-
-      // 월세 파싱 (빈 값이면 undefined)
-      const monthlyRentStr = row[11 + offset]?.toString()
-      const monthlyRent = monthlyRentStr && monthlyRentStr.trim()
-        ? parseInt(monthlyRentStr.replace(/,/g, ''))
-        : undefined
-
-      // 계약 타입 결정 (월세 값이 있으면 월세, 없으면 전세)
-      const contractTypeValue = monthlyRent ? 'wolse' : 'jeonse'
-
-      // 계약 구분 매핑 (최초 -> new, 갱신 -> renewal)
-      const contractCategoryStr = row[6 + offset]?.toString() || ''
-      let contractCategory: 'new' | 'renewal' | 'change' = 'new'
-      if (contractCategoryStr.includes('갱신')) {
-        contractCategory = 'renewal'
-      } else if (contractCategoryStr.includes('변경')) {
-        contractCategory = 'change'
-      }
-
-      // 상태 판단 (종료일 기준)
-      const today = new Date()
-      const status: 'active' | 'expired' | 'terminated' =
-        endDate < today ? 'expired' : 'active'
 
       return {
-        id: row[0 + offset]?.toString() || generateId(),
+        id: generateId(),
         sheetId,
         rowIndex,
-        tenant: {
-          name: row[3 + offset]?.toString() || '',
-          phone: row[4 + offset]?.toString() || '',
-          email: row[5 + offset]?.toString() || undefined,
-          idNumber: row[7 + offset]?.toString() || undefined
-        },
-        property: {
-          address: address,
-          type: '아파트',
-          unit: unit
-        },
-        contract: {
-          type: contractTypeValue,
-          deposit: deposit,
-          monthlyRent: monthlyRent,
-          startDate: startDate,
-          endDate: endDate,
-          status: status,
-          contractType: contractCategory
-        },
+        number,
+        building,
+        unit,
+        tenantName,
+        phone,
+        phone2OrContractType,
+        contractType,
+        idNumber,
+        exclusiveArea,
+        supplyArea,
+        deposit,
+        monthlyRent,
+        contractWrittenDate,
+        startDate,
+        endDate,
+        actualMoveOutDate,
+        contractPeriod,
+        hugStartDate,
+        hugEndDate,
+        additionalInfo1,
+        additionalInfo2,
+        additionalInfo3,
+        additionalInfo4,
+        notes,
         metadata: {
-          createdAt: row[12 + offset] ? parseDate(row[12 + offset]) : new Date(),
+          createdAt: new Date(),
           updatedAt: new Date(),
           deletedAt: undefined
         }
@@ -777,53 +834,98 @@ export const useContractsStore = defineStore('contracts', () => {
   }
 
   function contractToRow(contract: RentalContract): any[] {
-    // 실제 엑셀 시트 구조에 맞춰 row 생성
-    // row[0]: 번호
-    // row[1]: 동
-    // row[2]: 호수
-    // row[3]: 이름
-    // row[4]: 연락처
-    // row[5]: 연락처 2
-    // row[6]: 계약유형 (최초/갱신)
-    // row[7]: 주민번호
-    // row[8]: 전용면적
-    // row[9]: 공급면적
-    // row[10]: 임대보증금
-    // row[11]: 월세
-    // row[12]: 계약서 작성일
-    // row[13]: 시작일
-    // row[14]: 종료일
-
-    // property.address에서 동/호수 추출 (예: "108동 305호")
-    const addressParts = contract.property.address.split('동')
-    const building = addressParts[0]?.trim() || ''
-    const unitPart = addressParts[1]?.replace('호', '').trim() || contract.property.unit || ''
-
-    // 계약구분 변환 (new -> 최초, renewal -> 갱신)
-    let contractCategory = '최초'
-    if (contract.contract.contractType === 'renewal') {
-      contractCategory = '갱신'
-    } else if (contract.contract.contractType === 'change') {
-      contractCategory = '변경'
+    // 안전한 날짜 포맷 함수
+    const formatDateSafe = (date: Date | undefined): string => {
+      if (!date) return ''
+      try {
+        if (isNaN(date.getTime())) {
+          return ''
+        }
+        return date.toISOString().substring(0, 10).replace(/-/g, '/')
+      } catch (e) {
+        console.log('날짜 포맷 실패:', date, e)
+        return ''
+      }
     }
 
-    return [
-      contract.id,
-      building,
-      unitPart,
-      contract.tenant.name,
-      contract.tenant.phone,
-      contract.tenant.email || '',
-      contractCategory,
-      contract.tenant.idNumber || '',
-      '', // 전용면적 (비어있음)
-      '', // 공급면적 (비어있음)
-      contract.contract.deposit.toLocaleString(), // 쉼표 포함
-      contract.contract.monthlyRent ? contract.contract.monthlyRent.toLocaleString() : '',
-      contract.metadata.createdAt.toISOString().substring(0, 10),
-      contract.contract.startDate.toISOString().substring(0, 10),
-      contract.contract.endDate.toISOString().substring(0, 10).replace(/-/g, '/')
-    ]
+    const row = new Array(25).fill('')
+
+    // A열(row[0]): 공란
+    row[0] = ''
+
+    // B열(row[1]): 번호
+    row[1] = contract.number || ''
+
+    // C열(row[2]): 동
+    row[2] = contract.building || ''
+
+    // D열(row[3]): 호
+    row[3] = contract.unit || ''
+
+    // E열(row[4]): 계약자이름
+    row[4] = contract.tenantName || ''
+
+    // F열(row[5]): 연락처
+    row[5] = contract.phone || ''
+
+    // G열(row[6]): 연락처2 (또는 "갱신/신규")
+    row[6] = contract.phone2OrContractType || ''
+
+    // H열(row[7]): 계약유형
+    row[7] = contract.contractType || ''
+
+    // I열(row[8]): 주민번호
+    row[8] = contract.idNumber || ''
+
+    // J열(row[9]): 전용면적
+    row[9] = contract.exclusiveArea || ''
+
+    // K열(row[10]): 공급면적
+    row[10] = contract.supplyArea || ''
+
+    // L열(row[11]): 임대보증금
+    row[11] = contract.deposit || 0
+
+    // M열(row[12]): 월세
+    row[12] = contract.monthlyRent || 0
+
+    // N열(row[13]): 계약서작성일
+    row[13] = formatDateSafe(contract.contractWrittenDate)
+
+    // O열(row[14]): 시작일
+    row[14] = formatDateSafe(contract.startDate)
+
+    // P열(row[15]): 종료일
+    row[15] = formatDateSafe(contract.endDate)
+
+    // Q열(row[16]): 실제퇴거일
+    row[16] = formatDateSafe(contract.actualMoveOutDate)
+
+    // R열(row[17]): 계약기간
+    row[17] = contract.contractPeriod || ''
+
+    // S열(row[18]): 보증보험 시작일
+    row[18] = formatDateSafe(contract.hugStartDate)
+
+    // T열(row[19]): 보증보험 종료일
+    row[19] = formatDateSafe(contract.hugEndDate)
+
+    // U열(row[20]): additionalInfo1
+    row[20] = contract.additionalInfo1 || ''
+
+    // V열(row[21]): additionalInfo2
+    row[21] = contract.additionalInfo2 || ''
+
+    // W열(row[22]): additionalInfo3
+    row[22] = contract.additionalInfo3 || ''
+
+    // X열(row[23]): additionalInfo4
+    row[23] = contract.additionalInfo4 || ''
+
+    // Y열(row[24]): 기타사항/비고
+    row[24] = contract.notes || ''
+
+    return row
   }
 
   // 매도현황 계약 추가
@@ -1056,7 +1158,10 @@ export const useContractsStore = defineStore('contracts', () => {
     // 임대차 계약
     contracts,
     activeContracts,
-    expiredContracts,
+    vacantContracts,
+    expiringContracts,
+    recentContracts,
+    expiredContracts, // deprecated, use expiringContracts
     contractsBySheet,
     // 매도현황 계약
     saleContracts,

@@ -9,11 +9,12 @@ export class NotificationService {
     const today = new Date()
 
     contracts.forEach(contract => {
-      // 계약 만료 알림
-      if (contract.contract.status === 'active') {
-        const daysLeft = getDaysLeft(contract.contract.endDate)
+      // 계약 만료 알림 (계약자가 있고 종료일이 있는 경우)
+      if (contract.tenantName && contract.tenantName.trim() !== '' && contract.endDate) {
+        const daysLeft = getDaysLeft(contract.endDate)
 
-        if (isExpiringSoon(contract.contract.endDate, NOTIFICATION_THRESHOLD_DAYS)) {
+        if (isExpiringSoon(contract.endDate, NOTIFICATION_THRESHOLD_DAYS)) {
+          const address = `${contract.building}동 ${contract.unit}호`
           notifications.push({
             id: generateId(),
             contractId: contract.id,
@@ -21,18 +22,19 @@ export class NotificationService {
             priority: this.getPriority(daysLeft),
             daysLeft,
             title: '계약 만료 예정',
-            message: `${contract.property.address} ${contract.property.unit || ''} - ${contract.tenant.name}님의 계약이 ${daysLeft}일 후 만료됩니다.`,
+            message: `${address} - ${contract.tenantName}님의 계약이 ${daysLeft}일 후 만료됩니다.`,
             read: false,
             createdAt: today
           })
         }
       }
 
-      // HUG 보증 만료 알림
-      if (contract.hug && contract.hug.guaranteed) {
-        const hugDaysLeft = getDaysLeft(contract.hug.endDate)
+      // HUG 보증보험 만료 알림 (보증보험 종료일이 있는 경우)
+      if (contract.hugEndDate) {
+        const hugDaysLeft = getDaysLeft(contract.hugEndDate)
 
-        if (isExpiringSoon(contract.hug.endDate, NOTIFICATION_THRESHOLD_DAYS)) {
+        if (isExpiringSoon(contract.hugEndDate, NOTIFICATION_THRESHOLD_DAYS)) {
+          const address = `${contract.building}동 ${contract.unit}호`
           notifications.push({
             id: generateId(),
             contractId: contract.id,
@@ -40,7 +42,7 @@ export class NotificationService {
             priority: this.getPriority(hugDaysLeft),
             daysLeft: hugDaysLeft,
             title: 'HUG 보증 만료 예정',
-            message: `${contract.property.address} ${contract.property.unit || ''}의 HUG 보증이 ${hugDaysLeft}일 후 만료됩니다.`,
+            message: `${address}의 HUG 보증이 ${hugDaysLeft}일 후 만료됩니다.`,
             read: false,
             createdAt: today
           })

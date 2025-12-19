@@ -16,9 +16,9 @@ const sheetsStore = useSheetsStore()
 
 // 임대차 통계
 const rentalStats = computed(() => ({
-  total: contractsStore.contracts.length,
-  active: contractsStore.activeContracts.length,
-  expired: contractsStore.expiredContracts.length
+  total: contractsStore.activeContracts.length, // 계약자 이름 있는 건수
+  vacant: contractsStore.vacantContracts.length, // 공실 (계약자 없는 건)
+  expiring: contractsStore.expiringContracts.length // 만료예정 (3개월 이내)
 }))
 
 // 매도현황 통계
@@ -31,8 +31,8 @@ const saleStats = computed(() => ({
 // 전체 통계
 const stats = computed(() => ({
   rentalTotal: rentalStats.value.total,
-  rentalActive: rentalStats.value.active,
-  rentalExpired: rentalStats.value.expired,
+  rentalVacant: rentalStats.value.vacant,
+  rentalExpiring: rentalStats.value.expiring,
   saleTotal: saleStats.value.total,
   saleActive: saleStats.value.active,
   saleCompleted: saleStats.value.completed,
@@ -69,7 +69,7 @@ watch(
 )
 
 // Navigation handlers
-function navigateToContracts(status?: 'active' | 'expired') {
+function navigateToContracts(status?: 'vacant' | 'expiring') {
   if (!sheetsStore.currentSheet) {
     console.warn('No current sheet selected')
     return
@@ -205,12 +205,12 @@ function toMillions(thousands: number): string {
             <n-statistic label="전체 계약" :value="stats.rentalTotal" />
           </n-card>
 
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('active')">
-            <n-statistic label="진행중" :value="stats.rentalActive" />
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('vacant')">
+            <n-statistic label="공실" :value="stats.rentalVacant" />
           </n-card>
 
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('expired')">
-            <n-statistic label="만료됨" :value="stats.rentalExpired" />
+          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('expiring')">
+            <n-statistic label="만료예정" :value="stats.rentalExpiring" />
           </n-card>
 
           <n-card hoverable class="cursor-pointer text-center" @click="navigateToNotifications()">
@@ -264,55 +264,46 @@ function toMillions(thousands: number): string {
         <n-empty v-else description="새로운 알림이 없습니다" />
       </n-card>
 
-      <!-- 최근 계약 -->
+      <!-- 최근 계약 (시작일 기준 최근 5개) -->
       <n-card title="최근 계약">
-        <div v-if="contractsStore.activeContracts.length > 0" class="space-y-3">
+        <div v-if="contractsStore.recentContracts.length > 0" class="space-y-3">
           <div
-            v-for="contract in contractsStore.activeContracts.slice(0, 5)"
+            v-for="contract in contractsStore.recentContracts"
             :key="contract.id"
             class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all"
             @click="handleContractClick(contract)"
           >
-            <!-- Header: 주소 & 상태 -->
+            <!-- Header: 동-호 & 계약자 -->
             <div class="flex items-start justify-between mb-2">
               <h4 class="font-semibold text-blue-600 hover:underline text-sm sm:text-base">
-                {{ contract.property.address }}
+                {{ contract.building }}동 {{ contract.unit }}호
               </h4>
               <n-tag
-                :type="contract.contract.status === 'active' ? 'success' : 'default'"
+                :type="contract.tenantName ? 'success' : 'default'"
                 size="small"
                 class="ml-2 flex-shrink-0"
               >
-                {{ contract.contract.status === 'active' ? '진행중' : '만료' }}
+                {{ contract.tenantName ? '계약중' : '공실' }}
               </n-tag>
             </div>
 
             <!-- Tenant & Type -->
             <div class="flex flex-wrap items-center gap-2 mb-2 text-xs sm:text-sm text-gray-600">
-              <span class="font-medium">{{ contract.tenant.name }}</span>
-              <span class="text-gray-400">·</span>
-              <n-tag
-                :type="contract.contract.contractType === 'new' ? 'info' : 'warning'"
-                size="small"
-              >
-                {{ contract.contract.contractType === 'new' ? '최초' : contract.contract.contractType === 'renewal' ? '갱신' : '변경' }}
-              </n-tag>
-              <span class="text-gray-400">·</span>
-              <span class="font-medium">
-                <span v-if="contract.contract.type === 'jeonse'">
-                  전세 {{ contract.contract.deposit.toLocaleString() }}만원
-                </span>
-                <span v-else>
-                  월세 {{ contract.contract.deposit.toLocaleString() }}/{{ contract.contract.monthlyRent?.toLocaleString() }}만원
-                </span>
+              <span class="font-medium">{{ contract.tenantName || '공실' }}</span>
+              <span v-if="contract.contractType" class="text-gray-400">·</span>
+              <span v-if="contract.contractType" class="font-medium">{{ contract.contractType }}</span>
+              <span v-if="contract.deposit > 0" class="text-gray-400">·</span>
+              <span v-if="contract.deposit > 0" class="font-medium">
+                보증금 {{ (contract.deposit / 10000).toFixed(0) }}억
+                <span v-if="contract.monthlyRent > 0"> / 월세 {{ (contract.monthlyRent / 10000).toFixed(0) }}만</span>
               </span>
             </div>
 
             <!-- Dates -->
-            <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-gray-500">
-              <span>시작: {{ formatDate(contract.contract.startDate, 'yyyy.MM.dd') }}</span>
-              <span class="hidden sm:inline text-gray-400">→</span>
-              <span>종료: {{ formatDate(contract.contract.endDate, 'yyyy.MM.dd') }}</span>
+            <div v-if="contract.startDate || contract.endDate" class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-gray-500">
+              <span v-if="contract.startDate">시작: {{ formatDate(contract.startDate, 'yyyy.MM.dd') }}</span>
+              <span v-if="contract.startDate && contract.endDate" class="hidden sm:inline text-gray-400">→</span>
+              <span v-if="contract.endDate">종료: {{ formatDate(contract.endDate, 'yyyy.MM.dd') }}</span>
             </div>
           </div>
         </div>
