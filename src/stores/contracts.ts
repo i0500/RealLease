@@ -582,22 +582,59 @@ export const useContractsStore = defineStore('contracts', () => {
       // 동-호 조합 (예: "108-407")
       const unit = building && unitNum ? `${building}-${unitNum}` : ''
 
-      // 필수 필드 검증: 계약자와 동-호 정보가 있는 경우만 유효
-      if (!buyer || !building || !unitNum) {
-        console.log('⏭️ [parseRowToSale] 필수 필드 누락으로 건너뜀:', {
+      // 🔍 합계 행 및 무관한 데이터 필터링
+      // 1. 동(building)과 호(unitNum)가 모두 없으면 무효 (합계 정보일 가능성)
+      if (!building || !unitNum) {
+        console.log('⏭️ [parseRowToSale] 동/호 정보 없음 - 건너뜀:', {
           rowIndex,
           category,
           building,
           unitNum,
-          unit,
-          buyer,
-          reason: !buyer ? '계약자 없음' : '동-호 정보 없음'
+          buyer
         })
         return null
       }
 
+      // 2. 합계 행 키워드 체크
+      const summaryKeywords = ['계', '합계', 'total', '소계', 'sum', '전체']
+      const checkForSummaryKeywords = (text: string): boolean => {
+        if (!text) return false
+        const lowerText = text.toLowerCase().trim()
+        // "계 (55 세대)" 같은 패턴 체크
+        return summaryKeywords.some(keyword => {
+          return lowerText === keyword || lowerText.startsWith(keyword + ' ') || lowerText.startsWith(keyword + '(')
+        })
+      }
+
       // 헤더 행 체크 (구분, 동, 계약자 등의 컬럼명이면 건너뜀)
       if (category === '구분' || buyer === '계약자' || building === '동') {
+        return null
+      }
+
+      // 합계 행 키워드 체크
+      if (checkForSummaryKeywords(buyer) ||
+          checkForSummaryKeywords(building) ||
+          checkForSummaryKeywords(unitNum) ||
+          checkForSummaryKeywords(category)) {
+        console.log('⏭️ [parseRowToSale] 합계 행 키워드 감지 - 건너뜀:', {
+          rowIndex,
+          category,
+          building,
+          unitNum,
+          buyer
+        })
+        return null
+      }
+
+      // 3. 필수 필드 검증: 계약자가 있어야 유효
+      if (!buyer) {
+        console.log('⏭️ [parseRowToSale] 계약자 없음 - 건너뜀:', {
+          rowIndex,
+          category,
+          building,
+          unitNum,
+          reason: '계약자 정보 없음'
+        })
         return null
       }
 
@@ -808,9 +845,71 @@ export const useContractsStore = defineStore('contracts', () => {
       // Y열(row[24]): 기타사항/비고
       const notes = row[24]?.toString().trim() || ''
 
-      // 필수 필드 검증 (번호와 동이 있으면 유효한 행으로 판단)
-      // 계약자 이름이 없으면 공실로 간주
-      if (!number && !building) {
+      // 🔍 합계 행 및 무관한 데이터 필터링
+      // 1. 동(building)과 호(unit)가 모두 없으면 무효 (합계 정보일 가능성)
+      if (!building || !unit) {
+        console.log('⏭️ [parseRowToContract] 동/호 정보 없음 - 건너뜀:', {
+          rowIndex,
+          number,
+          building,
+          unit,
+          tenantName
+        })
+        return null
+      }
+
+      // 2. 합계 행 키워드 체크 (tenantName, building, unit 등에서)
+      const summaryKeywords = ['계', '합계', 'total', '소계', 'sum', '전체']
+      const checkForSummaryKeywords = (text: string): boolean => {
+        if (!text) return false
+        const lowerText = text.toLowerCase().trim()
+        // "계 (55 세대)" 같은 패턴 체크
+        return summaryKeywords.some(keyword => {
+          // 정확한 매칭 또는 "계 (" 같은 패턴
+          return lowerText === keyword || lowerText.startsWith(keyword + ' ') || lowerText.startsWith(keyword + '(')
+        })
+      }
+
+      if (checkForSummaryKeywords(tenantName) ||
+          checkForSummaryKeywords(building) ||
+          checkForSummaryKeywords(unit) ||
+          checkForSummaryKeywords(number)) {
+        console.log('⏭️ [parseRowToContract] 합계 행 키워드 감지 - 건너뜀:', {
+          rowIndex,
+          number,
+          building,
+          unit,
+          tenantName
+        })
+        return null
+      }
+
+      // 3. 대부분의 필드가 비어있는 무관한 데이터 체크
+      // 동/호는 있지만 계약자, 연락처, 보증금, 계약유형, 시작일, 종료일이 모두 없으면 무효
+      const hasMinimalData = tenantName || phone || deposit > 0 || contractType || startDate || endDate
+      if (!hasMinimalData) {
+        console.log('⏭️ [parseRowToContract] 필수 데이터 부족 - 건너뜀:', {
+          rowIndex,
+          building,
+          unit,
+          reason: '계약자/연락처/보증금/계약유형/계약일 모두 없음'
+        })
+        return null
+      }
+
+      // 4. 매매계약 건 필터링
+      // X열(additionalInfo4)에 "매매계약" 텍스트가 있고, Y열(notes)에 "말소" 텍스트가 있으면
+      // 매매계약으로 전환된 건이므로 임대차 리스트에서 제외
+      if (additionalInfo4.includes('매매계약') && notes.includes('말소')) {
+        console.log('⏭️ [parseRowToContract] 매매계약 건 감지 - 건너뜀:', {
+          rowIndex,
+          building,
+          unit,
+          tenantName,
+          additionalInfo4,
+          notes,
+          reason: '매매계약으로 전환 (말소)'
+        })
         return null
       }
 

@@ -160,11 +160,12 @@ const filteredContracts = computed(() => {
   return result
 })
 
-// Table columns
-const columns = [
+// Table columns - Desktop version (all columns)
+const desktopColumns = [
   {
     title: '동-호',
     key: 'address',
+    width: 100,
     render: (row: RentalContract) => {
       return h(
         'a',
@@ -180,27 +181,32 @@ const columns = [
   {
     title: '계약자',
     key: 'tenantName',
+    width: 100,
     render: (row: RentalContract) => row.tenantName || '공실'
   },
   {
     title: '계약유형',
     key: 'contractType',
+    width: 90,
     render: (row: RentalContract) => row.contractType || '-'
   },
   {
     title: '보증금',
     key: 'deposit',
+    width: 110,
     render: (row: RentalContract) => formatCurrency(row.deposit)
   },
   {
     title: '월세',
     key: 'monthlyRent',
+    width: 100,
     render: (row: RentalContract) =>
       row.monthlyRent ? formatCurrency(row.monthlyRent) : '-'
   },
   {
     title: '계약기간',
     key: 'period',
+    width: 200,
     render: (row: RentalContract) => {
       if (!row.startDate || !row.endDate) return '-'
       return `${formatDate(row.startDate, 'yyyy.MM.dd')} ~ ${formatDate(row.endDate, 'yyyy.MM.dd')}`
@@ -209,6 +215,7 @@ const columns = [
   {
     title: '상태',
     key: 'status',
+    width: 90,
     render: (row: RentalContract) => {
       const hasName = row.tenantName && row.tenantName.trim() !== ''
       const isExpiring = row.endDate && (() => {
@@ -218,34 +225,40 @@ const columns = [
       })()
 
       if (!hasName) {
-        return h(NTag, { type: 'default' }, { default: () => '공실' })
+        return h(NTag, { type: 'default', size: 'small' }, { default: () => '공실' })
       } else if (isExpiring) {
-        return h(NTag, { type: 'warning' }, { default: () => '만료예정' })
+        return h(NTag, { type: 'warning', size: 'small' }, { default: () => '만료예정' })
       } else {
-        return h(NTag, { type: 'success' }, { default: () => '계약중' })
+        return h(NTag, { type: 'success', size: 'small' }, { default: () => '계약중' })
       }
     }
   },
   {
-    title: 'HUG보증',
+    title: 'HUG',
     key: 'hugEndDate',
+    width: 70,
     render: (row: RentalContract) =>
       row.hugEndDate ? '가입' : '-'
   },
   {
     title: '작업',
     key: 'actions',
+    width: 130,
+    fixed: 'right' as const,
     render: (row: RentalContract) => {
       return h(
         NSpace,
-        {},
+        { size: 'small' },
         {
           default: () => [
             h(
               NButton,
               {
                 size: 'small',
-                onClick: () => handleEdit(row)
+                onClick: (e: Event) => {
+                  e.stopPropagation()
+                  handleEdit(row)
+                }
               },
               { default: () => '수정' }
             ),
@@ -254,7 +267,10 @@ const columns = [
               {
                 size: 'small',
                 type: 'error',
-                onClick: () => handleDelete(row)
+                onClick: (e: Event) => {
+                  e.stopPropagation()
+                  handleDelete(row)
+                }
               },
               { default: () => '삭제' }
             )
@@ -264,6 +280,66 @@ const columns = [
     }
   }
 ]
+
+// Mobile columns - Compact version with essential info
+const mobileColumns = [
+  {
+    title: '동-호',
+    key: 'address',
+    width: 80,
+    render: (row: RentalContract) => {
+      return h(
+        'div',
+        { style: 'font-weight: 600; color: #18a058;' },
+        `${row.building}동 ${row.unit}호`
+      )
+    }
+  },
+  {
+    title: '계약정보',
+    key: 'info',
+    width: 200,
+    render: (row: RentalContract) => {
+      return h(
+        'div',
+        { style: 'display: flex; flex-direction: column; gap: 4px;' },
+        [
+          h('div', { style: 'font-weight: 500;' }, row.tenantName || '공실'),
+          h('div', { style: 'font-size: 12px; color: #666;' },
+            `보증금: ${formatCurrency(row.deposit)}${row.monthlyRent ? ` / 월세: ${formatCurrency(row.monthlyRent)}` : ''}`
+          ),
+          h('div', { style: 'font-size: 11px; color: #999; margin-top: 2px;' },
+            row.endDate ? `~ ${formatDate(row.endDate, 'yyyy.MM.dd')}` : ''
+          )
+        ]
+      )
+    }
+  },
+  {
+    title: '상태',
+    key: 'status',
+    width: 70,
+    render: (row: RentalContract) => {
+      const hasName = row.tenantName && row.tenantName.trim() !== ''
+      const isExpiring = row.endDate && (() => {
+        const today = new Date()
+        const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+        return row.endDate >= today && row.endDate <= threeMonthsLater
+      })()
+
+      if (!hasName) {
+        return h(NTag, { type: 'default', size: 'small' }, { default: () => '공실' })
+      } else if (isExpiring) {
+        return h(NTag, { type: 'warning', size: 'small' }, { default: () => '만료' })
+      } else {
+        return h(NTag, { type: 'success', size: 'small' }, { default: () => '계약중' })
+      }
+    }
+  }
+]
+
+// Computed columns based on screen size
+const columns = computed(() => isMobile.value ? mobileColumns : desktopColumns)
 
 // Filter options
 const statusOptions = [
@@ -518,12 +594,19 @@ function resetForm() {
     </n-empty>
 
     <!-- Table View -->
-    <n-card v-else-if="viewMode === 'table'">
+    <n-card v-else-if="viewMode === 'table'" :class="{ 'mobile-table-card': isMobile }">
       <n-data-table
         :columns="columns"
         :data="filteredContracts"
-        :pagination="{ pageSize: 10 }"
+        :pagination="{ pageSize: isMobile ? 15 : 10 }"
         :bordered="false"
+        :single-line="false"
+        :scroll-x="isMobile ? 400 : undefined"
+        :row-props="(row: RentalContract) => ({
+          style: 'cursor: pointer;',
+          onClick: () => handleView(row)
+        })"
+        class="rental-table"
       />
     </n-card>
 
@@ -1014,6 +1097,50 @@ function resetForm() {
 
   .section-title {
     font-size: 15px;
+  }
+
+  /* 모바일 테이블 최적화 */
+  .mobile-table-card {
+    padding: 0;
+  }
+
+  .mobile-table-card :deep(.n-card__content) {
+    padding: 8px;
+  }
+
+  .rental-table :deep(.n-data-table-th) {
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+    font-weight: 600;
+  }
+
+  .rental-table :deep(.n-data-table-td) {
+    padding: 10px 4px !important;
+    font-size: 13px !important;
+  }
+
+  .rental-table :deep(.n-data-table-table) {
+    min-width: auto !important;
+  }
+
+  /* 모바일 테이블 행 스타일 */
+  .rental-table :deep(.n-data-table-tr) {
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .rental-table :deep(.n-data-table-tr:hover) {
+    background-color: #f5f7fa;
+  }
+}
+
+/* 데스크톱 테이블 스타일 */
+@media (min-width: 769px) {
+  .rental-table :deep(.n-data-table-th) {
+    background-color: #fafafa;
+  }
+
+  .rental-table :deep(.n-data-table-tr:hover) {
+    background-color: #f9fafb;
   }
 }
 </style>

@@ -38,6 +38,7 @@ const message = useMessage()
 // View state
 const viewMode = ref<'table' | 'card'>('table')
 const searchQuery = ref('')
+const isMobile = ref(false)
 const showAddModal = ref(false)
 const saleForm = ref({
   category: '', // 자동 넘버링되므로 사용자는 입력하지 않음
@@ -63,6 +64,13 @@ const saleForm = ref({
 
 // Load data on mount
 onMounted(async () => {
+  // 모바일 화면 감지
+  const checkMobile = () => {
+    isMobile.value = window.innerWidth < 768
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+
   // 🔧 FIX: 새로고침 시 sheets가 로드되지 않은 경우를 대비해 먼저 로드
   if (sheetsStore.sheets.length === 0) {
     console.log('📦 [SalesView] Sheets 데이터 로딩 중...')
@@ -100,8 +108,8 @@ const filteredSales = computed(() => {
   return sales
 })
 
-// Table columns
-const columns = [
+// Desktop columns - Full table with all details
+const desktopColumns = [
   {
     title: '구분',
     key: 'category',
@@ -125,7 +133,7 @@ const columns = [
     key: 'downPayment2',
     width: 110,
     render: (row: SaleContract) => {
-      return row.downPayment2 > 0 ? `${row.downPayment2.toLocaleString()}` : '-'
+      return row.downPayment2 > 0 ? formatCurrency(row.downPayment2 * 1000) : '-'
     }
   },
   {
@@ -134,7 +142,7 @@ const columns = [
     width: 110,
     render: (row: SaleContract) => {
       const total = row.interimPayment1 + row.interimPayment2 + row.interimPayment3
-      return total > 0 ? `${total.toLocaleString()}` : '-'
+      return total > 0 ? formatCurrency(total * 1000) : '-'
     }
   },
   {
@@ -142,14 +150,14 @@ const columns = [
     key: 'finalPayment',
     width: 110,
     render: (row: SaleContract) => {
-      return row.finalPayment > 0 ? `${row.finalPayment.toLocaleString()}` : '-'
+      return row.finalPayment > 0 ? formatCurrency(row.finalPayment * 1000) : '-'
     }
   },
   {
     title: '합계',
     key: 'totalAmount',
     width: 120,
-    render: (row: SaleContract) => `${row.totalAmount.toLocaleString()}`
+    render: (row: SaleContract) => formatCurrency(row.totalAmount * 1000)
   },
   {
     title: '계약형식',
@@ -170,6 +178,57 @@ const columns = [
     }
   }
 ]
+
+// Mobile columns - Compact version
+const mobileColumns = [
+  {
+    title: '동-호',
+    key: 'unit',
+    width: 80,
+    render: (row: SaleContract) => {
+      return h(
+        'div',
+        { style: 'font-weight: 600; color: #18a058;' },
+        `${row.building}동 ${row.unit.split('-')[1] || row.unit.split('-')[0]}호`
+      )
+    }
+  },
+  {
+    title: '계약정보',
+    key: 'info',
+    width: 200,
+    render: (row: SaleContract) => {
+      return h(
+        'div',
+        { style: 'display: flex; flex-direction: column; gap: 4px;' },
+        [
+          h('div', { style: 'font-weight: 500;' }, row.buyer),
+          h('div', { style: 'font-size: 12px; color: #666;' },
+            `합계: ${formatCurrency(row.totalAmount * 1000)}`
+          ),
+          row.contractDate ? h('div', { style: 'font-size: 11px; color: #999;' },
+            `계약: ${formatDate(row.contractDate, 'yyyy.MM.dd')}`
+          ) : null
+        ].filter(Boolean)
+      )
+    }
+  },
+  {
+    title: '상태',
+    key: 'status',
+    width: 70,
+    render: (row: SaleContract) => {
+      return h(
+        NTag,
+        { type: row.status === 'completed' ? 'success' : 'info', size: 'small' },
+        { default: () => (row.status === 'completed' ? '종결' : '진행중') }
+      )
+    }
+  }
+]
+
+// Computed columns based on screen size
+const columns = computed(() => isMobile.value ? mobileColumns : desktopColumns)
 
 // Handle row click
 function handleRowClick(row: SaleContract) {
@@ -348,18 +407,20 @@ async function handleSubmit() {
     </n-empty>
 
     <!-- Table View -->
-    <n-card v-else-if="sheetsStore.currentSheet && viewMode === 'table'">
+    <n-card v-else-if="sheetsStore.currentSheet && viewMode === 'table'" :class="{ 'mobile-table-card': isMobile }">
       <n-data-table
         :columns="columns"
         :data="filteredSales"
-        :scroll-x="900"
-        :pagination="{ pageSize: 20 }"
+        :scroll-x="isMobile ? 400 : 900"
+        :pagination="{ pageSize: isMobile ? 15 : 20 }"
         :bordered="false"
+        :single-line="false"
         striped
         :row-props="(row: SaleContract) => ({
           style: 'cursor: pointer;',
           onClick: () => handleRowClick(row)
         })"
+        class="sales-table"
       />
     </n-card>
 
@@ -584,6 +645,50 @@ async function handleSubmit() {
 
   .info-row .value {
     font-size: 13px;
+  }
+
+  /* 모바일 테이블 최적화 */
+  .mobile-table-card {
+    padding: 0;
+  }
+
+  .mobile-table-card :deep(.n-card__content) {
+    padding: 8px;
+  }
+
+  .sales-table :deep(.n-data-table-th) {
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+    font-weight: 600;
+  }
+
+  .sales-table :deep(.n-data-table-td) {
+    padding: 10px 4px !important;
+    font-size: 13px !important;
+  }
+
+  .sales-table :deep(.n-data-table-table) {
+    min-width: auto !important;
+  }
+
+  /* 모바일 테이블 행 스타일 */
+  .sales-table :deep(.n-data-table-tr) {
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .sales-table :deep(.n-data-table-tr:hover) {
+    background-color: #f5f7fa;
+  }
+}
+
+/* 데스크톱 테이블 스타일 */
+@media (min-width: 769px) {
+  .sales-table :deep(.n-data-table-th) {
+    background-color: #fafafa;
+  }
+
+  .sales-table :deep(.n-data-table-tr:hover) {
+    background-color: #f9fafb;
   }
 }
 </style>
