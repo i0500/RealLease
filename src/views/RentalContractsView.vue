@@ -301,11 +301,11 @@ const mobileColumns = [
   {
     title: '동-호',
     key: 'address',
-    width: 70,
+    width: 85,
     render: (row: RentalContract) => {
       return h(
         'div',
-        { style: 'font-weight: 600; color: #18a058; line-height: 1.3;' },
+        { style: 'font-size: 15px; font-weight: 600; color: #18a058; line-height: 1.4;' },
         [
           h('div', {}, `${row.building}동`),
           h('div', {}, `${row.unit}호`)
@@ -316,22 +316,51 @@ const mobileColumns = [
   {
     title: '계약정보',
     key: 'info',
-    width: 160,
+    width: 205,
     render: (row: RentalContract) => {
       return h(
         'div',
-        { style: 'display: flex; flex-direction: column; gap: 3px;' },
+        { style: 'display: flex; flex-direction: column; gap: 7px; padding: 4px 0;' },
         [
-          h('div', { style: 'font-weight: 500; font-size: 13px;' }, row.tenantName || '공실'),
-          h('div', { style: 'font-size: 11px; color: #666;' },
-            `${formatCurrency(row.deposit)}${row.monthlyRent ? ` / ${formatCurrency(row.monthlyRent)}` : ''}`
-          ),
-          row.endDate ? h('div', { style: 'font-size: 10px; color: #999;' },
-            `만료: ${formatDate(row.endDate, 'MM.dd')}`
-          ) : null,
-          row.hugEndDate ? h('div', { style: 'font-size: 10px; color: #999;' },
-            `HUG: ${formatDate(row.hugEndDate, 'MM.dd')}`
-          ) : null
+          // 이름 (아이콘 + 텍스트)
+          h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 13px;' }, '👤'),
+            h('span', {
+              style: 'font-size: 14px; font-weight: 500; color: #333;'
+            }, row.tenantName || '공실')
+          ]),
+
+          // 금액 (아이콘 + 텍스트, 강조)
+          h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 13px;' }, '💰'),
+            h('span', {
+              style: 'font-size: 13px; font-weight: 600; color: #2080f0;'
+            }, `${formatCurrency(row.deposit)}${row.monthlyRent ? ` / ${formatCurrency(row.monthlyRent)}` : ''}`)
+          ]),
+
+          // 만료일 (있으면 표시)
+          row.endDate ? h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 12px;' }, '📅'),
+            h('span', {
+              style: 'font-size: 12px; color: #666;'
+            }, `만료: ${formatDate(row.endDate, 'MM.dd')}`)
+          ]) : null,
+
+          // HUG 보증 (있으면 표시)
+          row.hugEndDate ? h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 12px;' }, '🛡️'),
+            h('span', {
+              style: 'font-size: 12px; color: #18a058;'
+            }, `HUG: ${formatDate(row.hugEndDate, 'MM.dd')}까지`)
+          ]) : null
         ].filter(Boolean)
       )
     }
@@ -339,7 +368,7 @@ const mobileColumns = [
   {
     title: '상태',
     key: 'status',
-    width: 65,
+    width: 75,
     render: (row: RentalContract) => {
       const hasName = row.tenantName && row.tenantName.trim() !== ''
       const isExpiring = row.endDate && (() => {
@@ -349,11 +378,11 @@ const mobileColumns = [
       })()
 
       if (!hasName) {
-        return h(NTag, { type: 'default', size: 'small' }, { default: () => '공실' })
+        return h(NTag, { type: 'default', size: 'medium' }, { default: () => '공실' })
       } else if (isExpiring) {
-        return h(NTag, { type: 'warning', size: 'small' }, { default: () => '만료' })
+        return h(NTag, { type: 'warning', size: 'medium' }, { default: () => '만료' })
       } else {
-        return h(NTag, { type: 'success', size: 'small' }, { default: () => '계약중' })
+        return h(NTag, { type: 'success', size: 'medium' }, { default: () => '계약중' })
       }
     }
   }

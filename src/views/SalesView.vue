@@ -193,12 +193,12 @@ const mobileColumns = [
   {
     title: '동-호',
     key: 'unit',
-    width: 70,
+    width: 85,
     render: (row: SaleContract) => {
       const unitNum = row.unit.split('-')[1] || row.unit.split('-')[0]
       return h(
         'div',
-        { style: 'font-weight: 600; color: #18a058; line-height: 1.3;' },
+        { style: 'font-size: 15px; font-weight: 600; color: #18a058; line-height: 1.4;' },
         [
           h('div', {}, `${row.building}동`),
           h('div', {}, `${unitNum}호`)
@@ -209,19 +209,51 @@ const mobileColumns = [
   {
     title: '계약정보',
     key: 'info',
-    width: 160,
+    width: 205,
     render: (row: SaleContract) => {
       return h(
         'div',
-        { style: 'display: flex; flex-direction: column; gap: 3px;' },
+        { style: 'display: flex; flex-direction: column; gap: 7px; padding: 4px 0;' },
         [
-          h('div', { style: 'font-weight: 500; font-size: 13px;' }, row.buyer),
-          h('div', { style: 'font-size: 11px; color: #666;' },
-            `${formatCurrency(row.totalAmount * 1000)}`
-          ),
-          row.contractDate ? h('div', { style: 'font-size: 10px; color: #999;' },
-            `계약: ${formatDate(row.contractDate, 'MM.dd')}`
-          ) : null
+          // 구매자 (아이콘 + 텍스트)
+          h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 13px;' }, '👤'),
+            h('span', {
+              style: 'font-size: 14px; font-weight: 500; color: #333;'
+            }, row.buyer)
+          ]),
+
+          // 금액 (아이콘 + 텍스트, 강조)
+          h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 13px;' }, '💰'),
+            h('span', {
+              style: 'font-size: 13px; font-weight: 600; color: #2080f0;'
+            }, `${formatCurrency(row.totalAmount * 1000)}`)
+          ]),
+
+          // 계약일 (있으면 표시)
+          row.contractDate ? h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 12px;' }, '📅'),
+            h('span', {
+              style: 'font-size: 12px; color: #666;'
+            }, `계약: ${formatDate(row.contractDate, 'MM.dd')}`)
+          ]) : null,
+
+          // 잔금일 (있으면 표시)
+          row.finalPaymentDate ? h('div', {
+            style: 'display: flex; align-items: center; gap: 6px;'
+          }, [
+            h('span', { style: 'font-size: 12px;' }, '💵'),
+            h('span', {
+              style: 'font-size: 12px; color: #18a058;'
+            }, `잔금: ${formatDate(row.finalPaymentDate, 'MM.dd')}`)
+          ]) : null
         ].filter(Boolean)
       )
     }
@@ -229,11 +261,11 @@ const mobileColumns = [
   {
     title: '상태',
     key: 'status',
-    width: 65,
+    width: 75,
     render: (row: SaleContract) => {
       return h(
         NTag,
-        { type: row.status === 'completed' ? 'success' : 'info', size: 'small' },
+        { type: row.status === 'completed' ? 'success' : 'info', size: 'medium' },
         { default: () => (row.status === 'completed' ? '종결' : '진행중') }
       )
     }
