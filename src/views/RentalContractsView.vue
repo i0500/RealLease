@@ -163,9 +163,17 @@ const filteredContracts = computed(() => {
 // Table columns - Desktop version (all columns)
 const desktopColumns = [
   {
+    title: '구분',
+    key: 'number',
+    width: 60,
+    align: 'center' as const,
+    render: (_row: RentalContract, index: number) => index + 1
+  },
+  {
     title: '동-호',
     key: 'address',
-    width: 100,
+    width: 120,
+    align: 'center' as const,
     render: (row: RentalContract) => {
       return h(
         'a',
@@ -182,24 +190,28 @@ const desktopColumns = [
     title: '계약자',
     key: 'tenantName',
     width: 100,
+    align: 'center' as const,
     render: (row: RentalContract) => row.tenantName || '공실'
   },
   {
     title: '계약유형',
     key: 'contractType',
     width: 90,
+    align: 'center' as const,
     render: (row: RentalContract) => row.contractType || '-'
   },
   {
     title: '보증금',
     key: 'deposit',
     width: 110,
+    align: 'center' as const,
     render: (row: RentalContract) => formatCurrency(row.deposit)
   },
   {
     title: '월세',
     key: 'monthlyRent',
     width: 100,
+    align: 'center' as const,
     render: (row: RentalContract) =>
       row.monthlyRent ? formatCurrency(row.monthlyRent) : '-'
   },
@@ -207,6 +219,7 @@ const desktopColumns = [
     title: '계약기간',
     key: 'period',
     width: 200,
+    align: 'center' as const,
     render: (row: RentalContract) => {
       if (!row.startDate || !row.endDate) return '-'
       return `${formatDate(row.startDate, 'yyyy.MM.dd')} ~ ${formatDate(row.endDate, 'yyyy.MM.dd')}`
@@ -216,6 +229,7 @@ const desktopColumns = [
     title: '상태',
     key: 'status',
     width: 90,
+    align: 'center' as const,
     render: (row: RentalContract) => {
       const hasName = row.tenantName && row.tenantName.trim() !== ''
       const isExpiring = row.endDate && (() => {
@@ -237,6 +251,7 @@ const desktopColumns = [
     title: 'HUG',
     key: 'hugEndDate',
     width: 70,
+    align: 'center' as const,
     render: (row: RentalContract) =>
       row.hugEndDate ? '가입' : '-'
   },
@@ -286,39 +301,45 @@ const mobileColumns = [
   {
     title: '동-호',
     key: 'address',
-    width: 80,
+    width: 70,
     render: (row: RentalContract) => {
       return h(
         'div',
-        { style: 'font-weight: 600; color: #18a058;' },
-        `${row.building}동 ${row.unit}호`
+        { style: 'font-weight: 600; color: #18a058; line-height: 1.3;' },
+        [
+          h('div', {}, `${row.building}동`),
+          h('div', {}, `${row.unit}호`)
+        ]
       )
     }
   },
   {
     title: '계약정보',
     key: 'info',
-    width: 200,
+    width: 160,
     render: (row: RentalContract) => {
       return h(
         'div',
-        { style: 'display: flex; flex-direction: column; gap: 4px;' },
+        { style: 'display: flex; flex-direction: column; gap: 3px;' },
         [
-          h('div', { style: 'font-weight: 500;' }, row.tenantName || '공실'),
-          h('div', { style: 'font-size: 12px; color: #666;' },
-            `보증금: ${formatCurrency(row.deposit)}${row.monthlyRent ? ` / 월세: ${formatCurrency(row.monthlyRent)}` : ''}`
+          h('div', { style: 'font-weight: 500; font-size: 13px;' }, row.tenantName || '공실'),
+          h('div', { style: 'font-size: 11px; color: #666;' },
+            `${formatCurrency(row.deposit)}${row.monthlyRent ? ` / ${formatCurrency(row.monthlyRent)}` : ''}`
           ),
-          h('div', { style: 'font-size: 11px; color: #999; margin-top: 2px;' },
-            row.endDate ? `~ ${formatDate(row.endDate, 'yyyy.MM.dd')}` : ''
-          )
-        ]
+          row.endDate ? h('div', { style: 'font-size: 10px; color: #999;' },
+            `만료: ${formatDate(row.endDate, 'MM.dd')}`
+          ) : null,
+          row.hugEndDate ? h('div', { style: 'font-size: 10px; color: #999;' },
+            `HUG: ${formatDate(row.hugEndDate, 'MM.dd')}`
+          ) : null
+        ].filter(Boolean)
       )
     }
   },
   {
     title: '상태',
     key: 'status',
-    width: 70,
+    width: 65,
     render: (row: RentalContract) => {
       const hasName = row.tenantName && row.tenantName.trim() !== ''
       const isExpiring = row.endDate && (() => {

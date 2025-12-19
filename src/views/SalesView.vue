@@ -114,24 +114,28 @@ const desktopColumns = [
     title: '구분',
     key: 'category',
     width: 60,
+    align: 'center' as const,
     ellipsis: { tooltip: true }
   },
   {
     title: '동-호',
     key: 'unit',
     width: 100,
+    align: 'center' as const,
     ellipsis: { tooltip: true }
   },
   {
     title: '계약자',
     key: 'buyer',
     width: 100,
+    align: 'center' as const,
     ellipsis: { tooltip: true }
   },
   {
     title: '계약금2',
     key: 'downPayment2',
     width: 110,
+    align: 'center' as const,
     render: (row: SaleContract) => {
       return row.downPayment2 > 0 ? formatCurrency(row.downPayment2 * 1000) : '-'
     }
@@ -140,6 +144,7 @@ const desktopColumns = [
     title: '중도금',
     key: 'interimPayments',
     width: 110,
+    align: 'center' as const,
     render: (row: SaleContract) => {
       const total = row.interimPayment1 + row.interimPayment2 + row.interimPayment3
       return total > 0 ? formatCurrency(total * 1000) : '-'
@@ -149,6 +154,7 @@ const desktopColumns = [
     title: '잔금',
     key: 'finalPayment',
     width: 110,
+    align: 'center' as const,
     render: (row: SaleContract) => {
       return row.finalPayment > 0 ? formatCurrency(row.finalPayment * 1000) : '-'
     }
@@ -157,18 +163,21 @@ const desktopColumns = [
     title: '합계',
     key: 'totalAmount',
     width: 120,
+    align: 'center' as const,
     render: (row: SaleContract) => formatCurrency(row.totalAmount * 1000)
   },
   {
     title: '계약형식',
     key: 'contractFormat',
     width: 100,
+    align: 'center' as const,
     ellipsis: { tooltip: true }
   },
   {
     title: '상태',
     key: 'status',
     width: 80,
+    align: 'center' as const,
     render: (row: SaleContract) => {
       return h(
         NTag,
@@ -184,30 +193,34 @@ const mobileColumns = [
   {
     title: '동-호',
     key: 'unit',
-    width: 80,
+    width: 70,
     render: (row: SaleContract) => {
+      const unitNum = row.unit.split('-')[1] || row.unit.split('-')[0]
       return h(
         'div',
-        { style: 'font-weight: 600; color: #18a058;' },
-        `${row.building}동 ${row.unit.split('-')[1] || row.unit.split('-')[0]}호`
+        { style: 'font-weight: 600; color: #18a058; line-height: 1.3;' },
+        [
+          h('div', {}, `${row.building}동`),
+          h('div', {}, `${unitNum}호`)
+        ]
       )
     }
   },
   {
     title: '계약정보',
     key: 'info',
-    width: 200,
+    width: 160,
     render: (row: SaleContract) => {
       return h(
         'div',
-        { style: 'display: flex; flex-direction: column; gap: 4px;' },
+        { style: 'display: flex; flex-direction: column; gap: 3px;' },
         [
-          h('div', { style: 'font-weight: 500;' }, row.buyer),
-          h('div', { style: 'font-size: 12px; color: #666;' },
-            `합계: ${formatCurrency(row.totalAmount * 1000)}`
+          h('div', { style: 'font-weight: 500; font-size: 13px;' }, row.buyer),
+          h('div', { style: 'font-size: 11px; color: #666;' },
+            `${formatCurrency(row.totalAmount * 1000)}`
           ),
-          row.contractDate ? h('div', { style: 'font-size: 11px; color: #999;' },
-            `계약: ${formatDate(row.contractDate, 'yyyy.MM.dd')}`
+          row.contractDate ? h('div', { style: 'font-size: 10px; color: #999;' },
+            `계약: ${formatDate(row.contractDate, 'MM.dd')}`
           ) : null
         ].filter(Boolean)
       )
@@ -216,7 +229,7 @@ const mobileColumns = [
   {
     title: '상태',
     key: 'status',
-    width: 70,
+    width: 65,
     render: (row: SaleContract) => {
       return h(
         NTag,
