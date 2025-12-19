@@ -17,7 +17,7 @@ export class SheetsService {
   }
 
   private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-    const token = authService.getAccessToken()
+    const token = await authService.getAccessToken()
     if (!token) {
       console.warn('⚠️ [SheetsService] OAuth 토큰 없음, 자동 로그아웃 처리')
       await authService.signOut()

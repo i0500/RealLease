@@ -92,7 +92,7 @@ export const useAuthStore = defineStore('auth', () => {
         return
       }
 
-      await authService.signIn()
+      await authService.signIn(keepSignedIn)
 
       // 실제 Google 사용자 정보 가져오기
       const userInfo = await authService.getUserInfo()
