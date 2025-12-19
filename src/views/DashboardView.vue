@@ -367,9 +367,9 @@ function toBillions(thousands: number): string {
 
       <!-- 최근 알림 -->
       <n-card title="최근 알림" class="mb-4 md:mb-6">
-        <div v-if="notificationsStore.highPriorityNotifications.length > 0" class="space-y-2">
+        <div v-if="notificationsStore.unreadNotifications.length > 0" class="space-y-2">
           <div
-            v-for="notification in notificationsStore.highPriorityNotifications.slice(0, 5)"
+            v-for="notification in notificationsStore.sortedNotifications.filter(n => !n.read).slice(0, 5)"
             :key="notification.id"
             class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-red-50 hover:border-red-300 transition-all"
             @click="handleNotificationClick(notification)"
@@ -383,7 +383,11 @@ function toBillions(thousands: number): string {
                   {{ notification.message }}
                 </p>
               </div>
-              <n-tag type="error" size="small" class="flex-shrink-0">
+              <n-tag
+                :type="notification.priority === 'high' ? 'error' : notification.priority === 'medium' ? 'warning' : 'default'"
+                size="small"
+                class="flex-shrink-0"
+              >
                 D-{{ notification.daysLeft }}
               </n-tag>
             </div>
