@@ -697,11 +697,11 @@ export const useContractsStore = defineStore('contracts', () => {
         }
       }
 
-      // 안전한 숫자 파싱 함수 (단위: 천원 → 원 단위로 변환)
+      // 안전한 숫자 파싱 함수 (임대계약: 이미 원 단위로 저장됨)
       const parseAmount = (index: number): number => {
         const str = row[index]?.toString() || '0'
         const amount = parseInt(str.replace(/,/g, '')) || 0
-        return amount * 1000 // 천원 단위를 원 단위로 변환
+        return amount // 이미 원 단위
       }
 
       // Google Sheets 열 매핑 (사용자 요구사항)
@@ -917,11 +917,11 @@ export const useContractsStore = defineStore('contracts', () => {
     // K열(row[10]): 공급면적
     row[10] = contract.supplyArea || ''
 
-    // L열(row[11]): 임대보증금 (원 → 천원 단위로 변환)
-    row[11] = Math.round((contract.deposit || 0) / 1000)
+    // L열(row[11]): 임대보증금 (원 단위 그대로 저장)
+    row[11] = Math.round(contract.deposit || 0)
 
-    // M열(row[12]): 월세 (원 → 천원 단위로 변환)
-    row[12] = Math.round((contract.monthlyRent || 0) / 1000)
+    // M열(row[12]): 월세 (원 단위 그대로 저장)
+    row[12] = Math.round(contract.monthlyRent || 0)
 
     // N열(row[13]): 계약서작성일
     row[13] = formatDateSafe(contract.contractWrittenDate)
