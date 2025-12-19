@@ -1,10 +1,18 @@
 import type { Notification, RentalContract } from '@/types'
 import { getDaysLeft, isExpiringSoon } from '@/utils/dateUtils'
-import { generateId } from '@/utils/formatUtils'
-import { NOTIFICATION_THRESHOLD_DAYS } from '@/utils/constants'
 
 export class NotificationService {
-  checkExpirations(contracts: RentalContract[]): Notification[] {
+  /**
+   * 계약 만료 알림 체크
+   * @param contracts 계약 목록
+   * @param contractExpiryDays 계약 만료 알림 일수
+   * @param hugExpiryDays HUG 보증 만료 알림 일수
+   */
+  checkExpirations(
+    contracts: RentalContract[],
+    contractExpiryDays: number = 90,
+    hugExpiryDays: number = 90
+  ): Notification[] {
     const notifications: Notification[] = []
     const today = new Date()
 
@@ -13,10 +21,12 @@ export class NotificationService {
       if (contract.tenantName && contract.tenantName.trim() !== '' && contract.endDate) {
         const daysLeft = getDaysLeft(contract.endDate)
 
-        if (isExpiringSoon(contract.endDate, NOTIFICATION_THRESHOLD_DAYS)) {
+        if (isExpiringSoon(contract.endDate, contractExpiryDays)) {
           const address = `${contract.building}동 ${contract.unit}호`
+          // Deterministic ID: contractId-type (timestamp 제거)
+          const notificationId = `${contract.id}-contract_expiring`
           notifications.push({
-            id: generateId(),
+            id: notificationId,
             contractId: contract.id,
             type: 'contract_expiring',
             priority: this.getPriority(daysLeft),
@@ -33,10 +43,12 @@ export class NotificationService {
       if (contract.hugEndDate) {
         const hugDaysLeft = getDaysLeft(contract.hugEndDate)
 
-        if (isExpiringSoon(contract.hugEndDate, NOTIFICATION_THRESHOLD_DAYS)) {
+        if (isExpiringSoon(contract.hugEndDate, hugExpiryDays)) {
           const address = `${contract.building}동 ${contract.unit}호`
+          // Deterministic ID: contractId-type (timestamp 제거)
+          const notificationId = `${contract.id}-hug_expiring`
           notifications.push({
-            id: generateId(),
+            id: notificationId,
             contractId: contract.id,
             type: 'hug_expiring',
             priority: this.getPriority(hugDaysLeft),

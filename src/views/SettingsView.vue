@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useSheetsStore } from '@/stores/sheets'
 import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useNotificationSettingsStore } from '@/stores/notificationSettings'
 import { formatDate } from '@/utils/dateUtils'
 import type { SheetConfig } from '@/types/sheet'
 import {
@@ -25,6 +26,9 @@ import {
   NDivider,
   NCheckboxGroup,
   NCheckbox,
+  NSelect,
+  NTimePicker,
+  NSwitch,
   useMessage,
   useDialog
 } from 'naive-ui'
@@ -40,6 +44,7 @@ const authStore = useAuthStore()
 const sheetsStore = useSheetsStore()
 const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
+const notificationSettingsStore = useNotificationSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 
@@ -64,15 +69,87 @@ const loadingTabs = ref(false)
 // Sync state
 const syncingSheetId = ref<string | null>(null)
 
+// Notification settings
+const notificationPermission = ref<NotificationPermission>('default')
+const isRequestingPermission = ref(false)
+
+// Notification period settings
+const contractExpiryNoticeDays = ref(90)
+const hugExpiryNoticeDays = ref(90)
+const pushNotificationTime = ref('10:00')
+const enablePushNotifications = ref(true)
+
+// Options for period selection (1~6개월)
+const periodOptions = [
+  { label: '1개월 전', value: 30 },
+  { label: '2개월 전', value: 60 },
+  { label: '3개월 전', value: 90 },
+  { label: '4개월 전', value: 120 },
+  { label: '5개월 전', value: 150 },
+  { label: '6개월 전', value: 180 }
+]
+
 // Load sheets on mount
 onMounted(async () => {
   try {
     await sheetsStore.loadSheets()
+    // Check notification permission
+    notificationPermission.value = notificationsStore.pushNotificationService.getPermission()
+
+    // Load notification settings
+    await notificationSettingsStore.initialize()
+    const settings = notificationSettingsStore.settings
+    contractExpiryNoticeDays.value = settings.contractExpiryNoticeDays
+    hugExpiryNoticeDays.value = settings.hugExpiryNoticeDays
+    pushNotificationTime.value = settings.pushNotificationTime
+    enablePushNotifications.value = settings.enablePushNotifications
   } catch (error) {
     console.error('Failed to load sheets:', error)
     message.error('시트 목록을 불러오는데 실패했습니다')
   }
 })
+
+// Request notification permission
+async function handleRequestNotificationPermission() {
+  try {
+    isRequestingPermission.value = true
+    const permission = await notificationsStore.pushNotificationService.requestPermission()
+    notificationPermission.value = permission
+
+    if (permission === 'granted') {
+      message.success('알림 권한이 허용되었습니다! 이제 새로운 알림을 푸시로 받을 수 있습니다.')
+    } else if (permission === 'denied') {
+      message.error('알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.')
+    } else {
+      message.warning('알림 권한 요청이 취소되었습니다.')
+    }
+  } catch (error) {
+    console.error('Failed to request notification permission:', error)
+    message.error('알림 권한 요청에 실패했습니다')
+  } finally {
+    isRequestingPermission.value = false
+  }
+}
+
+// Save notification settings
+async function handleSaveNotificationSettings() {
+  try {
+    await notificationSettingsStore.updateSettings({
+      contractExpiryNoticeDays: contractExpiryNoticeDays.value,
+      hugExpiryNoticeDays: hugExpiryNoticeDays.value,
+      pushNotificationTime: pushNotificationTime.value,
+      enablePushNotifications: enablePushNotifications.value
+    })
+
+    // 설정 저장 후 알림 재체크
+    await notificationsStore.checkNotifications()
+
+    message.success('알림 설정이 저장되었습니다')
+  } catch (error) {
+    console.error('Failed to save notification settings:', error)
+    message.error('알림 설정 저장에 실패했습니다')
+  }
+}
 
 // Actions
 function handleAddSheet() {
@@ -416,6 +493,129 @@ function handleResetApp() {
           </n-thing>
         </n-list-item>
       </n-list>
+    </n-card>
+
+    <n-divider />
+
+    <!-- Notification Settings -->
+    <n-card title="푸시 알림 설정" class="mb-6">
+      <n-space vertical>
+        <p class="text-sm text-gray-700">
+          계약 만료, HUG 보증 만료 등 중요한 알림을 푸시로 받을 수 있습니다.
+        </p>
+
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p class="font-semibold mb-1">알림 권한 상태</p>
+            <p class="text-sm text-gray-600">
+              <span v-if="notificationPermission === 'granted'" class="text-green-600 font-medium">
+                ✅ 허용됨 - 푸시 알림을 받을 수 있습니다
+              </span>
+              <span v-else-if="notificationPermission === 'denied'" class="text-red-600 font-medium">
+                ❌ 거부됨 - 브라우저 설정에서 권한을 변경해주세요
+              </span>
+              <span v-else class="text-gray-600 font-medium">
+                ⚠️ 미설정 - 아래 버튼을 눌러 권한을 허용해주세요
+              </span>
+            </p>
+          </div>
+          <n-button
+            v-if="notificationPermission !== 'granted'"
+            type="primary"
+            :loading="isRequestingPermission"
+            @click="handleRequestNotificationPermission"
+          >
+            🔔 알림 허용하기
+          </n-button>
+        </div>
+
+        <n-alert type="info" class="mt-2">
+          <template #header>
+            <strong>📱 모바일에서 푸시 알림 받기</strong>
+          </template>
+          <n-space vertical size="small" class="text-sm">
+            <p>1. 모바일 브라우저에서 이 사이트를 엽니다</p>
+            <p>2. 브라우저 메뉴에서 <strong>"홈 화면에 추가"</strong> 또는 <strong>"바로가기 추가"</strong>를 선택합니다</p>
+            <p>3. 홈 화면에 추가된 아이콘을 통해 앱을 실행합니다</p>
+            <p>4. 위의 <strong>"알림 허용하기"</strong> 버튼을 눌러 권한을 허용합니다</p>
+            <p>5. 이제 새로운 알림이 생성되면 푸시로 받을 수 있습니다!</p>
+          </n-space>
+        </n-alert>
+
+        <n-alert type="warning" class="mt-2">
+          <strong>주의사항</strong><br />
+          • 푸시 알림은 권한을 허용한 기기에서만 받을 수 있습니다<br />
+          • 앱이 백그라운드에 있어도 알림을 받을 수 있습니다<br />
+          • 알림 권한을 거부하면 브라우저 설정에서 직접 변경해야 합니다
+        </n-alert>
+      </n-space>
+    </n-card>
+
+    <n-divider />
+
+    <!-- Notification Period Settings -->
+    <n-card title="⏰ 알림 기간 설정" class="mb-6">
+      <n-space vertical size="large">
+        <p class="text-sm text-gray-700">
+          계약 만료 및 보험 만료 알림을 받을 기간을 설정할 수 있습니다.
+        </p>
+
+        <!-- 계약 만료 알림 기간 -->
+        <n-form-item label="계약 만료 알림 기간" label-placement="left">
+          <n-select
+            v-model:value="contractExpiryNoticeDays"
+            :options="periodOptions"
+            style="width: 200px"
+          />
+        </n-form-item>
+
+        <!-- HUG 보증 만료 알림 기간 -->
+        <n-form-item label="보험 만료 알림 기간" label-placement="left">
+          <n-select
+            v-model:value="hugExpiryNoticeDays"
+            :options="periodOptions"
+            style="width: 200px"
+          />
+        </n-form-item>
+
+        <!-- 푸시 알림 활성화 -->
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p class="font-semibold mb-1">푸시 알림 활성화</p>
+            <p class="text-sm text-gray-600">
+              설정한 시간에 하루 한 번 알림을 푸시로 받습니다
+            </p>
+          </div>
+          <n-switch v-model:value="enablePushNotifications" />
+        </div>
+
+        <!-- 푸시 알림 시간대 -->
+        <n-form-item
+          v-if="enablePushNotifications"
+          label="푸시 알림 시간"
+          label-placement="left"
+        >
+          <n-time-picker
+            v-model:formatted-value="pushNotificationTime"
+            format="HH:mm"
+            value-format="HH:mm"
+            style="width: 200px"
+          />
+        </n-form-item>
+
+        <n-alert type="info">
+          <strong>알림 정책</strong><br />
+          • 설정한 기간 이내에 만료되는 계약/보험에 대해 알림이 생성됩니다<br />
+          • 푸시 알림은 앱을 열었을 때 설정 시간이 지났으면 자동으로 발송됩니다<br />
+          • 알림 권한이 허용되어 있어야 푸시 알림을 받을 수 있습니다
+        </n-alert>
+
+        <div class="flex justify-end">
+          <n-button type="primary" @click="handleSaveNotificationSettings">
+            💾 설정 저장
+          </n-button>
+        </div>
+      </n-space>
     </n-card>
 
     <!-- App Information -->

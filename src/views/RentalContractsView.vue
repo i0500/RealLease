@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
@@ -129,6 +129,25 @@ onMounted(async () => {
     filterStatus.value = status
   }
 })
+
+// Watch for contract loading to handle dashboard navigation with query.id
+watch(
+  () => contractsStore.contracts,
+  (contracts) => {
+    // Only proceed if we have an id in the query and modal is not already open
+    const id = route.query.id
+    if (id && typeof id === 'string' && !showDetailModal.value && contracts.length > 0) {
+      const contract = contracts.find(c => c.id === id)
+      if (contract) {
+        viewingContract.value = contract
+        showDetailModal.value = true
+        // Clear the query parameter after opening the modal to prevent re-triggering
+        router.replace({ query: { ...route.query, id: undefined } })
+      }
+    }
+  },
+  { immediate: false }
+)
 
 // Filtered contracts
 const filteredContracts = computed(() => {
@@ -669,7 +688,7 @@ function resetForm() {
       <div v-if="viewingContract">
         <!-- 기본 정보 -->
         <n-card title="기본 정보" class="mb-4">
-          <n-descriptions bordered :column="2">
+          <n-descriptions bordered :column="2" label-align="center">
             <n-descriptions-item label="동-호">
               {{ viewingContract.building }}동 {{ viewingContract.unit }}호
             </n-descriptions-item>
@@ -704,7 +723,7 @@ function resetForm() {
 
         <!-- 계약 금액 정보 -->
         <n-card title="계약 금액" class="mb-4">
-          <n-descriptions bordered :column="2">
+          <n-descriptions bordered :column="2" label-align="center">
             <n-descriptions-item label="임대보증금">
               <span class="font-bold text-xl" style="color: #2080f0;">
                 {{ formatCurrency(viewingContract.deposit) }}
@@ -721,7 +740,7 @@ function resetForm() {
 
         <!-- 계약 기간 정보 -->
         <n-card title="계약 기간" class="mb-4">
-          <n-descriptions bordered :column="2">
+          <n-descriptions bordered :column="2" label-align="center">
             <n-descriptions-item v-if="viewingContract.contractWrittenDate" label="계약서작성일">
               {{ formatDate(viewingContract.contractWrittenDate, 'yyyy.MM.dd') }}
             </n-descriptions-item>
@@ -742,7 +761,7 @@ function resetForm() {
 
         <!-- HUG 보증 정보 -->
         <n-card v-if="viewingContract.hugStartDate || viewingContract.hugEndDate" title="HUG 보증보험 정보" class="mb-4">
-          <n-descriptions bordered :column="2">
+          <n-descriptions bordered :column="2" label-align="center">
             <n-descriptions-item v-if="viewingContract.hugStartDate" label="보증시작일">
               {{ formatDate(viewingContract.hugStartDate, 'yyyy.MM.dd') }}
             </n-descriptions-item>
@@ -754,7 +773,7 @@ function resetForm() {
 
         <!-- 추가 정보 -->
         <n-card v-if="viewingContract.additionalInfo1 || viewingContract.additionalInfo2 || viewingContract.additionalInfo3 || viewingContract.additionalInfo4" title="추가 정보" class="mb-4">
-          <n-descriptions bordered :column="1">
+          <n-descriptions bordered :column="1" label-align="center">
             <n-descriptions-item v-if="viewingContract.additionalInfo1" label="추가정보1">
               {{ viewingContract.additionalInfo1 }}
             </n-descriptions-item>
@@ -772,7 +791,7 @@ function resetForm() {
 
         <!-- 비고 -->
         <n-card v-if="viewingContract.notes" title="기타사항/비고" class="mb-4">
-          <n-descriptions bordered :column="1">
+          <n-descriptions bordered :column="1" label-align="center">
             <n-descriptions-item>
               {{ viewingContract.notes }}
             </n-descriptions-item>

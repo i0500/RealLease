@@ -116,8 +116,29 @@ function handleMarkAllAsRead() {
   })
 }
 
-function handleViewContract() {
-  router.push({ name: 'contracts' })
+function handleViewContract(notification: Notification) {
+  if (!sheetsStore.currentSheet) {
+    message.warning('시트를 선택해주세요')
+    return
+  }
+
+  // 알림을 읽음 처리
+  handleMarkAsRead(notification)
+
+  // contractId로 계약 찾기
+  const contract = contractsStore.contracts.find(c => c.id === notification.contractId)
+
+  if (!contract) {
+    message.error('계약을 찾을 수 없습니다')
+    return
+  }
+
+  // 임대차 계약 상세 페이지로 이동 (모달 열기)
+  router.push({
+    name: 'rental-contracts',
+    params: { sheetId: contract.sheetId },
+    query: { id: contract.id }
+  })
 }
 
 function getTypeText(type: 'contract_expiring' | 'hug_expiring') {
@@ -207,7 +228,7 @@ function isRead(notificationId: string) {
           <n-list-item
             v-for="notification in highPriorityNotifications"
             :key="notification.id"
-            @click="handleViewContract"
+            @click="handleViewContract(notification)"
           >
             <n-thing :title="notification.title" :description="notification.message">
               <template #header-extra>
@@ -244,7 +265,7 @@ function isRead(notificationId: string) {
           <n-list-item
             v-for="notification in mediumPriorityNotifications"
             :key="notification.id"
-            @click="handleViewContract"
+            @click="handleViewContract(notification)"
           >
             <n-thing :title="notification.title" :description="notification.message">
               <template #header-extra>
@@ -281,7 +302,7 @@ function isRead(notificationId: string) {
           <n-list-item
             v-for="notification in lowPriorityNotifications"
             :key="notification.id"
-            @click="handleViewContract"
+            @click="handleViewContract(notification)"
           >
             <n-thing :title="notification.title" :description="notification.message">
               <template #header-extra>

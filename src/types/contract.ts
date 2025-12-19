@@ -93,6 +93,7 @@ export interface SaleContract {
   contractDate?: Date // 계약일 (G열)
 
   // 결제 정보 (단위: 천원)
+  downPayment: number // 계약금 (H열)
   downPayment2Date?: Date // 계약금 2차 일자 (I열)
   downPayment2: number // 계약금 2차 금액 (J열)
 

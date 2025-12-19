@@ -17,6 +17,7 @@ import {
   NDrawerContent,
   NTag,
   NDivider,
+  NBadge,
   useMessage
 } from 'naive-ui'
 import {
@@ -26,8 +27,7 @@ import {
   SettingsOutline as SettingsIcon,
   MenuOutline as MenuIcon,
   CheckmarkCircleOutline as ConnectedIcon,
-  DocumentOutline as SheetIcon,
-  AddCircleOutline as AddSheetIcon
+  DocumentOutline as SheetIcon
 } from '@vicons/ionicons5'
 import type { MenuOption } from 'naive-ui'
 
@@ -123,10 +123,6 @@ async function handleMobileMenuSelect(key: string) {
       message.error('시트 전환에 실패했습니다')
     }
   }
-  // 시트 추가
-  else if (key === 'add-sheet') {
-    router.push({ name: 'settings', query: { action: 'add-sheet' } })
-  }
   // 일반 라우트
   else {
     router.push({ name: key })
@@ -147,7 +143,16 @@ const menuOptions = computed<MenuOption[]>(() => {
       icon: renderIcon(DashboardIcon)
     },
     {
-      label: '알림',
+      label: () => h(
+        NBadge,
+        {
+          value: notificationsStore.unreadCount,
+          show: notificationsStore.unreadCount > 0,
+          dot: false,
+          max: 99
+        },
+        { default: () => '알림' }
+      ),
       key: 'notifications',
       icon: renderIcon(NotificationIcon)
     }
@@ -216,11 +221,6 @@ const menuOptions = computed<MenuOption[]>(() => {
       key: 'divider-2'
     },
     {
-      label: '시트 추가',
-      key: 'add-sheet',
-      icon: renderIcon(AddSheetIcon)
-    },
-    {
       label: '설정',
       key: 'settings',
       icon: renderIcon(SettingsIcon)
@@ -265,10 +265,6 @@ async function handleMenuSelect(key: string) {
       console.error('Failed to switch sheet:', error)
       message.error('파일 전환에 실패했습니다')
     }
-  }
-  // 시트 추가
-  else if (key === 'add-sheet') {
-    router.push({ name: 'settings', query: { action: 'add-sheet' } })
   }
   // 일반 라우트
   else {
@@ -395,7 +391,13 @@ async function handleMenuSelect(key: string) {
             <template #icon>
               <n-icon><NotificationIcon /></n-icon>
             </template>
-            알림
+            <n-badge
+              :value="notificationsStore.unreadCount"
+              :show="notificationsStore.unreadCount > 0"
+              :max="99"
+            >
+              알림
+            </n-badge>
           </n-button>
         </div>
 
@@ -461,19 +463,6 @@ async function handleMenuSelect(key: string) {
 
         <n-divider>관리</n-divider>
         <div class="space-y-2">
-          <n-button
-            block
-            text
-            @click="handleMobileMenuSelect('add-sheet')"
-            class="justify-start"
-            size="large"
-          >
-            <template #icon>
-              <n-icon><AddSheetIcon /></n-icon>
-            </template>
-            시트 추가
-          </n-button>
-
           <n-button
             block
             text

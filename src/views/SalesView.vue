@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
@@ -52,6 +52,7 @@ const saleForm = ref({
   unitNumber: '',
   buyer: '',
   contractDate: null as number | null,
+  downPayment: 0, // H열: 계약금
   downPayment2Date: null as number | null,
   downPayment2: 0,
   interimPayment1Date: null as number | null,
@@ -83,19 +84,57 @@ onMounted(async () => {
     await sheetsStore.loadSheets()
   }
 
-  // Extract sheetId from route params
+  // Extract sheetId from route params and query
   const sheetId = route.params.sheetId as string
+  const { id } = route.query
 
   if (sheetId) {
     // Set current sheet based on route param
     sheetsStore.setCurrentSheet(sheetId)
     // Load contracts for this specific sheet (명시적으로 'sale' 타입 전달)
     await contractsStore.loadContracts(sheetId, 'sale')
+
+    // Open detail modal if sale id is provided (after data loaded)
+    if (id && typeof id === 'string') {
+      const sale = contractsStore.saleContracts.find(c => c.id === id)
+      if (sale) {
+        viewingSaleContract.value = sale
+        showDetailModal.value = true
+      }
+    }
   } else if (sheetsStore.currentSheet) {
     // Fallback to currentSheet if no route param (명시적으로 'sale' 타입 전달)
     await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
+
+    // Open detail modal if sale id is provided (after data loaded)
+    if (id && typeof id === 'string') {
+      const sale = contractsStore.saleContracts.find(c => c.id === id)
+      if (sale) {
+        viewingSaleContract.value = sale
+        showDetailModal.value = true
+      }
+    }
   }
 })
+
+// Watch for sale contract loading to handle dashboard navigation with query.id
+watch(
+  () => contractsStore.saleContracts,
+  (contracts) => {
+    // Only proceed if we have an id in the query and modal is not already open
+    const id = route.query.id
+    if (id && typeof id === 'string' && !showDetailModal.value && contracts.length > 0) {
+      const sale = contracts.find(c => c.id === id)
+      if (sale) {
+        viewingSaleContract.value = sale
+        showDetailModal.value = true
+        // Clear the query parameter after opening the modal to prevent re-triggering
+        router.replace({ query: { ...route.query, id: undefined } })
+      }
+    }
+  },
+  { immediate: false }
+)
 
 // Filter sales contracts
 const filteredSales = computed(() => {
@@ -138,6 +177,15 @@ const desktopColumns = [
     width: 100,
     align: 'center' as const,
     ellipsis: { tooltip: true }
+  },
+  {
+    title: '계약금',
+    key: 'downPayment',
+    width: 110,
+    align: 'center' as const,
+    render: (row: SaleContract) => {
+      return row.downPayment > 0 ? formatCurrency(row.downPayment * 1000) : '-'
+    }
   },
   {
     title: '계약금2',
@@ -216,6 +264,7 @@ function handleEditFromDetail() {
     unitNumber: unitNumber,
     buyer: viewingSaleContract.value.buyer,
     contractDate: viewingSaleContract.value.contractDate ? new Date(viewingSaleContract.value.contractDate).getTime() : null,
+    downPayment: viewingSaleContract.value.downPayment,
     downPayment2Date: viewingSaleContract.value.downPayment2Date ? new Date(viewingSaleContract.value.downPayment2Date).getTime() : null,
     downPayment2: viewingSaleContract.value.downPayment2,
     interimPayment1Date: viewingSaleContract.value.interimPayment1Date ? new Date(viewingSaleContract.value.interimPayment1Date).getTime() : null,
@@ -272,6 +321,7 @@ const statusOptions = [
 // Computed total amount
 const totalAmount = computed(() => {
   return (
+    saleForm.value.downPayment +
     saleForm.value.downPayment2 +
     saleForm.value.interimPayment1 +
     saleForm.value.interimPayment2 +
@@ -294,6 +344,7 @@ function resetForm() {
     unitNumber: '',
     buyer: '',
     contractDate: null,
+    downPayment: 0,
     downPayment2Date: null,
     downPayment2: 0,
     interimPayment1Date: null,
@@ -334,6 +385,7 @@ async function handleSubmit() {
       unit,
       buyer: saleForm.value.buyer,
       contractDate: saleForm.value.contractDate ? new Date(saleForm.value.contractDate) : undefined,
+      downPayment: saleForm.value.downPayment,
       downPayment2Date: saleForm.value.downPayment2Date ? new Date(saleForm.value.downPayment2Date) : undefined,
       downPayment2: saleForm.value.downPayment2,
       interimPayment1Date: saleForm.value.interimPayment1Date ? new Date(saleForm.value.interimPayment1Date) : undefined,
@@ -485,6 +537,7 @@ async function handleSubmit() {
 
         <!-- 결제 정보 -->
         <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <span v-if="sale.downPayment > 0">계약금 {{ (sale.downPayment / 1000).toFixed(0) }}</span>
           <span v-if="sale.downPayment2 > 0">계약금2차 {{ (sale.downPayment2 / 1000).toFixed(0) }}</span>
           <span v-if="sale.interimPayment1 > 0">중도1 {{ (sale.interimPayment1 / 1000).toFixed(0) }}</span>
           <span v-if="sale.interimPayment2 > 0">중도2 {{ (sale.interimPayment2 / 1000).toFixed(0) }}</span>
@@ -527,6 +580,11 @@ async function handleSubmit() {
           <div v-if="sale.contractDate" class="info-row">
             <span class="label">📅 계약일</span>
             <span class="value">{{ formatDate(sale.contractDate, 'yyyy.MM.dd') }}</span>
+          </div>
+
+          <div v-if="sale.downPayment > 0" class="info-row">
+            <span class="label">💰 계약금</span>
+            <span class="value font-bold text-blue-600">{{ formatCurrency(sale.downPayment * 1000) }}</span>
           </div>
 
           <div v-if="sale.downPayment2 > 0" class="info-row">
@@ -585,6 +643,11 @@ async function handleSubmit() {
         </n-form-item>
         <n-form-item label="계약일">
           <n-date-picker v-model:value="saleForm.contractDate" type="date" style="width: 100%" />
+        </n-form-item>
+
+        <!-- 계약금 (H열) -->
+        <n-form-item label="계약금 (천원)">
+          <n-input-number v-model:value="saleForm.downPayment" :min="0" style="width: 100%" />
         </n-form-item>
 
         <!-- 계약금 2차 -->
@@ -675,7 +738,7 @@ async function handleSubmit() {
       <div v-if="viewingSaleContract">
         <!-- 기본 정보 -->
         <n-card title="기본 정보" class="mb-4">
-          <n-descriptions bordered :column="2">
+          <n-descriptions bordered :column="2" label-align="center">
             <n-descriptions-item label="동-호">
               {{ viewingSaleContract.building }}동 {{ viewingSaleContract.unit.split('-')[1] || viewingSaleContract.unit.split('-')[0] }}호
             </n-descriptions-item>
@@ -701,7 +764,12 @@ async function handleSubmit() {
 
         <!-- 결제 정보 -->
         <n-card title="결제 정보 (단위: 천원)" class="mb-4">
-          <n-descriptions bordered :column="1" label-placement="left">
+          <n-descriptions bordered :column="1" label-align="center" label-placement="left">
+            <n-descriptions-item label="계약금">
+              <span class="font-medium text-blue-600">
+                {{ viewingSaleContract.downPayment > 0 ? viewingSaleContract.downPayment.toLocaleString() : '-' }}
+              </span>
+            </n-descriptions-item>
             <n-descriptions-item label="계약금 2차">
               <div class="flex justify-between items-center">
                 <span class="font-medium text-blue-600">

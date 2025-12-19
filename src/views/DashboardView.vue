@@ -5,14 +5,15 @@ import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatDate } from '@/utils/dateUtils'
-import { NCard, NStatistic, NSpin, NAlert, NEmpty, NButton, NIcon, NTag } from 'naive-ui'
-import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
+import { NCard, NStatistic, NSpin, NAlert, NEmpty, NButton, NTag, useMessage } from 'naive-ui'
 import type { RentalContract } from '@/types/contract'
+import type { Notification } from '@/types/notification'
 
 const router = useRouter()
 const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
 const sheetsStore = useSheetsStore()
+const message = useMessage()
 
 // 현재 선택된 파일(그룹)의 모든 시트에서 임대차 계약 필터링
 const currentSheetContracts = computed(() => {
@@ -221,9 +222,29 @@ function navigateToNotifications() {
   router.push({ name: 'notifications' })
 }
 
-function handleNotificationClick() {
-  // Navigate to notifications page
-  router.push({ name: 'notifications' })
+function handleNotificationClick(notification: Notification) {
+  if (!sheetsStore.currentSheet) {
+    message.warning('시트를 선택해주세요')
+    return
+  }
+
+  // 알림을 읽음 처리
+  notificationsStore.markAsRead(notification.id)
+
+  // contractId로 계약 찾기
+  const contract = contractsStore.contracts.find(c => c.id === notification.contractId)
+
+  if (!contract) {
+    message.error('계약을 찾을 수 없습니다')
+    return
+  }
+
+  // 임대차 계약 상세 페이지로 이동 (모달 열기)
+  router.push({
+    name: 'rental-contracts',
+    params: { sheetId: contract.sheetId },
+    query: { id: contract.id }
+  })
 }
 
 function handleContractClick(contract: RentalContract) {
@@ -246,13 +267,11 @@ function handleSaleClick(saleId: string) {
     return
   }
 
-  // Navigate to sale detail page
+  // Navigate to sales page with sale ID to open detail modal
   router.push({
-    name: 'sale-detail',
-    params: {
-      sheetId: sheetsStore.currentSheet.id,
-      id: saleId
-    }
+    name: 'sales',
+    params: { sheetId: sheetsStore.currentSheet.id },
+    query: { id: saleId }
   })
 }
 
@@ -265,14 +284,8 @@ function toMillions(thousands: number): string {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-4 md:mb-6">
+    <div class="mb-4 md:mb-6">
       <h1 class="text-xl md:text-2xl font-bold" style="color: #2c3e50;">대시보드</h1>
-      <n-button @click="router.push({ name: 'settings' })" secondary size="small">
-        <template #icon>
-          <n-icon><HomeIcon /></n-icon>
-        </template>
-        <span class="hidden sm:inline ml-1">설정</span>
-      </n-button>
     </div>
 
     <!-- No sheets message -->
@@ -360,7 +373,7 @@ function toMillions(thousands: number): string {
             v-for="notification in notificationsStore.highPriorityNotifications.slice(0, 5)"
             :key="notification.id"
             class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-red-50 hover:border-red-300 transition-all"
-            @click="handleNotificationClick()"
+            @click="handleNotificationClick(notification)"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1 min-w-0">
@@ -460,6 +473,7 @@ function toMillions(thousands: number): string {
 
             <!-- Payment Info (백만원 단위) -->
             <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+              <span v-if="sale.downPayment > 0">계약금 {{ toMillions(sale.downPayment) }}</span>
               <span v-if="sale.downPayment2 > 0">계약금2차 {{ toMillions(sale.downPayment2) }}</span>
               <span v-if="sale.interimPayment1 > 0">중도1 {{ toMillions(sale.interimPayment1) }}</span>
               <span v-if="sale.interimPayment2 > 0">중도2 {{ toMillions(sale.interimPayment2) }}</span>

@@ -3,11 +3,13 @@ import { onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSheetsStore } from '@/stores/sheets'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useNotificationSettingsStore } from '@/stores/notificationSettings'
 import { isTokenExpiredError } from '@/errors/TokenExpiredError'
 
 const authStore = useAuthStore()
 const sheetsStore = useSheetsStore()
 const notificationsStore = useNotificationsStore()
+const notificationSettingsStore = useNotificationSettingsStore()
 
 // 전역 에러 핸들러: TokenExpiredError 감지
 function handleUnhandledRejection(event: PromiseRejectionEvent) {
@@ -39,7 +41,26 @@ onMounted(async () => {
     // 공개 시트 접근을 위해 인증 여부와 무관하게 로드
     console.log('📦 앱 초기화: 저장된 데이터 로딩')
     await sheetsStore.loadSheets()
-    await notificationsStore.loadReadNotifications()
+    await notificationsStore.initialize()
+    await notificationSettingsStore.initialize()
+
+    // 푸시 알림 스케줄링 체크
+    const pushService = notificationsStore.pushNotificationService
+    const settings = notificationSettingsStore.settings
+
+    if (settings.enablePushNotifications && pushService.hasPermission()) {
+      if (pushService.shouldShowPush(settings.pushNotificationTime)) {
+        console.log('⏰ 푸시 알림 시간이 되었습니다. 새로운 알림 체크 중...')
+
+        // 알림 재체크하여 새로운 알림이 있으면 푸시
+        await notificationsStore.checkNotifications()
+
+        // 푸시 체크 날짜 업데이트
+        pushService.updatePushCheckDate()
+
+        console.log('✅ 푸시 알림 전송 완료')
+      }
+    }
 
     console.log('✅ 앱 초기화 완료:', {
       authenticated: authStore.isAuthenticated,

@@ -675,6 +675,9 @@ export const useContractsStore = defineStore('contracts', () => {
       // 계약일
       const contractDate = parseDateSafe(row[6]?.toString())
 
+      // 계약금 (H열)
+      const downPayment = parseAmount(7)
+
       // 계약금 2차 (I-J열)
       const downPayment2Date = parseDateSafe(row[8]?.toString())
       const downPayment2 = parseAmount(9)
@@ -728,6 +731,7 @@ export const useContractsStore = defineStore('contracts', () => {
         unit,
         buyer,
         contractDate,
+        downPayment,
         downPayment2Date,
         downPayment2,
         interimPayment1Date,

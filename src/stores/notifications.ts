@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useContractsStore } from './contracts'
+import { useNotificationSettingsStore } from './notificationSettings'
 import { notificationService } from '@/services/notificationService'
 import { storageService } from '@/services/storageService'
+import { pushNotificationService } from '@/services/pushNotificationService'
 import type { Notification } from '@/types'
 
 const STORAGE_KEY = 'notifications'
@@ -15,6 +17,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const error = ref<string | null>(null)
 
   const contractsStore = useContractsStore()
+  const settingsStore = useNotificationSettingsStore()
 
   const unreadNotifications = computed(() =>
     notifications.value.filter(n => !readNotificationIds.value.has(n.id))
@@ -30,11 +33,28 @@ export const useNotificationsStore = defineStore('notifications', () => {
     notifications.value.filter(n => n.priority === 'high' && !readNotificationIds.value.has(n.id))
   )
 
+  async function loadNotifications() {
+    try {
+      const stored = await storageService.get<any[]>(STORAGE_KEY)
+      if (stored && Array.isArray(stored)) {
+        // Deserialize: Convert ISO strings back to Date objects
+        notifications.value = stored.map(n => ({
+          ...n,
+          createdAt: new Date(n.createdAt)
+        }))
+        console.log(`✅ [NotificationsStore] Loaded ${notifications.value.length} notifications from storage`)
+      }
+    } catch (err) {
+      console.error('Load notifications error:', err)
+    }
+  }
+
   async function loadReadNotifications() {
     try {
       const stored = await storageService.get<string[]>(READ_NOTIFICATIONS_KEY)
       if (stored) {
         readNotificationIds.value = new Set(stored)
+        console.log(`✅ [NotificationsStore] Loaded ${readNotificationIds.value.size} read notification IDs`)
       }
     } catch (err) {
       console.error('Load read notifications error:', err)
@@ -47,6 +67,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
     } catch (err) {
       console.error('Save read notifications error:', err)
     }
+  }
+
+  // Initialize store by loading all persisted data
+  async function initialize() {
+    await loadNotifications()
+    await loadReadNotifications()
   }
 
   // Helper: Date 객체를 ISO 문자열로 변환하여 저장 가능한 형태로 만들기
@@ -62,29 +88,69 @@ export const useNotificationsStore = defineStore('notifications', () => {
       isLoading.value = true
       error.value = null
 
-      // 활성 계약에 대한 알림 체크
+      // 설정값 가져오기
+      const { contractExpiryNoticeDays, hugExpiryNoticeDays } = settingsStore.settings
+
+      // 활성 계약에 대한 알림 체크 (설정값 사용)
       const newNotifications = notificationService.checkExpirations(
-        contractsStore.activeContracts
+        contractsStore.activeContracts,
+        contractExpiryNoticeDays,
+        hugExpiryNoticeDays
       )
 
-      // 기존 알림과 중복 제거
-      const existingIds = new Set(notifications.value.map(n =>
-        `${n.contractId}-${n.type}-${n.daysLeft}`
-      ))
+      // Deterministic ID로 중복 제거 (contractId-type 기준)
+      const existingMap = new Map(
+        notifications.value.map(n => [n.id, n])
+      )
 
-      const uniqueNotifications = newNotifications.filter(n => {
-        const key = `${n.contractId}-${n.type}-${n.daysLeft}`
-        return !existingIds.has(key)
+      const newlyAddedNotifications: Notification[] = []
+
+      newNotifications.forEach(newN => {
+        const existing = existingMap.get(newN.id)
+
+        if (existing) {
+          // 기존 알림이 있으면 daysLeft만 업데이트 (ID와 read 상태 유지)
+          existing.daysLeft = newN.daysLeft
+          existing.message = newN.message
+          existing.priority = newN.priority
+          existing.createdAt = newN.createdAt
+        } else {
+          // 새 알림 추가
+          existingMap.set(newN.id, newN)
+          newlyAddedNotifications.push(newN)
+        }
       })
 
-      notifications.value = [
-        ...notifications.value,
-        ...uniqueNotifications
-      ]
+      // 새로 추가된 알림에 대해 푸시 알림 표시 (권한이 있을 때만)
+      if (pushNotificationService.hasPermission() && newlyAddedNotifications.length > 0) {
+        newlyAddedNotifications.forEach(notification => {
+          if (notification.type === 'contract_expiring') {
+            // 계약 만료 알림
+            const address = notification.message.split(' - ')[0] || ''
+            const tenantName = notification.message.match(/- (.+)님의/)?.[1] || ''
+            pushNotificationService.showContractExpiringNotification({
+              address,
+              tenantName,
+              daysLeft: notification.daysLeft
+            })
+          } else if (notification.type === 'hug_expiring') {
+            // HUG 보증 만료 알림
+            const address = notification.message.split('의 HUG')[0] || ''
+            pushNotificationService.showHugExpiringNotification({
+              address,
+              daysLeft: notification.daysLeft
+            })
+          }
+        })
+      }
+
+      notifications.value = Array.from(existingMap.values())
 
       // 저장 가능한 형태로 직렬화
       const serialized = serializeNotificationsForStorage(notifications.value)
       await storageService.set(STORAGE_KEY, serialized)
+
+      console.log(`✅ [NotificationsStore] Updated notifications: ${notifications.value.length} total`)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to check notifications'
       console.error('Check notifications error:', err)
@@ -135,12 +201,15 @@ export const useNotificationsStore = defineStore('notifications', () => {
     highPriorityNotifications,
     isLoading,
     error,
+    initialize,
+    loadNotifications,
     loadReadNotifications,
     checkNotifications,
     markAsRead,
     markAllAsRead,
     clearNotification,
     clearAllNotifications,
-    clearError
+    clearError,
+    pushNotificationService
   }
 })
