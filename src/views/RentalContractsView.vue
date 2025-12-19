@@ -947,9 +947,13 @@ function resetForm() {
 }
 
 /* 세부정보 팝업 테이블 값 중앙정렬 */
-:deep(.n-descriptions-item__content) {
-  text-align: center;
-  justify-content: center;
+:deep(.n-descriptions .n-descriptions-table-content) {
+  text-align: center !important;
+  justify-content: center !important;
+}
+
+:deep(.n-descriptions .n-descriptions-table-content__item) {
+  text-align: center !important;
 }
 
 .info-row {

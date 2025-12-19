@@ -23,8 +23,6 @@ import {
   NInputNumber,
   NDatePicker,
   NSelect,
-  NRadio,
-  NRadioGroup,
   NDescriptions,
   NDescriptionsItem,
   useMessage,
@@ -141,6 +139,13 @@ watch(
   },
   { immediate: false }
 )
+
+// Status filter options
+const statusOptions = [
+  { label: '전체', value: 'all' },
+  { label: '진행중', value: 'active' },
+  { label: '종결', value: 'completed' }
+]
 
 // Filter sales contracts
 const filteredSales = computed(() => {
@@ -324,8 +329,8 @@ async function handleDeleteFromDetail() {
   })
 }
 
-// Status options
-const statusOptions = [
+// Form status options (for sale contract form)
+const formStatusOptions = [
   { label: '진행중', value: 'active' },
   { label: '종결', value: 'completed' }
 ]
@@ -463,11 +468,11 @@ async function handleSubmit() {
         />
 
         <!-- 상태 필터 -->
-        <n-radio-group v-model:value="statusFilter">
-          <n-radio value="all">전체</n-radio>
-          <n-radio value="active">진행중</n-radio>
-          <n-radio value="completed">종결</n-radio>
-        </n-radio-group>
+        <n-select
+          v-model:value="statusFilter"
+          :options="statusOptions"
+          style="width: 120px"
+        />
 
         <!-- 뷰 모드 선택 -->
         <n-radio-group v-model:value="viewMode">
@@ -719,7 +724,7 @@ async function handleSubmit() {
           <n-input v-model:value="saleForm.bondTransfer" placeholder="채권양도 정보" />
         </n-form-item>
         <n-form-item label="상태">
-          <n-select v-model:value="saleForm.status" :options="statusOptions" />
+          <n-select v-model:value="saleForm.status" :options="formStatusOptions" />
         </n-form-item>
         <n-form-item label="비고">
           <n-input v-model:value="saleForm.notes" type="textarea" placeholder="비고 입력" />
@@ -888,9 +893,13 @@ async function handleSubmit() {
 }
 
 /* 세부정보 팝업 테이블 값 중앙정렬 */
-:deep(.n-descriptions-item__content) {
-  text-align: center;
-  justify-content: center;
+:deep(.n-descriptions .n-descriptions-table-content) {
+  text-align: center !important;
+  justify-content: center !important;
+}
+
+:deep(.n-descriptions .n-descriptions-table-content__item) {
+  text-align: center !important;
 }
 
 .info-row {

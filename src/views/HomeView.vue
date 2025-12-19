@@ -321,18 +321,25 @@ async function handleMenuSelect(key: string) {
         style="background-color: #ffffff; border-bottom: 1px solid #e1e8ed; flex-shrink: 0;"
       >
         <div class="flex items-center justify-between gap-3">
-          <!-- 모바일 메뉴 버튼 -->
-          <n-button
+          <!-- 모바일 메뉴 버튼 (알림 배지 포함) -->
+          <n-badge
             v-if="isMobile"
-            text
-            @click="toggleMobileMenu"
-            style="color: #2c3e50;"
-            size="large"
+            :value="notificationsStore.unreadCount"
+            :max="99"
+            :show="notificationsStore.unreadCount > 0"
+            dot
           >
-            <template #icon>
-              <n-icon :size="24"><MenuIcon /></n-icon>
-            </template>
-          </n-button>
+            <n-button
+              text
+              @click="toggleMobileMenu"
+              style="color: #2c3e50;"
+              size="large"
+            >
+              <template #icon>
+                <n-icon :size="24"><MenuIcon /></n-icon>
+              </template>
+            </n-button>
+          </n-badge>
 
           <!-- 제목 및 연결 상태 -->
           <div class="flex-1 min-w-0">
