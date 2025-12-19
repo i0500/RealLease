@@ -121,7 +121,9 @@ const desktopColumns = [
     key: 'category',
     width: 60,
     align: 'center' as const,
-    ellipsis: { tooltip: true }
+    render: (row: SaleContract) => {
+      return filteredSales.value.findIndex(c => c.id === row.id) + 1
+    }
   },
   {
     title: '동-호',
@@ -193,93 +195,6 @@ const desktopColumns = [
     }
   }
 ]
-
-// Mobile columns - Compact version
-const mobileColumns = [
-  {
-    title: '동-호',
-    key: 'unit',
-    width: 85,
-    render: (row: SaleContract) => {
-      const unitNum = row.unit.split('-')[1] || row.unit.split('-')[0]
-      return h(
-        'div',
-        { style: 'font-size: 15px; font-weight: 600; color: #18a058; line-height: 1.4;' },
-        [
-          h('div', {}, `${row.building}동`),
-          h('div', {}, `${unitNum}호`)
-        ]
-      )
-    }
-  },
-  {
-    title: '계약정보',
-    key: 'info',
-    width: 205,
-    render: (row: SaleContract) => {
-      return h(
-        'div',
-        { style: 'display: flex; flex-direction: column; gap: 7px; padding: 4px 0;' },
-        [
-          // 구매자 (아이콘 + 텍스트)
-          h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 13px;' }, '👤'),
-            h('span', {
-              style: 'font-size: 14px; font-weight: 500; color: #333;'
-            }, row.buyer)
-          ]),
-
-          // 금액 (아이콘 + 텍스트, 강조)
-          h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 13px;' }, '💰'),
-            h('span', {
-              style: 'font-size: 13px; font-weight: 600; color: #2080f0;'
-            }, `${formatCurrency(row.totalAmount * 1000)}`)
-          ]),
-
-          // 계약일 (있으면 표시)
-          row.contractDate ? h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 12px;' }, '📅'),
-            h('span', {
-              style: 'font-size: 12px; color: #666;'
-            }, `계약: ${formatDate(row.contractDate, 'MM.dd')}`)
-          ]) : null,
-
-          // 잔금일 (있으면 표시)
-          row.finalPaymentDate ? h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 12px;' }, '💵'),
-            h('span', {
-              style: 'font-size: 12px; color: #18a058;'
-            }, `잔금: ${formatDate(row.finalPaymentDate, 'MM.dd')}`)
-          ]) : null
-        ].filter(Boolean)
-      )
-    }
-  },
-  {
-    title: '상태',
-    key: 'status',
-    width: 75,
-    render: (row: SaleContract) => {
-      return h(
-        NTag,
-        { type: row.status === 'completed' ? 'success' : 'info', size: 'medium' },
-        { default: () => (row.status === 'completed' ? '종결' : '진행중') }
-      )
-    }
-  }
-]
-
-// Computed columns based on screen size
-const columns = computed(() => isMobile.value ? mobileColumns : desktopColumns)
 
 // Handle row click - Show detail modal
 function handleRowClick(row: SaleContract) {
@@ -519,13 +434,13 @@ async function handleSubmit() {
       </template>
     </n-empty>
 
-    <!-- Table View -->
-    <n-card v-else-if="sheetsStore.currentSheet && viewMode === 'table'" :class="{ 'mobile-table-card': isMobile }">
+    <!-- Table View - Desktop -->
+    <n-card v-else-if="sheetsStore.currentSheet && viewMode === 'table' && !isMobile">
       <n-data-table
-        :columns="columns"
+        :columns="desktopColumns"
         :data="filteredSales"
-        :scroll-x="isMobile ? 400 : 900"
-        :pagination="{ pageSize: isMobile ? 15 : 20 }"
+        :scroll-x="900"
+        :pagination="{ pageSize: 20 }"
         :bordered="false"
         :single-line="false"
         striped
@@ -536,6 +451,50 @@ async function handleSubmit() {
         class="sales-table"
       />
     </n-card>
+
+    <!-- Table View - Mobile (Dashboard Style List) -->
+    <div v-else-if="sheetsStore.currentSheet && viewMode === 'table' && isMobile" class="space-y-3">
+      <div
+        v-for="sale in filteredSales"
+        :key="sale.id"
+        class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
+        @click="handleRowClick(sale)"
+      >
+        <!-- Header: 동-호 & 상태 -->
+        <div class="flex items-start justify-between mb-2">
+          <h4 class="font-semibold text-green-600 hover:underline text-sm">
+            {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
+          </h4>
+          <n-tag
+            :type="sale.status === 'completed' ? 'success' : 'info'"
+            size="small"
+            class="ml-2 flex-shrink-0"
+          >
+            {{ sale.status === 'completed' ? '종결' : '진행중' }}
+          </n-tag>
+        </div>
+
+        <!-- 계약자 & 계약형식 -->
+        <div class="flex flex-wrap items-center gap-2 mb-2 text-xs text-gray-600">
+          <span class="font-medium">{{ sale.buyer }}</span>
+          <span v-if="sale.contractFormat" class="text-gray-400">·</span>
+          <n-tag v-if="sale.contractFormat" type="warning" size="small">
+            {{ sale.contractFormat }}
+          </n-tag>
+        </div>
+
+        <!-- 결제 정보 -->
+        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <span v-if="sale.downPayment2 > 0">계약금2차 {{ (sale.downPayment2 / 1000).toFixed(0) }}</span>
+          <span v-if="sale.interimPayment1 > 0">중도1 {{ (sale.interimPayment1 / 1000).toFixed(0) }}</span>
+          <span v-if="sale.interimPayment2 > 0">중도2 {{ (sale.interimPayment2 / 1000).toFixed(0) }}</span>
+          <span v-if="sale.interimPayment3 > 0">중도3 {{ (sale.interimPayment3 / 1000).toFixed(0) }}</span>
+          <span v-if="sale.finalPayment > 0">잔금 {{ (sale.finalPayment / 1000).toFixed(0) }}</span>
+          <span class="text-gray-400">·</span>
+          <span class="font-medium text-green-600">합계 {{ (sale.totalAmount / 1000).toFixed(0) }}</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Card View -->
     <div v-else-if="sheetsStore.currentSheet && viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

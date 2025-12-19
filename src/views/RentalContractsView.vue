@@ -167,7 +167,9 @@ const desktopColumns = [
     key: 'number',
     width: 60,
     align: 'center' as const,
-    render: (_row: RentalContract, index: number) => index + 1
+    render: (row: RentalContract) => {
+      return filteredContracts.value.findIndex(c => c.id === row.id) + 1
+    }
   },
   {
     title: '동-호',
@@ -247,100 +249,6 @@ const desktopColumns = [
   }
 ]
 
-// Mobile columns - Compact version with essential info
-const mobileColumns = [
-  {
-    title: '동-호',
-    key: 'address',
-    width: 85,
-    render: (row: RentalContract) => {
-      return h(
-        'div',
-        { style: 'font-size: 15px; font-weight: 600; color: #18a058; line-height: 1.4;' },
-        [
-          h('div', {}, `${row.building}동`),
-          h('div', {}, `${row.unit}호`)
-        ]
-      )
-    }
-  },
-  {
-    title: '계약정보',
-    key: 'info',
-    width: 205,
-    render: (row: RentalContract) => {
-      return h(
-        'div',
-        { style: 'display: flex; flex-direction: column; gap: 7px; padding: 4px 0;' },
-        [
-          // 이름 (아이콘 + 텍스트)
-          h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 13px;' }, '👤'),
-            h('span', {
-              style: 'font-size: 14px; font-weight: 500; color: #333;'
-            }, row.tenantName || '공실')
-          ]),
-
-          // 금액 (아이콘 + 텍스트, 강조)
-          h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 13px;' }, '💰'),
-            h('span', {
-              style: 'font-size: 13px; font-weight: 600; color: #2080f0;'
-            }, `${formatCurrency(row.deposit)}${row.monthlyRent ? ` / ${formatCurrency(row.monthlyRent)}` : ''}`)
-          ]),
-
-          // 만료일 (있으면 표시)
-          row.endDate ? h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 12px;' }, '📅'),
-            h('span', {
-              style: 'font-size: 12px; color: #666;'
-            }, `만료: ${formatDate(row.endDate, 'MM.dd')}`)
-          ]) : null,
-
-          // HUG 보증 (있으면 표시)
-          row.hugEndDate ? h('div', {
-            style: 'display: flex; align-items: center; gap: 6px;'
-          }, [
-            h('span', { style: 'font-size: 12px;' }, '🛡️'),
-            h('span', {
-              style: 'font-size: 12px; color: #18a058;'
-            }, `HUG: ${formatDate(row.hugEndDate, 'MM.dd')}까지`)
-          ]) : null
-        ].filter(Boolean)
-      )
-    }
-  },
-  {
-    title: '상태',
-    key: 'status',
-    width: 75,
-    render: (row: RentalContract) => {
-      const hasName = row.tenantName && row.tenantName.trim() !== ''
-      const isExpiring = row.endDate && (() => {
-        const today = new Date()
-        const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
-        return row.endDate >= today && row.endDate <= threeMonthsLater
-      })()
-
-      if (!hasName) {
-        return h(NTag, { type: 'default', size: 'medium' }, { default: () => '공실' })
-      } else if (isExpiring) {
-        return h(NTag, { type: 'warning', size: 'medium' }, { default: () => '만료' })
-      } else {
-        return h(NTag, { type: 'success', size: 'medium' }, { default: () => '계약중' })
-      }
-    }
-  }
-]
-
-// Computed columns based on screen size
-const columns = computed(() => isMobile.value ? mobileColumns : desktopColumns)
 
 // Filter options
 const statusOptions = [
@@ -594,15 +502,14 @@ function resetForm() {
       </template>
     </n-empty>
 
-    <!-- Table View -->
-    <n-card v-else-if="viewMode === 'table'" :class="{ 'mobile-table-card': isMobile }">
+    <!-- Table View - Desktop -->
+    <n-card v-else-if="viewMode === 'table' && !isMobile">
       <n-data-table
-        :columns="columns"
+        :columns="desktopColumns"
         :data="filteredContracts"
-        :pagination="{ pageSize: isMobile ? 15 : 10 }"
+        :pagination="{ pageSize: 10 }"
         :bordered="false"
         :single-line="false"
-        :scroll-x="isMobile ? 400 : undefined"
         :row-props="(row: RentalContract) => ({
           style: 'cursor: pointer;',
           onClick: () => handleView(row)
@@ -610,6 +517,49 @@ function resetForm() {
         class="rental-table"
       />
     </n-card>
+
+    <!-- Table View - Mobile (Dashboard Style List) -->
+    <div v-else-if="viewMode === 'table' && isMobile" class="space-y-3">
+      <div
+        v-for="contract in filteredContracts"
+        :key="contract.id"
+        class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all"
+        @click="handleView(contract)"
+      >
+        <!-- Header: 동-호 & 상태 -->
+        <div class="flex items-start justify-between mb-2">
+          <h4 class="font-semibold text-blue-600 hover:underline text-sm">
+            {{ contract.building }}동 {{ contract.unit }}호
+          </h4>
+          <n-tag
+            :type="contract.tenantName && contract.tenantName.trim() !== '' ? 'success' : 'default'"
+            size="small"
+            class="ml-2 flex-shrink-0"
+          >
+            {{ contract.tenantName ? '계약중' : '공실' }}
+          </n-tag>
+        </div>
+
+        <!-- 계약자 & 계약유형 -->
+        <div class="flex flex-wrap items-center gap-2 mb-2 text-xs text-gray-600">
+          <span class="font-medium">{{ contract.tenantName || '공실' }}</span>
+          <span v-if="contract.contractType" class="text-gray-400">·</span>
+          <span v-if="contract.contractType" class="font-medium">{{ contract.contractType }}</span>
+          <span v-if="contract.deposit > 0" class="text-gray-400">·</span>
+          <span v-if="contract.deposit > 0" class="font-medium">
+            보증금 {{ (contract.deposit / 10000).toFixed(0) }}억
+            <span v-if="contract.monthlyRent > 0"> / 월세 {{ (contract.monthlyRent / 10000).toFixed(0) }}만</span>
+          </span>
+        </div>
+
+        <!-- 계약 기간 -->
+        <div v-if="contract.startDate || contract.endDate" class="flex items-center gap-3 text-xs text-gray-500">
+          <span v-if="contract.startDate">시작: {{ formatDate(contract.startDate, 'yyyy.MM.dd') }}</span>
+          <span v-if="contract.startDate && contract.endDate" class="text-gray-400">→</span>
+          <span v-if="contract.endDate">종료: {{ formatDate(contract.endDate, 'yyyy.MM.dd') }}</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Card View (모바일 최적화) -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
