@@ -581,11 +581,12 @@ export const useContractsStore = defineStore('contracts', () => {
         }
       }
 
-      // 금액 파싱 헬퍼 함수 (단위: 천원)
+      // 금액 파싱 헬퍼 함수 (단위: 천원 → 원 단위로 변환)
       const parseAmount = (idx: number): number => {
         const amountStr = row[idx]?.toString()
         if (!amountStr || amountStr.trim() === '') return 0
-        return parseInt(amountStr.replace(/,/g, '')) || 0
+        const amount = parseInt(amountStr.replace(/,/g, '')) || 0
+        return amount * 1000 // 천원 단위를 원 단위로 변환
       }
 
       // 계약일
@@ -696,10 +697,11 @@ export const useContractsStore = defineStore('contracts', () => {
         }
       }
 
-      // 안전한 숫자 파싱 함수
+      // 안전한 숫자 파싱 함수 (단위: 천원 → 원 단위로 변환)
       const parseAmount = (index: number): number => {
         const str = row[index]?.toString() || '0'
-        return parseInt(str.replace(/,/g, '')) || 0
+        const amount = parseInt(str.replace(/,/g, '')) || 0
+        return amount * 1000 // 천원 단위를 원 단위로 변환
       }
 
       // Google Sheets 열 매핑 (사용자 요구사항)
@@ -915,11 +917,11 @@ export const useContractsStore = defineStore('contracts', () => {
     // K열(row[10]): 공급면적
     row[10] = contract.supplyArea || ''
 
-    // L열(row[11]): 임대보증금
-    row[11] = contract.deposit || 0
+    // L열(row[11]): 임대보증금 (원 → 천원 단위로 변환)
+    row[11] = Math.round((contract.deposit || 0) / 1000)
 
-    // M열(row[12]): 월세
-    row[12] = contract.monthlyRent || 0
+    // M열(row[12]): 월세 (원 → 천원 단위로 변환)
+    row[12] = Math.round((contract.monthlyRent || 0) / 1000)
 
     // N열(row[13]): 계약서작성일
     row[13] = formatDateSafe(contract.contractWrittenDate)
@@ -1189,26 +1191,26 @@ export const useContractsStore = defineStore('contracts', () => {
 
     // 계약금 2차 (I-J열)
     row[8] = formatDateSafe(contract.downPayment2Date) // I열: 계약금 2차 일자
-    row[9] = contract.downPayment2 || 0 // J열: 계약금 2차 금액
+    row[9] = Math.round((contract.downPayment2 || 0) / 1000) // J열: 계약금 2차 금액 (원 → 천원)
 
     // 중도금 1차 (K-L열)
     row[10] = formatDateSafe(contract.interimPayment1Date) // K열: 중도금 1차 일자
-    row[11] = contract.interimPayment1 || 0 // L열: 중도금 1차 금액
+    row[11] = Math.round((contract.interimPayment1 || 0) / 1000) // L열: 중도금 1차 금액 (원 → 천원)
 
     // 중도금 2차 (M-N열)
     row[12] = formatDateSafe(contract.interimPayment2Date) // M열: 중도금 2차 일자
-    row[13] = contract.interimPayment2 || 0 // N열: 중도금 2차 금액
+    row[13] = Math.round((contract.interimPayment2 || 0) / 1000) // N열: 중도금 2차 금액 (원 → 천원)
 
     // 중도금 3차 (O-P열)
     row[14] = formatDateSafe(contract.interimPayment3Date) // O열: 중도금 3차 일자
-    row[15] = contract.interimPayment3 || 0 // P열: 중도금 3차 금액
+    row[15] = Math.round((contract.interimPayment3 || 0) / 1000) // P열: 중도금 3차 금액 (원 → 천원)
 
     // 잔금 (Q-R열)
     row[16] = formatDateSafe(contract.finalPaymentDate) // Q열: 잔금 일자
-    row[17] = contract.finalPayment || 0 // R열: 잔금 금액
+    row[17] = Math.round((contract.finalPayment || 0) / 1000) // R열: 잔금 금액 (원 → 천원)
 
     // 합계 (S열)
-    row[18] = contract.totalAmount || 0 // S열: 합계
+    row[18] = Math.round((contract.totalAmount || 0) / 1000) // S열: 합계 (원 → 천원)
 
     // 계약형식 (T열)
     row[19] = contract.contractFormat || '' // T열: 계약형식
