@@ -43,6 +43,18 @@ export class SheetsService {
         throw new TokenExpiredError()
       }
 
+      // 403 Forbidden - 토큰 만료 또는 권한 부족
+      if (response.status === 403) {
+        const errorMessage = error.error?.message || ''
+        if (errorMessage.includes('insufficient authentication scopes') ||
+            errorMessage.includes('Request had insufficient')) {
+          console.warn('⚠️ [SheetsService] 403 토큰 만료/권한 부족, 자동 로그아웃 처리')
+          console.warn('   Error:', errorMessage)
+          await authService.signOut()
+          throw new TokenExpiredError()
+        }
+      }
+
       throw new Error(error.error?.message || 'Sheets API error')
     }
 
