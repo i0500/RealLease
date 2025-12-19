@@ -406,13 +406,15 @@ async function handleMenuSelect(key: string) {
             <template #icon>
               <n-icon><NotificationIcon /></n-icon>
             </template>
-            <n-badge
-              :value="notificationsStore.unreadCount"
-              :show="notificationsStore.unreadCount > 0"
-              :max="99"
-            >
-              알림
-            </n-badge>
+            <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
+              <span>알림</span>
+              <n-badge
+                v-if="notificationsStore.unreadCount > 0"
+                :value="notificationsStore.unreadCount"
+                :max="99"
+                :offset="[0, 0]"
+              />
+            </div>
           </n-button>
         </div>
 
