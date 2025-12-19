@@ -111,9 +111,51 @@ export class SheetsService {
     } catch (error) {
       console.warn('⚠️ [SheetsService.readRange] OAuth 인증 실패, 공개 시트 접근 시도:', error)
 
-      // gid가 지정되지 않았으면 자동 탐색
+      // gid가 지정되지 않았으면 range에서 tabName 추출 시도
       if (!gid) {
-        console.log('🔍 [SheetsService.readRange] gid 미지정 - 자동 탭 탐색 시작')
+        console.log('🔍 [SheetsService.readRange] gid 미지정 - range에서 tabName 추출 시도')
+
+        // range에서 tabName 추출 (예: "현재현황!A1:Z1000" → "현재현황")
+        const tabNameMatch = range.match(/^([^!]+)!/)
+        if (tabNameMatch) {
+          const tabName = tabNameMatch[1]
+          console.log('📋 [SheetsService.readRange] range에서 tabName 추출:', tabName)
+
+          try {
+            // metadata에서 tabName에 해당하는 gid 찾기
+            const metadata = await this.getSpreadsheetMetadata(spreadsheetId)
+            if (metadata.sheets && metadata.sheets.length > 0) {
+              const matchedSheet = metadata.sheets.find(
+                (s: any) => s.properties?.title?.includes(tabName)
+              )
+
+              if (matchedSheet) {
+                const foundGid = matchedSheet.properties?.sheetId?.toString()
+                console.log('✅ [SheetsService.readRange] tabName 일치하는 시트 발견:', {
+                  tabName,
+                  title: matchedSheet.properties?.title,
+                  gid: foundGid
+                })
+
+                // 찾은 gid로 공개 시트 읽기
+                return this.readPublicSheet(spreadsheetId, range, foundGid)
+              } else {
+                console.warn('⚠️ [SheetsService.readRange] tabName과 일치하는 시트를 찾을 수 없음:', tabName)
+                console.log('📋 [SheetsService.readRange] 사용 가능한 시트 목록:',
+                  metadata.sheets.map((s: any) => ({
+                    title: s.properties?.title,
+                    gid: s.properties?.sheetId
+                  }))
+                )
+              }
+            }
+          } catch (metadataError) {
+            console.warn('⚠️ [SheetsService.readRange] metadata 조회 실패:', metadataError)
+          }
+        }
+
+        // tabName을 찾지 못했으면 자동 탐색 (fallback)
+        console.log('🔍 [SheetsService.readRange] tabName을 찾지 못함 - 자동 탭 탐색 시작')
         return this.autoDetectAndReadSheet(spreadsheetId, range)
       }
 
