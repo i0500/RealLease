@@ -67,7 +67,8 @@ onMounted(async () => {
   }
 
   if (sheetsStore.currentSheet) {
-    await contractsStore.loadContracts(sheetsStore.currentSheet.id)
+    // 명시적으로 'sale' 타입 전달
+    await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
   }
 })
 

@@ -112,8 +112,8 @@ onMounted(async () => {
         sheetsStore.setCurrentSheet(sheetId)
       }
 
-      // Load contracts for this specific sheet
-      await contractsStore.loadContracts(targetSheetId)
+      // Load contracts for this specific sheet (명시적으로 'rental' 타입 전달)
+      await contractsStore.loadContracts(targetSheetId, 'rental')
 
       // Open detail modal if contract id is provided (after data loaded)
       if (id && typeof id === 'string') {

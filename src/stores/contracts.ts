@@ -124,9 +124,10 @@ export const useContractsStore = defineStore('contracts', () => {
     return grouped
   })
 
-  async function loadContracts(sheetId: string) {
+  async function loadContracts(sheetId: string, explicitSheetType?: 'rental' | 'sale') {
     console.log('🎬 [ContractsStore.loadContracts] 시작', {
       sheetId,
+      explicitSheetType: explicitSheetType || 'auto-detect',
       timestamp: new Date().toISOString()
     })
 
@@ -187,15 +188,22 @@ export const useContractsStore = defineStore('contracts', () => {
       // 헤더 행 추출
       const _headers = data[headerRowIndex]!
 
-      // 🔍 시트 타입 결정 (tabName 우선, 없으면 자동 감지)
+      // 🔍 시트 타입 결정 (명시적 타입 → tabName → 자동 감지 순)
       let sheetType: SheetType
-      if (sheet.tabName && sheet.tabName.includes('현재현황')) {
+      if (explicitSheetType) {
+        // 1순위: 뷰에서 명시적으로 전달한 타입 (가장 정확)
+        sheetType = explicitSheetType
+        console.log('🎯 [ContractsStore.loadContracts] 명시적 타입 사용:', sheetType)
+      } else if (sheet.tabName && sheet.tabName.includes('전체현황')) {
+        // 2순위: tabName으로 임대차현황 판별
         sheetType = 'rental'
         console.log('🔖 [ContractsStore.loadContracts] tabName으로 임대차현황 시트 인식:', sheet.tabName)
       } else if (sheet.tabName && sheet.tabName.includes('매도현황')) {
+        // 2순위: tabName으로 매도현황 판별
         sheetType = 'sale'
         console.log('🔖 [ContractsStore.loadContracts] tabName으로 매도현황 시트 인식:', sheet.tabName)
       } else {
+        // 3순위: 헤더 기반 자동 감지 (fallback)
         sheetType = detectSheetType(_headers)
         console.log('🔖 [ContractsStore.loadContracts] 헤더로 시트 타입 자동 감지:', sheetType)
       }

@@ -71,11 +71,11 @@ onMounted(async () => {
   if (sheetId) {
     // Set current sheet based on route param
     sheetsStore.setCurrentSheet(sheetId)
-    // Load contracts for this specific sheet
-    await contractsStore.loadContracts(sheetId)
+    // Load contracts for this specific sheet (명시적으로 'sale' 타입 전달)
+    await contractsStore.loadContracts(sheetId, 'sale')
   } else if (sheetsStore.currentSheet) {
-    // Fallback to currentSheet if no route param
-    await contractsStore.loadContracts(sheetsStore.currentSheet.id)
+    // Fallback to currentSheet if no route param (명시적으로 'sale' 타입 전달)
+    await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
   }
 })
 
