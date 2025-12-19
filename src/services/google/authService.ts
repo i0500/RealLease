@@ -7,12 +7,25 @@
 
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
+
+/**
+ * iOS PWA(홈 화면 바로가기) 환경 감지
+ * iOS Safari의 standalone 모드에서는 팝업이 차단되므로 redirect 방식 사용 필요
+ */
+function isIOSPWA(): boolean {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const isStandalone = (window.navigator as any).standalone === true ||
+                       window.matchMedia('(display-mode: standalone)').matches
+  return isIOS && isStandalone
+}
 
 export class AuthService {
   private currentUser: FirebaseUser | null = null
@@ -29,6 +42,9 @@ export class AuthService {
 
     this.initializeAuthListener()
     this.loadGoogleAccessToken()
+
+    // iOS PWA 리디렉트 결과 처리
+    this.handleRedirectResult()
   }
 
   /**
@@ -121,6 +137,58 @@ export class AuthService {
   }
 
   /**
+   * iOS PWA 리디렉트 결과 처리
+   * signInWithRedirect 후 앱이 다시 로드되면 이 메서드가 결과를 처리
+   */
+  private async handleRedirectResult(): Promise<void> {
+    try {
+      console.log('🔄 [AuthService] Checking for redirect result...')
+      const result = await getRedirectResult(auth)
+
+      if (result) {
+        console.log('✅ [AuthService] Redirect sign-in successful')
+        this.currentUser = result.user
+
+        // Google OAuth Credentials에서 Access Token 추출
+        const credential = GoogleAuthProvider.credentialFromResult(result)
+
+        // keepSignedIn 설정 복원
+        const keepSignedInStr = localStorage.getItem('pending_signin_keep_signed_in')
+        const keepSignedIn = keepSignedInStr === 'true'
+
+        if (credential && credential.accessToken) {
+          this.googleAccessToken = credential.accessToken
+          this.saveGoogleAccessToken(credential.accessToken, keepSignedIn)
+          console.log('✅ [AuthService] Google OAuth Access Token obtained from redirect')
+        } else {
+          console.warn('⚠️ [AuthService] No Google Access Token in redirect result')
+        }
+
+        // keepSignedIn 설정 제거
+        localStorage.removeItem('pending_signin_keep_signed_in')
+
+        console.log('✅ [AuthService] Redirect result processed:', {
+          email: this.currentUser.email,
+          uid: this.currentUser.uid,
+          displayName: this.currentUser.displayName
+        })
+      } else {
+        console.log('ℹ️ [AuthService] No redirect result found (normal app start)')
+      }
+    } catch (error: any) {
+      console.error('❌ [AuthService] Redirect result error:', error)
+
+      // keepSignedIn 설정 제거
+      localStorage.removeItem('pending_signin_keep_signed_in')
+
+      // 리디렉트 오류는 조용히 처리 (정상 앱 시작과 구분하기 어려움)
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.log('ℹ️ [AuthService] Redirect cancelled by user')
+      }
+    }
+  }
+
+  /**
    * Google 로그인
    * @param keepSignedIn - true: localStorage (영구 보관), false: sessionStorage (세션만)
    */
@@ -131,7 +199,20 @@ export class AuthService {
       // 로그인 상태 유지 설정
       await setAuthPersistence(keepSignedIn)
 
-      // Google Sign-In 팝업
+      // keepSignedIn 설정 저장 (리디렉트 후에도 유지)
+      localStorage.setItem('pending_signin_keep_signed_in', String(keepSignedIn))
+
+      // iOS PWA 환경 감지
+      if (isIOSPWA()) {
+        console.log('📱 [AuthService] iOS PWA detected, using signInWithRedirect')
+        // iOS PWA에서는 팝업이 차단되므로 리디렉트 방식 사용
+        await signInWithRedirect(auth, googleProvider)
+        // 리디렉트되므로 여기서 함수 종료 (결과는 handleRedirectResult에서 처리)
+        return
+      }
+
+      // 일반 브라우저에서는 팝업 방식 사용
+      console.log('🖥️ [AuthService] Using signInWithPopup')
       const result = await signInWithPopup(auth, googleProvider)
       this.currentUser = result.user
 
@@ -145,6 +226,9 @@ export class AuthService {
         console.warn('⚠️ [AuthService] No Google Access Token in credential')
       }
 
+      // keepSignedIn 설정 제거 (성공 시)
+      localStorage.removeItem('pending_signin_keep_signed_in')
+
       console.log('✅ [AuthService] Sign-in successful:', {
         email: this.currentUser.email,
         uid: this.currentUser.uid,
@@ -152,6 +236,9 @@ export class AuthService {
       })
     } catch (error: any) {
       console.error('❌ [AuthService] Sign-in failed:', error)
+
+      // keepSignedIn 설정 제거 (실패 시)
+      localStorage.removeItem('pending_signin_keep_signed_in')
 
       // 사용자가 팝업을 닫은 경우
       if (error.code === 'auth/popup-closed-by-user') {
