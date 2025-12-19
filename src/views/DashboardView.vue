@@ -83,44 +83,41 @@ const stats = computed(() => ({
   notifications: notificationsStore.unreadCount
 }))
 
-// 데이터 로드 함수 - 모든 시트의 데이터를 로드하여 전체 통계 표시
+// ✅ 데이터 로드 함수 - 현재 선택된 파일(그룹)의 시트들만 로드
 async function loadData() {
   if (sheetsStore.sheets.length === 0) {
     console.log('📋 [DashboardView.loadData] 등록된 시트가 없습니다')
     return
   }
 
-  try {
-    console.log('🔄 [DashboardView.loadData] 모든 시트 데이터 로딩 시작')
+  if (!sheetsStore.currentSheet) {
+    console.log('📋 [DashboardView.loadData] 선택된 시트가 없습니다')
+    return
+  }
 
-    // 모든 시트를 순회하며 타입별로 로드
-    for (const sheet of sheetsStore.sheets) {
+  try {
+    const currentSheetName = sheetsStore.currentSheet.name
+    console.log('🔄 [DashboardView.loadData] 선택된 파일 데이터 로딩 시작:', currentSheetName)
+
+    // ✅ 같은 name(그룹)을 가진 시트들만 로드
+    const groupSheets = sheetsStore.sheets.filter(s => s.name === currentSheetName)
+    console.log(`📋 [DashboardView.loadData] "${currentSheetName}" 그룹의 시트 ${groupSheets.length}개 발견`)
+
+    for (const sheet of groupSheets) {
       console.log('📋 [DashboardView.loadData] 시트 처리:', {
         name: sheet.name,
-        tabName: sheet.tabName || '(기본 탭)'
+        tabName: sheet.tabName || '(기본 탭)',
+        sheetType: sheet.sheetType
       })
 
-      // tabName으로 시트 타입 판별
-      let sheetType: 'rental' | 'sale' | undefined
-
-      if (sheet.tabName) {
-        if (sheet.tabName.includes('현재현황') || sheet.tabName.includes('전체현황')) {
-          sheetType = 'rental'
-          console.log('✅ [DashboardView.loadData] 임대차현황 시트 인식:', sheet.tabName)
-        } else if (sheet.tabName.includes('매도현황')) {
-          sheetType = 'sale'
-          console.log('✅ [DashboardView.loadData] 매도현황 시트 인식:', sheet.tabName)
-        }
-      }
-
-      // 시트 데이터 로드
-      await contractsStore.loadContracts(sheet.id, sheetType)
+      // ✅ sheetType 사용 (이미 저장되어 있음)
+      await contractsStore.loadContracts(sheet.id, sheet.sheetType)
     }
 
     // 알림 확인
     await notificationsStore.checkNotifications()
 
-    console.log('✅ [DashboardView.loadData] 모든 시트 데이터 로딩 완료')
+    console.log(`✅ [DashboardView.loadData] "${currentSheetName}" 파일 데이터 로딩 완료`)
   } catch (error) {
     console.error('❌ [DashboardView.loadData] 데이터 로딩 실패:', error)
   }

@@ -250,21 +250,20 @@ async function handleMenuSelect(key: string) {
       message.error('페이지 이동에 실패했습니다')
     }
   }
-  // 시트 parent 선택 (확장/축소만, 별도 동작 없음)
+  // ✅ 시트 parent 선택 → 대시보드로 이동 (PC/모바일 동일)
   else if (key.startsWith('sheet-')) {
     const sheetId = key.replace('sheet-', '')
     try {
       sheetsStore.setCurrentSheet(sheetId)
       const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
       if (sheet) {
-        message.success(`"${sheet.name}" 시트를 선택했습니다`)
-        // 선택한 시트의 데이터 로드
-        await contractsStore.loadContracts(sheetId)
-        await notificationsStore.checkNotifications()
+        message.success(`"${sheet.name}" 파일을 선택했습니다`)
+        // 대시보드로 이동 (선택된 파일의 정보만 표시)
+        router.push({ name: 'dashboard' })
       }
     } catch (error) {
       console.error('Failed to switch sheet:', error)
-      message.error('시트 전환에 실패했습니다')
+      message.error('파일 전환에 실패했습니다')
     }
   }
   // 시트 추가
