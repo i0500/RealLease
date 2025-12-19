@@ -234,17 +234,29 @@ function handleNotificationClick(notification: Notification) {
   // 알림을 읽음 처리
   notificationsStore.markAsRead(notification.id)
 
+  console.log('🔔 [DashboardView] 알림 클릭:', {
+    notificationId: notification.id,
+    contractId: notification.contractId,
+    building: notification.building,
+    unit: notification.unit,
+    totalContracts: contractsStore.contracts.length
+  })
+
   // contractId로 계약 찾기
   let contract = contractsStore.contracts.find(c => c.id === notification.contractId)
 
   // contractId로 못 찾으면 building, unit, sheetId로 검색 (기존 알림 대응)
   if (!contract && notification.building && notification.unit) {
+    console.log('🔍 [DashboardView] contractId로 못 찾음, building/unit으로 검색')
+
     // 같은 building, unit을 가진 계약 찾기
     const candidates = contractsStore.contracts.filter(c =>
       c.building === notification.building &&
       c.unit === notification.unit &&
       !c.metadata.deletedAt
     )
+
+    console.log(`✅ [DashboardView] ${candidates.length}개 후보 발견`)
 
     if (candidates.length === 1) {
       // 유일한 매칭이면 사용
@@ -266,15 +278,24 @@ function handleNotificationClick(notification: Notification) {
 
       // 여전히 못 찾으면 첫 번째 것 사용
       if (!contract && candidates.length > 0) {
+        console.log('⚠️ [DashboardView] 정확한 매칭 실패, 첫 번째 후보 사용')
         contract = candidates[0]
       }
     }
   }
 
   if (!contract) {
+    console.error('❌ [DashboardView] 계약을 찾을 수 없음:', {
+      notificationId: notification.id,
+      contractId: notification.contractId,
+      building: notification.building,
+      unit: notification.unit
+    })
     message.error('계약을 찾을 수 없습니다')
     return
   }
+
+  console.log('✅ [DashboardView] 계약 찾음, 모달 열기:', contract.id)
 
   // 계약 상세 모달 열기
   viewingContract.value = contract
