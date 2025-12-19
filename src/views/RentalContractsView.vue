@@ -86,12 +86,22 @@ onMounted(async () => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
 
-  // Handle query parameters from dashboard navigation
+  // Extract sheetId from route params and handle query parameters
+  const sheetId = route.params.sheetId as string
   const { status, id } = route.query
 
-  if (sheetsStore.currentSheet) {
+  // Determine which sheet to use (route param takes priority)
+  const targetSheetId = sheetId || sheetsStore.currentSheet?.id
+
+  if (targetSheetId) {
     try {
-      await contractsStore.loadContracts(sheetsStore.currentSheet.id)
+      // Set current sheet based on route param
+      if (sheetId) {
+        sheetsStore.setCurrentSheet(sheetId)
+      }
+
+      // Load contracts for this specific sheet
+      await contractsStore.loadContracts(targetSheetId)
 
       // Open detail modal if contract id is provided (after data loaded)
       if (id && typeof id === 'string') {

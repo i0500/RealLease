@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatDate } from '@/utils/dateUtils'
@@ -27,6 +27,7 @@ import {
 import { HomeOutline as HomeIcon, AddOutline as AddIcon } from '@vicons/ionicons5'
 
 const router = useRouter()
+const route = useRoute()
 const contractsStore = useContractsStore()
 const sheetsStore = useSheetsStore()
 const message = useMessage()
@@ -51,7 +52,16 @@ const saleForm = ref({
 
 // Load data on mount
 onMounted(async () => {
-  if (sheetsStore.currentSheet) {
+  // Extract sheetId from route params
+  const sheetId = route.params.sheetId as string
+
+  if (sheetId) {
+    // Set current sheet based on route param
+    sheetsStore.setCurrentSheet(sheetId)
+    // Load contracts for this specific sheet
+    await contractsStore.loadContracts(sheetId)
+  } else if (sheetsStore.currentSheet) {
+    // Fallback to currentSheet if no route param
     await contractsStore.loadContracts(sheetsStore.currentSheet.id)
   }
 })

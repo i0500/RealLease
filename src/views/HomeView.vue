@@ -20,7 +20,6 @@ import {
 } from 'naive-ui'
 import {
   GridOutline as DashboardIcon,
-  DocumentTextOutline as ContractIcon,
   DocumentTextOutline,
   NotificationsOutline as NotificationIcon,
   SettingsOutline as SettingsIcon,
@@ -73,8 +72,27 @@ function toggleMobileMenu() {
 }
 
 async function handleMobileMenuSelect(key: string) {
-  // 시트 선택 처리
-  if (key.startsWith('sheet-')) {
+  // 시트의 하위 메뉴 (임대차 현황, 매도현황) 처리
+  if (key.includes('-rental-contracts') || key.includes('-sales')) {
+    const sheetId = key.replace('-rental-contracts', '').replace('-sales', '').replace('sheet-', '')
+    const isRentalContracts = key.includes('-rental-contracts')
+
+    try {
+      // 시트 선택
+      sheetsStore.setCurrentSheet(sheetId)
+
+      // 해당 페이지로 라우팅
+      router.push({
+        name: isRentalContracts ? 'rental-contracts' : 'sales',
+        params: { sheetId }
+      })
+    } catch (error) {
+      console.error('Failed to navigate:', error)
+      message.error('페이지 이동에 실패했습니다')
+    }
+  }
+  // 시트 parent 선택
+  else if (key.startsWith('sheet-')) {
     const sheetId = key.replace('sheet-', '')
     try {
       sheetsStore.setCurrentSheet(sheetId)
@@ -94,17 +112,6 @@ async function handleMobileMenuSelect(key: string) {
   else if (key === 'add-sheet') {
     router.push({ name: 'settings', query: { action: 'add-sheet' } })
   }
-  // sheetId가 필요한 라우트
-  else if (key === 'sales' || key === 'rental-contracts') {
-    if (!sheetsStore.currentSheet) {
-      message.warning('시트를 먼저 선택해주세요')
-      return
-    }
-    router.push({
-      name: key,
-      params: { sheetId: sheetsStore.currentSheet.id }
-    })
-  }
   // 일반 라우트
   else {
     router.push({ name: key })
@@ -116,7 +123,7 @@ function renderIcon(icon: any) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
-// 동적 메뉴 옵션 (시트 목록 포함)
+// 동적 메뉴 옵션 (시트 기반 계층 구조)
 const menuOptions = computed<MenuOption[]>(() => {
   const options: MenuOption[] = [
     {
@@ -125,43 +132,38 @@ const menuOptions = computed<MenuOption[]>(() => {
       icon: renderIcon(DashboardIcon)
     },
     {
-      label: '계약 관리',
-      key: 'contracts-group',
-      icon: renderIcon(ContractIcon),
-      children: [
-        {
-          label: '임대차 현황',
-          key: 'rental-contracts',
-          icon: renderIcon(DocumentTextOutline)
-        },
-        {
-          label: '매도현황',
-          key: 'sales',
-          icon: renderIcon(DocumentTextOutline)
-        }
-      ]
-    },
-    {
       label: '알림',
       key: 'notifications',
       icon: renderIcon(NotificationIcon)
     }
   ]
 
-  // 시트가 있으면 구분선과 시트 목록 추가
+  // 시트가 있으면 구분선과 시트 목록 추가 (각 시트가 임대차/매도 하위메뉴 포함)
   if (sheetsStore.sheets.length > 0) {
     options.push({
       type: 'divider',
       key: 'divider-1'
     })
 
-    // 시트 목록 추가
+    // 각 시트를 parent로, 임대차현황/매도현황을 children으로 추가
     sheetsStore.sheets.forEach(sheet => {
       options.push({
         label: sheet.name,
         key: `sheet-${sheet.id}`,
         icon: renderIcon(SheetIcon),
-        extra: sheetsStore.currentSheetId === sheet.id ? '✓' : undefined
+        extra: sheetsStore.currentSheetId === sheet.id ? '✓' : undefined,
+        children: [
+          {
+            label: '임대차 현황',
+            key: `sheet-${sheet.id}-rental-contracts`,
+            icon: renderIcon(DocumentTextOutline)
+          },
+          {
+            label: '매도현황',
+            key: `sheet-${sheet.id}-sales`,
+            icon: renderIcon(DocumentTextOutline)
+          }
+        ]
       })
     })
   }
@@ -188,8 +190,27 @@ const menuOptions = computed<MenuOption[]>(() => {
 })
 
 async function handleMenuSelect(key: string) {
-  // 시트 선택 처리
-  if (key.startsWith('sheet-')) {
+  // 시트의 하위 메뉴 (임대차 현황, 매도현황) 처리
+  if (key.includes('-rental-contracts') || key.includes('-sales')) {
+    const sheetId = key.replace('-rental-contracts', '').replace('-sales', '').replace('sheet-', '')
+    const isRentalContracts = key.includes('-rental-contracts')
+
+    try {
+      // 시트 선택
+      sheetsStore.setCurrentSheet(sheetId)
+
+      // 해당 페이지로 라우팅
+      router.push({
+        name: isRentalContracts ? 'rental-contracts' : 'sales',
+        params: { sheetId }
+      })
+    } catch (error) {
+      console.error('Failed to navigate:', error)
+      message.error('페이지 이동에 실패했습니다')
+    }
+  }
+  // 시트 parent 선택 (확장/축소만, 별도 동작 없음)
+  else if (key.startsWith('sheet-')) {
     const sheetId = key.replace('sheet-', '')
     try {
       sheetsStore.setCurrentSheet(sheetId)
@@ -323,37 +344,6 @@ async function handleMenuSelect(key: string) {
             대시보드
           </n-button>
 
-          <!-- 계약 관리 섹션 -->
-          <div class="mb-2">
-            <div class="text-xs text-gray-500 px-3 py-2 font-semibold">계약 관리</div>
-            <n-button
-              block
-              text
-              :type="route.name === 'rental-contracts' ? 'primary' : 'default'"
-              @click="handleMobileMenuSelect('rental-contracts')"
-              class="justify-start pl-6"
-              size="large"
-            >
-              <template #icon>
-                <n-icon><DocumentTextOutline /></n-icon>
-              </template>
-              임대차 현황
-            </n-button>
-            <n-button
-              block
-              text
-              :type="route.name === 'sales' || route.name === 'sale-detail' ? 'primary' : 'default'"
-              @click="handleMobileMenuSelect('sales')"
-              class="justify-start pl-6"
-              size="large"
-            >
-              <template #icon>
-                <n-icon><DocumentTextOutline /></n-icon>
-              </template>
-              매도현황
-            </n-button>
-          </div>
-
           <n-button
             block
             text
@@ -369,25 +359,56 @@ async function handleMenuSelect(key: string) {
           </n-button>
         </div>
 
-        <!-- 시트 목록 섹션 -->
+        <!-- 시트 목록 섹션 (계층 구조) -->
         <n-divider v-if="sheetsStore.sheets.length > 0">시트 목록</n-divider>
-        <div v-if="sheetsStore.sheets.length > 0" class="space-y-2">
-          <n-button
-            v-for="sheet in sheetsStore.sheets"
-            :key="sheet.id"
-            block
-            text
-            :type="sheetsStore.currentSheetId === sheet.id ? 'primary' : 'default'"
-            @click="handleMobileMenuSelect(`sheet-${sheet.id}`)"
-            class="justify-start"
-            size="large"
-          >
-            <template #icon>
-              <n-icon><SheetIcon /></n-icon>
-            </template>
-            {{ sheet.name }}
-            <span v-if="sheetsStore.currentSheetId === sheet.id" class="ml-auto">✓</span>
-          </n-button>
+        <div v-if="sheetsStore.sheets.length > 0" class="space-y-3">
+          <div v-for="sheet in sheetsStore.sheets" :key="sheet.id" class="space-y-1">
+            <!-- 시트 parent -->
+            <n-button
+              block
+              text
+              :type="sheetsStore.currentSheetId === sheet.id ? 'primary' : 'default'"
+              @click="handleMobileMenuSelect(`sheet-${sheet.id}`)"
+              class="justify-start"
+              size="large"
+            >
+              <template #icon>
+                <n-icon><SheetIcon /></n-icon>
+              </template>
+              {{ sheet.name }}
+              <span v-if="sheetsStore.currentSheetId === sheet.id" class="ml-auto">✓</span>
+            </n-button>
+
+            <!-- 시트의 하위 메뉴 -->
+            <div class="pl-6 space-y-1">
+              <n-button
+                block
+                text
+                :type="route.name === 'rental-contracts' && route.params.sheetId === sheet.id ? 'primary' : 'default'"
+                @click="handleMobileMenuSelect(`sheet-${sheet.id}-rental-contracts`)"
+                class="justify-start"
+                size="medium"
+              >
+                <template #icon>
+                  <n-icon><DocumentTextOutline /></n-icon>
+                </template>
+                임대차 현황
+              </n-button>
+              <n-button
+                block
+                text
+                :type="(route.name === 'sales' || route.name === 'sale-detail') && route.params.sheetId === sheet.id ? 'primary' : 'default'"
+                @click="handleMobileMenuSelect(`sheet-${sheet.id}-sales`)"
+                class="justify-start"
+                size="medium"
+              >
+                <template #icon>
+                  <n-icon><DocumentTextOutline /></n-icon>
+                </template>
+                매도현황
+              </n-button>
+            </div>
+          </div>
         </div>
 
         <n-divider>관리</n-divider>
