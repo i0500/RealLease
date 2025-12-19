@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
-import { formatCurrency } from '@/utils/formatUtils'
+import { formatCurrency, formatCurrencyFull } from '@/utils/formatUtils'
 import { formatDate } from '@/utils/dateUtils'
 import type { RentalContract } from '@/types/contract'
 import {
@@ -596,8 +596,8 @@ function resetForm() {
           <span v-if="contract.contractType" class="font-medium">{{ contract.contractType }}</span>
           <span v-if="contract.deposit > 0" class="text-gray-400">·</span>
           <span v-if="contract.deposit > 0" class="font-medium">
-            보증금 {{ formatCurrency(contract.deposit) }}
-            <span v-if="contract.monthlyRent > 0"> / 월세 {{ formatCurrency(contract.monthlyRent) }}</span>
+            보증금 {{ isMobile ? formatCurrency(contract.deposit) : formatCurrencyFull(contract.deposit) }}
+            <span v-if="contract.monthlyRent > 0"> / 월세 {{ isMobile ? formatCurrency(contract.monthlyRent) : formatCurrencyFull(contract.monthlyRent) }}</span>
           </span>
         </div>
 
@@ -649,14 +649,14 @@ function resetForm() {
           <div class="info-row">
             <span class="label">💰 보증금</span>
             <span class="value font-bold text-blue-600">
-              {{ formatCurrency(contract.deposit) }}
+              {{ isMobile ? formatCurrency(contract.deposit) : formatCurrencyFull(contract.deposit) }}
             </span>
           </div>
 
           <div v-if="contract.monthlyRent" class="info-row">
             <span class="label">🏠 월세</span>
             <span class="value font-bold text-green-600">
-              {{ formatCurrency(contract.monthlyRent) }}
+              {{ isMobile ? formatCurrency(contract.monthlyRent) : formatCurrencyFull(contract.monthlyRent) }}
             </span>
           </div>
 

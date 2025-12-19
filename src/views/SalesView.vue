@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatDate } from '@/utils/dateUtils'
-import { formatCurrency } from '@/utils/formatUtils'
+import { formatCurrency, formatCurrencyFull } from '@/utils/formatUtils'
 import type { SaleContract } from '@/types/contract'
 import {
   NCard,
@@ -201,7 +201,7 @@ const desktopColumns = [
     width: 110,
     align: 'center' as const,
     render: (row: SaleContract) => {
-      return row.downPayment > 0 ? formatCurrency(row.downPayment * 1000) : '-'
+      return row.downPayment > 0 ? formatCurrencyFull(row.downPayment * 1000) : '-'
     }
   },
   {
@@ -210,7 +210,7 @@ const desktopColumns = [
     width: 110,
     align: 'center' as const,
     render: (row: SaleContract) => {
-      return row.downPayment2 > 0 ? formatCurrency(row.downPayment2 * 1000) : '-'
+      return row.downPayment2 > 0 ? formatCurrencyFull(row.downPayment2 * 1000) : '-'
     }
   },
   {
@@ -220,7 +220,7 @@ const desktopColumns = [
     align: 'center' as const,
     render: (row: SaleContract) => {
       const total = row.interimPayment1 + row.interimPayment2 + row.interimPayment3
-      return total > 0 ? formatCurrency(total * 1000) : '-'
+      return total > 0 ? formatCurrencyFull(total * 1000) : '-'
     }
   },
   {
@@ -229,7 +229,7 @@ const desktopColumns = [
     width: 110,
     align: 'center' as const,
     render: (row: SaleContract) => {
-      return row.finalPayment > 0 ? formatCurrency(row.finalPayment * 1000) : '-'
+      return row.finalPayment > 0 ? formatCurrencyFull(row.finalPayment * 1000) : '-'
     }
   },
   {
@@ -237,7 +237,7 @@ const desktopColumns = [
     key: 'totalAmount',
     width: 120,
     align: 'center' as const,
-    render: (row: SaleContract) => formatCurrency(row.totalAmount * 1000)
+    render: (row: SaleContract) => formatCurrencyFull(row.totalAmount * 1000)
   },
   {
     title: '계약형식',
@@ -561,14 +561,14 @@ async function handleSubmit() {
 
         <!-- 결제 정보 -->
         <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-          <span v-if="sale.downPayment > 0">계약금 {{ (sale.downPayment / 1000).toFixed(0) }}</span>
-          <span v-if="sale.downPayment2 > 0">계약금2차 {{ (sale.downPayment2 / 1000).toFixed(0) }}</span>
-          <span v-if="sale.interimPayment1 > 0">중도1 {{ (sale.interimPayment1 / 1000).toFixed(0) }}</span>
-          <span v-if="sale.interimPayment2 > 0">중도2 {{ (sale.interimPayment2 / 1000).toFixed(0) }}</span>
-          <span v-if="sale.interimPayment3 > 0">중도3 {{ (sale.interimPayment3 / 1000).toFixed(0) }}</span>
-          <span v-if="sale.finalPayment > 0">잔금 {{ (sale.finalPayment / 1000).toFixed(0) }}</span>
+          <span v-if="sale.downPayment > 0">계약금 {{ formatCurrency(sale.downPayment * 1000) }}</span>
+          <span v-if="sale.downPayment2 > 0">계약금2차 {{ formatCurrency(sale.downPayment2 * 1000) }}</span>
+          <span v-if="sale.interimPayment1 > 0">중도1 {{ formatCurrency(sale.interimPayment1 * 1000) }}</span>
+          <span v-if="sale.interimPayment2 > 0">중도2 {{ formatCurrency(sale.interimPayment2 * 1000) }}</span>
+          <span v-if="sale.interimPayment3 > 0">중도3 {{ formatCurrency(sale.interimPayment3 * 1000) }}</span>
+          <span v-if="sale.finalPayment > 0">잔금 {{ formatCurrency(sale.finalPayment * 1000) }}</span>
           <span class="text-gray-400">·</span>
-          <span class="font-medium text-green-600">합계 {{ (sale.totalAmount / 1000).toFixed(0) }}</span>
+          <span class="font-medium text-green-600">합계 {{ formatCurrency(sale.totalAmount * 1000) }}</span>
         </div>
       </div>
     </div>
@@ -608,37 +608,37 @@ async function handleSubmit() {
 
           <div v-if="sale.downPayment > 0" class="info-row">
             <span class="label">💰 계약금</span>
-            <span class="value font-bold text-blue-600">{{ formatCurrency(sale.downPayment * 1000) }}</span>
+            <span class="value font-bold text-blue-600">{{ isMobile ? formatCurrency(sale.downPayment * 1000) : formatCurrencyFull(sale.downPayment * 1000) }}</span>
           </div>
 
           <div v-if="sale.downPayment2 > 0" class="info-row">
             <span class="label">💰 계약금2</span>
-            <span class="value font-bold text-blue-600">{{ formatCurrency(sale.downPayment2 * 1000) }}</span>
+            <span class="value font-bold text-blue-600">{{ isMobile ? formatCurrency(sale.downPayment2 * 1000) : formatCurrencyFull(sale.downPayment2 * 1000) }}</span>
           </div>
 
           <div v-if="sale.interimPayment1 > 0" class="info-row">
             <span class="label">💳 중도금1</span>
-            <span class="value font-semibold text-purple-600">{{ formatCurrency(sale.interimPayment1 * 1000) }}</span>
+            <span class="value font-semibold text-purple-600">{{ isMobile ? formatCurrency(sale.interimPayment1 * 1000) : formatCurrencyFull(sale.interimPayment1 * 1000) }}</span>
           </div>
 
           <div v-if="sale.interimPayment2 > 0" class="info-row">
             <span class="label">💳 중도금2</span>
-            <span class="value font-semibold text-purple-600">{{ formatCurrency(sale.interimPayment2 * 1000) }}</span>
+            <span class="value font-semibold text-purple-600">{{ isMobile ? formatCurrency(sale.interimPayment2 * 1000) : formatCurrencyFull(sale.interimPayment2 * 1000) }}</span>
           </div>
 
           <div v-if="sale.interimPayment3 > 0" class="info-row">
             <span class="label">💳 중도금3</span>
-            <span class="value font-semibold text-purple-600">{{ formatCurrency(sale.interimPayment3 * 1000) }}</span>
+            <span class="value font-semibold text-purple-600">{{ isMobile ? formatCurrency(sale.interimPayment3 * 1000) : formatCurrencyFull(sale.interimPayment3 * 1000) }}</span>
           </div>
 
           <div v-if="sale.finalPayment > 0" class="info-row">
             <span class="label">💵 잔금</span>
-            <span class="value font-bold text-orange-600">{{ formatCurrency(sale.finalPayment * 1000) }}</span>
+            <span class="value font-bold text-orange-600">{{ isMobile ? formatCurrency(sale.finalPayment * 1000) : formatCurrencyFull(sale.finalPayment * 1000) }}</span>
           </div>
 
           <div class="info-row border-t-2 border-gray-300 pt-2 mt-2">
             <span class="label font-bold">📊 합계</span>
-            <span class="value font-bold text-green-600 text-lg">{{ formatCurrency(sale.totalAmount * 1000) }}</span>
+            <span class="value font-bold text-green-600 text-lg">{{ isMobile ? formatCurrency(sale.totalAmount * 1000) : formatCurrencyFull(sale.totalAmount * 1000) }}</span>
           </div>
 
           <div v-if="sale.contractFormat" class="info-row">

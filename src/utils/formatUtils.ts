@@ -1,3 +1,6 @@
+/**
+ * 금액을 억/만 단위로 요약하여 표시 (모바일 최적화)
+ */
 export function formatCurrency(amount: number): string {
   if (amount >= 100000000) {
     const billions = amount / 100000000
@@ -10,6 +13,13 @@ export function formatCurrency(amount: number): string {
     const formatted = thousands % 1 === 0 ? thousands.toString() : thousands.toFixed(2)
     return `${formatted}만`
   }
+  return amount.toLocaleString()
+}
+
+/**
+ * 금액을 원본 그대로 쉼표와 함께 표시 (PC 최적화)
+ */
+export function formatCurrencyFull(amount: number): string {
   return amount.toLocaleString()
 }
 
