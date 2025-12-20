@@ -444,6 +444,12 @@ async function handleSave() {
       message.success('계약이 추가되었습니다')
     }
 
+    // 저장 후 Google Sheets에서 최신 데이터 다시 로드
+    const currentSheetId = sheetsStore.currentSheet?.id
+    if (currentSheetId) {
+      await contractsStore.loadContracts(currentSheetId, 'rental')
+    }
+
     showContractModal.value = false
     resetForm()
   } catch (error) {

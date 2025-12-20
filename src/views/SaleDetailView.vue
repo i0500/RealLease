@@ -181,11 +181,14 @@ async function handleUpdate() {
     })
 
     message.success('매도 계약이 수정되었습니다')
+
     showEditModal.value = false
 
-    // Reload contracts to reflect changes
-    if (sheetsStore.currentSheet) {
-      await contractsStore.loadContracts(sheetsStore.currentSheet.id)
+    // 저장 후 Google Sheets에서 최신 데이터 다시 로드 (명시적 타입 지정)
+    const currentSheetId = sheetsStore.currentSheet?.id
+    if (currentSheetId) {
+      await contractsStore.loadContracts(currentSheetId, 'sale')
+      // computed property가 자동으로 최신 데이터 반영
     }
   } catch (error) {
     message.error('매도 계약 수정에 실패했습니다')
