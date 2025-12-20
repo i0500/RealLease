@@ -91,7 +91,8 @@ export class AuthService {
   }
 
   /**
-   * 저장된 Google Access Token 로드
+   * 저장된 Google Access Token 로드 및 검증
+   * readonly 권한만 있는 오래된 토큰은 자동 삭제
    */
   private loadGoogleAccessToken(): void {
     // localStorage 우선, 없으면 sessionStorage 체크
@@ -99,6 +100,9 @@ export class AuthService {
     if (localToken) {
       this.googleAccessToken = localToken
       console.log('🔑 [AuthService] Google Access Token loaded from localStorage')
+
+      // 🔍 토큰 권한 검증 (readonly면 삭제)
+      this.verifyAndCleanupToken(localToken, 'localStorage')
       return
     }
 
@@ -106,6 +110,9 @@ export class AuthService {
     if (sessionToken) {
       this.googleAccessToken = sessionToken
       console.log('🔑 [AuthService] Google Access Token loaded from sessionStorage')
+
+      // 🔍 토큰 권한 검증 (readonly면 삭제)
+      this.verifyAndCleanupToken(sessionToken, 'sessionStorage')
       return
     }
   }
@@ -317,6 +324,54 @@ export class AuthService {
    */
   getCurrentUser(): FirebaseUser | null {
     return this.currentUser
+  }
+
+  /**
+   * 🛡️ 저장된 토큰 검증 및 정리
+   * readonly 권한만 있는 오래된 토큰은 자동 삭제하고 로그아웃
+   */
+  private async verifyAndCleanupToken(accessToken: string, storageType: 'localStorage' | 'sessionStorage'): Promise<void> {
+    try {
+      const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
+      if (!response.ok) {
+        console.warn(`⚠️ [AuthService] ${storageType} 토큰 검증 실패, 삭제 처리`)
+        this.clearGoogleAccessToken()
+        await this.signOut()
+        return
+      }
+
+      const tokenInfo = await response.json()
+      const scope = tokenInfo.scope || ''
+
+      // scope는 공백으로 구분된 문자열: "https://www.googleapis.com/auth/spreadsheets https://..."
+      const hasFullSpreadsheets = scope.includes('auth/spreadsheets ') || scope.endsWith('auth/spreadsheets')
+      const hasReadonly = scope.includes('spreadsheets.readonly')
+
+      console.log(`🔍 [AuthService] ${storageType} 토큰 검증:`, {
+        hasFullSpreadsheets,
+        hasReadonly,
+        scope: scope.substring(0, 200) + '...'
+      })
+
+      // readonly 권한만 있고 write 권한이 없는 경우
+      if (hasReadonly && !hasFullSpreadsheets) {
+        console.warn(`⚠️ [AuthService] ${storageType}에 readonly 토큰 발견! 자동 삭제 및 로그아웃`)
+        this.clearGoogleAccessToken()
+        await this.signOut()
+        // 사용자에게 재로그인 필요 알림
+        alert('Google Sheets 권한이 업데이트되었습니다.\n다시 로그인하여 새로운 권한을 부여해주세요.')
+      } else if (hasFullSpreadsheets) {
+        console.log(`✅ [AuthService] ${storageType} 토큰에 write 권한 확인됨!`)
+      } else {
+        console.warn(`⚠️ [AuthService] ${storageType} 토큰에 spreadsheets 권한 없음!`)
+        this.clearGoogleAccessToken()
+        await this.signOut()
+      }
+    } catch (error) {
+      console.error(`❌ [AuthService] ${storageType} 토큰 검증 중 오류:`, error)
+      // 검증 실패 시 안전을 위해 토큰 삭제
+      this.clearGoogleAccessToken()
+    }
   }
 
   /**
