@@ -36,7 +36,8 @@ try {
   googleProvider = new GoogleAuthProvider()
 
   // Google provider configuration
-  googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly')
+  // Full read/write access to Google Sheets (required for updating rental contracts)
+  googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets')
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email')
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile')
 
