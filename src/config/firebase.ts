@@ -41,6 +41,13 @@ try {
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email')
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile')
 
+  // Force consent screen to re-prompt for new permissions
+  // This ensures users grant the updated 'spreadsheets' scope (not just readonly)
+  googleProvider.setCustomParameters({
+    prompt: 'consent',  // Always show consent screen
+    access_type: 'offline'  // Request refresh token
+  })
+
   console.log('✅ [Firebase] Firebase initialized successfully')
 } catch (error) {
   console.error('❌ [Firebase] Failed to initialize Firebase:', error)
