@@ -795,7 +795,7 @@ async function handleSubmit() {
               </span>
             </n-descriptions-item>
             <n-descriptions-item label="계약금 2차">
-              <div class="flex justify-between items-center">
+              <div class="flex justify-center items-center gap-3">
                 <span class="font-medium text-blue-600">
                   {{ viewingSaleContract.downPayment2 > 0 ? viewingSaleContract.downPayment2.toLocaleString() : '-' }}
                 </span>
@@ -805,7 +805,7 @@ async function handleSubmit() {
               </div>
             </n-descriptions-item>
             <n-descriptions-item label="중도금 1차">
-              <div class="flex justify-between items-center">
+              <div class="flex justify-center items-center gap-3">
                 <span class="font-medium text-orange-600">
                   {{ viewingSaleContract.interimPayment1 > 0 ? viewingSaleContract.interimPayment1.toLocaleString() : '-' }}
                 </span>
@@ -815,7 +815,7 @@ async function handleSubmit() {
               </div>
             </n-descriptions-item>
             <n-descriptions-item label="중도금 2차">
-              <div class="flex justify-between items-center">
+              <div class="flex justify-center items-center gap-3">
                 <span class="font-medium text-orange-600">
                   {{ viewingSaleContract.interimPayment2 > 0 ? viewingSaleContract.interimPayment2.toLocaleString() : '-' }}
                 </span>
@@ -825,7 +825,7 @@ async function handleSubmit() {
               </div>
             </n-descriptions-item>
             <n-descriptions-item label="중도금 3차">
-              <div class="flex justify-between items-center">
+              <div class="flex justify-center items-center gap-3">
                 <span class="font-medium text-orange-600">
                   {{ viewingSaleContract.interimPayment3 > 0 ? viewingSaleContract.interimPayment3.toLocaleString() : '-' }}
                 </span>
@@ -835,7 +835,7 @@ async function handleSubmit() {
               </div>
             </n-descriptions-item>
             <n-descriptions-item label="잔금">
-              <div class="flex justify-between items-center">
+              <div class="flex justify-center items-center gap-3">
                 <span class="font-medium text-green-600">
                   {{ viewingSaleContract.finalPayment > 0 ? viewingSaleContract.finalPayment.toLocaleString() : '-' }}
                 </span>
