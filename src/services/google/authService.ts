@@ -160,6 +160,9 @@ export class AuthService {
           this.googleAccessToken = credential.accessToken
           this.saveGoogleAccessToken(credential.accessToken, keepSignedIn)
           console.log('✅ [AuthService] Google OAuth Access Token obtained from redirect')
+
+          // 🔍 DEBUG: 토큰이 어떤 권한을 가지고 있는지 확인
+          this.debugTokenScopes(credential.accessToken)
         } else {
           console.warn('⚠️ [AuthService] No Google Access Token in redirect result')
         }
@@ -222,6 +225,9 @@ export class AuthService {
         this.googleAccessToken = credential.accessToken
         this.saveGoogleAccessToken(credential.accessToken, keepSignedIn)
         console.log('✅ [AuthService] Google OAuth Access Token obtained')
+
+        // 🔍 DEBUG: 토큰이 어떤 권한을 가지고 있는지 확인
+        this.debugTokenScopes(credential.accessToken)
       } else {
         console.warn('⚠️ [AuthService] No Google Access Token in credential')
       }
@@ -311,6 +317,33 @@ export class AuthService {
    */
   getCurrentUser(): FirebaseUser | null {
     return this.currentUser
+  }
+
+  /**
+   * 🔍 DEBUG: OAuth 토큰이 어떤 scope를 가지고 있는지 확인
+   * Google TokenInfo API를 호출하여 실제 부여된 권한 확인
+   */
+  private async debugTokenScopes(accessToken: string): Promise<void> {
+    try {
+      const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
+      const tokenInfo = await response.json()
+
+      console.log('🔍 [AuthService DEBUG] 토큰 정보:', {
+        scope: tokenInfo.scope,
+        expires_in: tokenInfo.expires_in,
+        audience: tokenInfo.audience
+      })
+
+      // scope가 spreadsheets.readonly만 있는지 확인
+      if (tokenInfo.scope && tokenInfo.scope.includes('spreadsheets.readonly')) {
+        console.warn('⚠️ [AuthService DEBUG] 토큰이 readonly 권한만 보유!')
+      }
+      if (tokenInfo.scope && tokenInfo.scope.includes('spreadsheets') && !tokenInfo.scope.includes('.readonly')) {
+        console.log('✅ [AuthService DEBUG] 토큰이 write 권한 보유!')
+      }
+    } catch (error) {
+      console.error('❌ [AuthService DEBUG] 토큰 정보 조회 실패:', error)
+    }
   }
 
   /**
