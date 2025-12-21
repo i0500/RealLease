@@ -42,12 +42,10 @@ export const useContractsStore = defineStore('contracts', () => {
 
       // 3개 이상의 헤더 키워드가 매칭되면 헤더 행으로 판단
       if (saleMatches >= 3 || rentalMatches >= 3) {
-        console.log(`✅ [findHeaderRowIndex] 헤더 행 발견: Row ${i}`)
         return i
       }
     }
 
-    console.warn('⚠️ [findHeaderRowIndex] 헤더 행을 찾지 못함, 첫 행 사용')
     return 0 // 못 찾으면 기본값으로 첫 행 반환
   }
 
@@ -123,63 +121,29 @@ export const useContractsStore = defineStore('contracts', () => {
   })
 
   async function loadContracts(sheetId: string, explicitSheetType?: 'rental' | 'sale') {
-    console.log('🎬 [ContractsStore.loadContracts] 시작', {
-      sheetId,
-      explicitSheetType: explicitSheetType || 'auto-detect',
-      timestamp: new Date().toISOString()
-    })
-
     try {
       isLoading.value = true
       error.value = null
 
       const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
       if (!sheet) {
-        console.error('❌ [ContractsStore.loadContracts] 시트를 찾을 수 없음:', sheetId)
         throw new Error('Sheet not found')
       }
 
-      console.log('📋 [ContractsStore.loadContracts] 시트 정보:', {
-        sheetId: sheet.id,
-        sheetName: sheet.name,
-        spreadsheetId: sheet.spreadsheetId,
-        sheetUrl: sheet.sheetUrl,
-        tabName: sheet.tabName || '(첫 번째 탭)',
-        createdAt: sheet.createdAt,
-        lastSynced: sheet.lastSynced
-      })
-
       // 시트 데이터 읽기 (A1:Z1000 범위)
       const range = sheet.tabName ? `${sheet.tabName}!A1:Z1000` : 'A1:Z1000'
-      console.log('📖 [ContractsStore.loadContracts] 데이터 읽기 시작:', {
-        range,
-        gid: sheet.gid || 'auto-detect (모든 탭 자동 탐색)'
-      })
 
       const data = await sheetsService.readRange(sheet.spreadsheetId, range, sheet.gid)
 
-      console.log('📥 [ContractsStore.loadContracts] 시트 데이터 수신 완료:', {
-        totalRows: data.length,
-        headerRow: data[0],
-        dataRows: data.length - 1,
-        sampleData: data.slice(0, 5)
-      })
-
       if (data.length === 0) {
-        console.warn('⚠️ [ContractsStore.loadContracts] 빈 데이터')
         contracts.value = []
         return
       }
 
       // 🔍 실제 헤더 행 찾기 (제목 행들을 건너뛰고)
       const headerRowIndex = findHeaderRowIndex(data)
-      console.log('🔎 [ContractsStore.loadContracts] 헤더 행 감지:', {
-        headerRowIndex,
-        headerRow: data[headerRowIndex]
-      })
 
       if (headerRowIndex === -1) {
-        console.error('❌ [ContractsStore.loadContracts] 헤더 행을 찾을 수 없음')
         throw new Error('헤더 행을 찾을 수 없습니다. 시트 형식을 확인해주세요.')
       }
 
@@ -191,19 +155,15 @@ export const useContractsStore = defineStore('contracts', () => {
       if (explicitSheetType) {
         // 1순위: 뷰에서 명시적으로 전달한 타입 (가장 정확)
         sheetType = explicitSheetType
-        console.log('🎯 [ContractsStore.loadContracts] 명시적 타입 사용:', sheetType)
       } else if (sheet.tabName && sheet.tabName.includes('전체현황')) {
         // 2순위: tabName으로 임대차현황 판별
         sheetType = 'rental'
-        console.log('🔖 [ContractsStore.loadContracts] tabName으로 임대차현황 시트 인식:', sheet.tabName)
       } else if (sheet.tabName && sheet.tabName.includes('매도현황')) {
         // 2순위: tabName으로 매도현황 판별
         sheetType = 'sale'
-        console.log('🔖 [ContractsStore.loadContracts] tabName으로 매도현황 시트 인식:', sheet.tabName)
       } else {
         // 3순위: 헤더 기반 자동 감지 (fallback)
         sheetType = detectSheetType(_headers)
-        console.log('🔖 [ContractsStore.loadContracts] 헤더로 시트 타입 자동 감지:', sheetType)
       }
 
       // 🔧 FIX: 헤더 행 및 빈 행 필터링 (강화) - 키워드 매칭 방식으로 개선
@@ -237,17 +197,6 @@ export const useContractsStore = defineStore('contracts', () => {
       // 헤더 행 다음부터 데이터 행 추출 (헤더 행과 빈 행 제외)
       const rows = data.slice(headerRowIndex + 1).filter(row => !isHeaderRow(row, sheetType) && !isEmptyRow(row))
 
-      console.log('🔄 [ContractsStore.loadContracts] 데이터 파싱 시작:', {
-        sheetType,
-        headerRowIndex,
-        headerColumns: _headers.length,
-        totalRows: data.length,
-        dataRowsAfterFilter: rows.length,
-        filteredOutRows: data.length - headerRowIndex - 1 - rows.length,
-        headerRow: _headers,
-        firstDataRow: rows[0]
-      })
-
       // 타입에 따라 다른 파싱 로직 적용
       if (sheetType === 'sale') {
         // 매도현황 파싱
@@ -257,24 +206,11 @@ export const useContractsStore = defineStore('contracts', () => {
           return contract
         }).filter(c => c !== null) as SaleContract[]
 
-        console.log('✅ [ContractsStore.loadContracts] 매도 파싱 완료:', {
-          parsedCount: parsedSales.length,
-          completedCount: parsedSales.filter(c => c.notes?.includes('종결')).length
-        })
-
         // 기존 매도 계약 중 현재 시트 제거 후 새 데이터 추가
-        const beforeCount = saleContracts.value.length
         saleContracts.value = [
           ...saleContracts.value.filter(c => c.sheetId !== sheetId),
           ...parsedSales
         ]
-        const afterCount = saleContracts.value.length
-
-        console.log('💾 [ContractsStore.loadContracts] 매도 스토어 업데이트:', {
-          beforeCount,
-          afterCount,
-          addedCount: parsedSales.length
-        })
       } else {
         // 임대차 현황 파싱
         const parsedContracts: RentalContract[] = rows.map((row, index) => {
@@ -283,36 +219,14 @@ export const useContractsStore = defineStore('contracts', () => {
           return contract
         }).filter(c => c !== null) as RentalContract[]
 
-        console.log('✅ [ContractsStore.loadContracts] 임대 파싱 완료:', {
-          parsedCount: parsedContracts.length,
-          activeCount: parsedContracts.filter(c => c.tenantName && c.tenantName.trim() !== '').length,
-          vacantCount: parsedContracts.filter(c => !c.tenantName || c.tenantName.trim() === '').length
-        })
-
-        // 🔍 DEBUG: 파싱된 모든 계약의 번호, 동, 호 출력 (건수 불일치 디버깅용)
-        console.log('🔍 [DEBUG] 파싱된 전체 계약 목록:')
-        parsedContracts.forEach((c, i) => {
-          console.log(`  ${i + 1}. 번호="${c.number}", 동="${c.building}", 호="${c.unit}", 이름="${c.tenantName}"`)
-        })
-
         // 기존 계약 중 현재 시트의 계약 제거 후 새 데이터 추가
-        const beforeCount = contracts.value.length
         contracts.value = [
           ...contracts.value.filter(c => c.sheetId !== sheetId),
           ...parsedContracts
         ]
-        const afterCount = contracts.value.length
-
-        console.log('💾 [ContractsStore.loadContracts] 임대 스토어 업데이트:', {
-          beforeCount,
-          afterCount,
-          addedCount: parsedContracts.length
-        })
       }
 
       await sheetsStore.updateLastSynced(sheetId)
-
-      console.log('🎉 [ContractsStore.loadContracts] 완료!')
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load contracts'
       console.error('❌ [ContractsStore.loadContracts] 오류:', err)
@@ -355,7 +269,6 @@ export const useContractsStore = defineStore('contracts', () => {
 
       // 2. 번호(number) 자동 넘버링 - B열 최대 번호 + 1
       const autoNumber = (maxNumber + 1).toString()
-      console.log(`📝 [addContract] B열 기준 자동 넘버링: 최대번호 ${maxNumber} → 신규번호 ${autoNumber}`)
 
       const newContract: RentalContract = {
         ...contract,
@@ -369,7 +282,6 @@ export const useContractsStore = defineStore('contracts', () => {
 
       // 다음 행에 데이터 작성
       const newRowIndex = lastDataRow + 1
-      console.log(`📝 [addContract] B열 마지막 데이터 행: ${lastDataRow}, 새 데이터 작성 행: ${newRowIndex}`)
 
       const row = contractToRow(newContract)
 
@@ -381,8 +293,6 @@ export const useContractsStore = defineStore('contracts', () => {
 
       // rowIndex 설정
       newContract.rowIndex = newRowIndex
-
-      console.log(`✅ [addContract] 새 계약 추가 완료: row ${newRowIndex}`)
 
       contracts.value.push(newContract)
 
@@ -460,8 +370,6 @@ export const useContractsStore = defineStore('contracts', () => {
         throw new Error('Sheet GID not found')
       }
 
-      console.log(`🗑️ [ContractsStore.deleteContract] 시트에서 행 삭제: {rowIndex: ${contract.rowIndex}, sheetId: ${sheet.id}}`)
-
       // 시트에서 실제로 행 삭제
       await sheetsService.deleteRow(
         sheet.spreadsheetId,
@@ -469,12 +377,8 @@ export const useContractsStore = defineStore('contracts', () => {
         contract.rowIndex
       )
 
-      console.log(`✅ [ContractsStore.deleteContract] 시트 행 삭제 완료: Row ${contract.rowIndex}`)
-
       // 로컬에서 제거
       contracts.value = contracts.value.filter(c => c.id !== contractId)
-
-      console.log(`✅ [ContractsStore.deleteContract] 로컬 스토어에서 제거 완료`)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delete contract'
       console.error('❌ [ContractsStore.deleteContract] 삭제 실패:', err)
@@ -488,11 +392,6 @@ export const useContractsStore = defineStore('contracts', () => {
   function detectSheetType(headers: any[]): SheetType {
     const headerStr = headers.map(h => h?.toString().toLowerCase() || '').join(' ')
 
-    console.log('🔍 [detectSheetType] 헤더 분석:', {
-      headers: headers.slice(0, 15),
-      headerStr: headerStr.substring(0, 200)
-    })
-
     // 매도현황 키워드 체크 (우선순위 높음)
     const saleKeywords = ['구분', '계약자', '계약금', '중도금', '잔금', '합계', '동-호']
     const saleMatches = saleKeywords.filter(keyword =>
@@ -505,23 +404,15 @@ export const useContractsStore = defineStore('contracts', () => {
       headerStr.includes(keyword.toLowerCase())
     ).length
 
-    console.log('📊 [detectSheetType] 키워드 매칭 결과:', {
-      saleMatches: `${saleMatches}/${saleKeywords.length}`,
-      rentalMatches: `${rentalMatches}/${rentalKeywords.length}`
-    })
-
     // 매칭 점수가 높은 쪽으로 판별 (3개 이상 매칭되면 해당 타입으로 인식)
     if (saleMatches >= 3) {
-      console.log('✅ [detectSheetType] 매도현황 시트로 판별')
       return 'sale'
     }
 
     if (rentalMatches >= 4) {
-      console.log('✅ [detectSheetType] 임대차 현황 시트로 판별')
       return 'rental'
     }
 
-    console.warn('⚠️ [detectSheetType] 시트 타입을 판별할 수 없음, rental로 기본 설정')
     return 'rental' // 기본값
   }
 
@@ -623,7 +514,6 @@ export const useContractsStore = defineStore('contracts', () => {
           }
           return undefined
         } catch (e) {
-          console.log(`날짜 파싱 실패: ${dateStr}`, e)
           return undefined
         }
       }
@@ -739,7 +629,6 @@ export const useContractsStore = defineStore('contracts', () => {
           }
           return undefined
         } catch (e) {
-          console.log(`날짜 파싱 실패: ${dateStr}`, e)
           return undefined
         }
       }
@@ -872,7 +761,6 @@ export const useContractsStore = defineStore('contracts', () => {
       // 4. 번호 컬럼이 헤더 텍스트인 경우 필터링 (헤더 행 누락 방지)
       const headerTexts = ['번호', '구분', 'no', 'number', '#']
       if (headerTexts.includes(number.toLowerCase())) {
-        console.log(`⏭️ [parseRowToContract] 헤더 행 스킵: number="${number}"`)
         return null
       }
 
@@ -933,7 +821,6 @@ export const useContractsStore = defineStore('contracts', () => {
         }
         return date.toISOString().substring(0, 10).replace(/-/g, '/')
       } catch (e) {
-        console.log('날짜 포맷 실패:', date, e)
         return ''
       }
     }
@@ -1072,7 +959,6 @@ export const useContractsStore = defineStore('contracts', () => {
           (!rowBuyer || !rowContractDate)
         ) {
           emptyRowIndex = i + 1 // 1-based index for Sheets API
-          console.log(`📝 [addSaleContract] 빈 리스트 발견 (덮어쓰기): row ${emptyRowIndex}, category=${autoCategory}`)
           break
         }
       }
@@ -1089,8 +975,6 @@ export const useContractsStore = defineStore('contracts', () => {
 
         // rowIndex 설정
         newContract.rowIndex = emptyRowIndex
-
-        console.log(`✅ [addSaleContract] 빈 리스트 덮어쓰기 완료: row ${emptyRowIndex}`)
       } else {
         // 3-2. 빈 리스트가 없으면 맨 아래에 추가 (appendRow 사용)
         // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외)
@@ -1099,8 +983,6 @@ export const useContractsStore = defineStore('contracts', () => {
 
         // rowIndex는 추가된 위치 (sheetData.length + 1)
         newContract.rowIndex = sheetData.length + 1
-
-        console.log(`✅ [addSaleContract] 새 행 추가 완료: row ${newContract.rowIndex}`)
       }
 
       saleContracts.value.push(newContract)
@@ -1181,8 +1063,6 @@ export const useContractsStore = defineStore('contracts', () => {
         throw new Error('Sheet GID not found')
       }
 
-      console.log(`🗑️ [ContractsStore.deleteSaleContract] 시트에서 행 삭제: {rowIndex: ${contract.rowIndex}, sheetId: ${sheet.id}}`)
-
       // 시트에서 실제로 행 삭제
       await sheetsService.deleteRow(
         sheet.spreadsheetId,
@@ -1190,12 +1070,8 @@ export const useContractsStore = defineStore('contracts', () => {
         contract.rowIndex
       )
 
-      console.log(`✅ [ContractsStore.deleteSaleContract] 시트 행 삭제 완료: Row ${contract.rowIndex}`)
-
       // 로컬에서 제거
       saleContracts.value = saleContracts.value.filter(c => c.id !== contractId)
-
-      console.log(`✅ [ContractsStore.deleteSaleContract] 로컬 스토어에서 제거 완료`)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delete sale contract'
       console.error('❌ [ContractsStore.deleteSaleContract] 삭제 실패:', err)
@@ -1232,11 +1108,6 @@ export const useContractsStore = defineStore('contracts', () => {
     // T열 (row[18]): 계약형식
     // U열 (row[19]): 채권양도
     // V열 (row[20]): 비고 (종결 (note text) 형식)
-
-    console.log('🔍 [saleContractToRow] contract.category:', contract.category)
-    console.log('🔍 [saleContractToRow] contract.building:', contract.building)
-    console.log('🔍 [saleContractToRow] contract.unit:', contract.unit)
-    console.log('🔍 [saleContractToRow] contract.buyer:', contract.buyer)
 
     // B열부터 시작 (A열 제외) - 21개 요소
     const row = new Array(21).fill('')
@@ -1304,14 +1175,6 @@ export const useContractsStore = defineStore('contracts', () => {
     } else {
       row[20] = contract.notes || ''
     }
-
-    console.log('📊 [saleContractToRow] 생성된 row 배열 (B열부터 시작):')
-    console.log('  row[0] (B열 구분):', row[0])
-    console.log('  row[1] (C열 동):', row[1])
-    console.log('  row[2] (D열 빈칸):', row[2])
-    console.log('  row[3] (E열 호):', row[3])
-    console.log('  row[4] (F열 계약자):', row[4])
-    console.log('  전체 row:', JSON.stringify(row.slice(0, 10)))
 
     return row
   }

@@ -40,7 +40,6 @@ export const useNotificationsStore = defineStore('notifications', () => {
           ...n,
           createdAt: new Date(n.createdAt)
         }))
-        console.log(`✅ [NotificationsStore] Loaded ${notifications.value.length} notifications (읽음+미읽음)`)
       }
     } catch (err) {
       console.error('Load notifications error:', err)
@@ -127,8 +126,6 @@ export const useNotificationsStore = defineStore('notifications', () => {
       const serialized = serializeNotificationsForStorage(notifications.value)
       await storageService.set(STORAGE_KEY, serialized)
 
-      console.log(`✅ [NotificationsStore] Updated notifications: ${notifications.value.length} total, ${unreadCount.value} unread`)
-
       // 자동으로 오래된 읽은 알림 정리
       await cleanupOldReadNotifications()
     } catch (err) {
@@ -202,8 +199,6 @@ export const useNotificationsStore = defineStore('notifications', () => {
       // 저장 가능한 형태로 직렬화
       const serialized = serializeNotificationsForStorage(notifications.value)
       await storageService.set(STORAGE_KEY, serialized)
-
-      console.log(`✅ [NotificationsStore] Cleaned up ${removedCount} old read notifications (${beforeCount} → ${afterCount})`)
     }
   }
 

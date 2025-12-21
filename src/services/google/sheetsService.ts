@@ -92,46 +92,24 @@ export class SheetsService {
   }
 
   async readRange(spreadsheetId: string, range: string, gid?: string): Promise<any[][]> {
-    console.log('📖 [SheetsService.readRange] 시작', {
-      spreadsheetId,
-      range,
-      gid: gid || 'auto-detect',
-      devMode: this.isDevMode(),
-      timestamp: new Date().toISOString()
-    })
-
     if (this.isDevMode()) {
-      console.log('🔧 [SheetsService.readRange] 개발 모드: Mock Service 사용')
       return mockSheetsService.readRange(spreadsheetId, range)
     }
 
-    console.log('🌐 [SheetsService.readRange] 실제 Google Sheets 접근 시도')
-
     try {
       const url = `${this.baseUrl}/${spreadsheetId}/values/${encodeURIComponent(range)}`
-      console.log('🔐 [SheetsService.readRange] OAuth 인증 시도:', url)
 
       const response = await this.fetchWithAuth(url)
       const data = await response.json()
 
-      console.log('✅ [SheetsService.readRange] OAuth 성공:', {
-        rowCount: data.values?.length || 0,
-        columnCount: data.values?.[0]?.length || 0
-      })
-
       return data.values || []
     } catch (error) {
-      console.warn('⚠️ [SheetsService.readRange] OAuth 인증 실패, 공개 시트 접근 시도:', error)
-
       // gid가 지정되지 않았으면 range에서 tabName 추출 시도
       if (!gid) {
-        console.log('🔍 [SheetsService.readRange] gid 미지정 - range에서 tabName 추출 시도')
-
         // range에서 tabName 추출 (예: "현재현황!A1:Z1000" → "현재현황")
         const tabNameMatch = range.match(/^([^!]+)!/)
         if (tabNameMatch) {
           const tabName = tabNameMatch[1]
-          console.log('📋 [SheetsService.readRange] range에서 tabName 추출:', tabName)
 
           try {
             // metadata에서 tabName에 해당하는 gid 찾기
@@ -143,31 +121,16 @@ export class SheetsService {
 
               if (matchedSheet) {
                 const foundGid = matchedSheet.properties?.sheetId?.toString()
-                console.log('✅ [SheetsService.readRange] tabName 일치하는 시트 발견:', {
-                  tabName,
-                  title: matchedSheet.properties?.title,
-                  gid: foundGid
-                })
-
                 // 찾은 gid로 공개 시트 읽기
                 return this.readPublicSheet(spreadsheetId, range, foundGid)
-              } else {
-                console.warn('⚠️ [SheetsService.readRange] tabName과 일치하는 시트를 찾을 수 없음:', tabName)
-                console.log('📋 [SheetsService.readRange] 사용 가능한 시트 목록:',
-                  metadata.sheets.map((s: any) => ({
-                    title: s.properties?.title,
-                    gid: s.properties?.sheetId
-                  }))
-                )
               }
             }
           } catch (metadataError) {
-            console.warn('⚠️ [SheetsService.readRange] metadata 조회 실패:', metadataError)
+            // metadata 조회 실패 시 자동 탐색으로 fallback
           }
         }
 
         // tabName을 찾지 못했으면 자동 탐색 (fallback)
-        console.log('🔍 [SheetsService.readRange] tabName을 찾지 못함 - 자동 탭 탐색 시작')
         return this.autoDetectAndReadSheet(spreadsheetId, range)
       }
 
@@ -177,91 +140,48 @@ export class SheetsService {
   }
 
   private async autoDetectAndReadSheet(spreadsheetId: string, range: string): Promise<any[][]> {
-    console.log('🔎 [SheetsService.autoDetectAndReadSheet] 자동 탭 탐색 시작')
-
     // gid 0부터 10까지 시도
     for (let gid = 0; gid <= 10; gid++) {
       try {
-        console.log(`🔍 [SheetsService.autoDetectAndReadSheet] gid=${gid} 시도 중...`)
         const data = await this.readPublicSheet(spreadsheetId, range, gid.toString())
 
         // 데이터가 있으면 성공
         if (data && data.length > 0) {
-          console.log(`✅ [SheetsService.autoDetectAndReadSheet] gid=${gid}에서 데이터 발견!`, {
-            rows: data.length,
-            columns: data[0]?.length || 0
-          })
           return data
         }
       } catch (error) {
-        console.log(`⏭️ [SheetsService.autoDetectAndReadSheet] gid=${gid} 실패, 다음 시도...`)
         continue
       }
     }
 
-    console.error('❌ [SheetsService.autoDetectAndReadSheet] 모든 gid 시도 실패')
     throw new Error('시트 데이터를 찾을 수 없습니다. 시트가 "링크가 있는 모든 사용자" 권한으로 공유되어 있는지 확인해주세요.')
   }
 
   private async readPublicSheet(spreadsheetId: string, _range: string, gid?: string): Promise<any[][]> {
     const targetGid = gid || '0'
 
-    console.log('🌍 [SheetsService.readPublicSheet] 공개 시트 접근 시작', {
-      spreadsheetId,
-      gid: targetGid,
-      timestamp: new Date().toISOString()
-    })
-
     try {
       // Google Sheets CSV export URL 사용 (공개 시트만 가능)
       // gid 파라미터로 특정 탭 지정
       const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${targetGid}`
 
-      console.log('🔗 [SheetsService.readPublicSheet] CSV Export URL:', csvUrl)
-
       const response = await fetch(csvUrl)
 
-      console.log('📡 [SheetsService.readPublicSheet] HTTP 응답:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        contentType: response.headers.get('content-type')
-      })
-
       if (!response.ok) {
-        console.error('❌ [SheetsService.readPublicSheet] 시트 응답 오류:', {
-          status: response.status,
-          statusText: response.statusText
-        })
         throw new Error('시트 접근 불가 - 시트가 공개 상태인지 확인해주세요')
       }
 
       const csvText = await response.text()
-      console.log('📄 [SheetsService.readPublicSheet] CSV 데이터 수신 완료:', {
-        length: csvText.length,
-        preview: csvText.substring(0, 200),
-        lines: csvText.split('\n').length
-      })
 
       if (!csvText || csvText.trim().length === 0) {
-        console.warn('⚠️ [SheetsService.readPublicSheet] 빈 CSV 데이터')
         return []
       }
 
       // CSV를 2차원 배열로 변환 (RFC 4180 준수)
-      console.log('🔄 [SheetsService.readPublicSheet] CSV 파싱 시작...')
       const rows = this.parseCSV(csvText)
-
-      console.log('✅ [SheetsService.readPublicSheet] CSV 파싱 완료:', {
-        totalRows: rows.length,
-        headerRow: rows[0],
-        sampleRows: rows.slice(1, 3),
-        columnsCount: rows[0]?.length || 0
-      })
 
       return rows
     } catch (error) {
-      console.error('❌ [SheetsService.readPublicSheet] 공개 시트 접근 실패:', error)
       throw new Error('시트 데이터를 불러올 수 없습니다. 시트가 "링크가 있는 모든 사용자" 권한으로 공유되어 있는지 확인해주세요.')
     }
   }
@@ -376,10 +296,7 @@ export class SheetsService {
    * @param rowIndex - 삭제할 행 번호 (1-based, 헤더=1)
    */
   async deleteRow(spreadsheetId: string, gid: string, rowIndex: number): Promise<any> {
-    console.log(`🗑️ [SheetsService.deleteRow] 행 삭제: {spreadsheetId: ${spreadsheetId}, gid: ${gid}, rowIndex: ${rowIndex}}`)
-
     if (this.isDevMode()) {
-      console.log('📝 [SheetsService.deleteRow] Dev mode - 삭제 시뮬레이션')
       return Promise.resolve({})
     }
 
@@ -435,7 +352,6 @@ export class SheetsService {
     createRental: boolean = true,
     createSale: boolean = false
   ): Promise<{ spreadsheetId: string; spreadsheetUrl: string; sheets: Array<{ title: string; gid: string }> }> {
-    console.log('📝 [SheetsService.createSpreadsheet] 새 스프레드시트 생성 시작:', { title, createRental, createSale })
 
     // 생성할 시트 목록
     const sheetsToCreate: any[] = []
@@ -492,8 +408,6 @@ export class SheetsService {
     const spreadsheetId = result.spreadsheetId
     const spreadsheetUrl = result.spreadsheetUrl
 
-    console.log('✅ [SheetsService.createSpreadsheet] 스프레드시트 생성 완료:', { spreadsheetId, spreadsheetUrl })
-
     // 각 시트에 헤더 및 스타일 적용
     const createdSheets: Array<{ title: string; gid: string }> = []
 
@@ -509,8 +423,6 @@ export class SheetsService {
       }
     }
 
-    console.log('✅ [SheetsService.createSpreadsheet] 템플릿 적용 완료')
-
     return { spreadsheetId, spreadsheetUrl, sheets: createdSheets }
   }
 
@@ -518,7 +430,6 @@ export class SheetsService {
    * 임대차 현황 시트 템플릿 설정
    */
   private async setupRentalSheetTemplate(spreadsheetId: string, sheetId: number): Promise<void> {
-    console.log('🏠 [SheetsService] 임대차 현황 템플릿 적용 중...')
 
     // 헤더 데이터 (A열은 공란, B열부터 시작)
     const headers = [
@@ -578,14 +489,12 @@ export class SheetsService {
     ]
 
     await this.batchUpdate(spreadsheetId, styleRequests)
-    console.log('✅ [SheetsService] 임대차 현황 템플릿 적용 완료')
   }
 
   /**
    * 매도 현황 시트 템플릿 설정
    */
   private async setupSaleSheetTemplate(spreadsheetId: string, sheetId: number): Promise<void> {
-    console.log('🏢 [SheetsService] 매도 현황 템플릿 적용 중...')
 
     // 헤더 데이터
     const headers = [
@@ -634,7 +543,6 @@ export class SheetsService {
     ]
 
     await this.batchUpdate(spreadsheetId, styleRequests)
-    console.log('✅ [SheetsService] 매도 현황 템플릿 적용 완료')
   }
 }
 

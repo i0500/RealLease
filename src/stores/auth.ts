@@ -46,16 +46,13 @@ export const useAuthStore = defineStore('auth', () => {
         const savedUser = loadUserFromStorage()
         if (savedUser) {
           user.value = savedUser
-          console.log('🔐 개발 모드: 저장된 사용자 정보 복원', savedUser)
         }
         isInitialized.value = true
         return
       }
 
       // ✅ Firebase Auth 초기화 완료 대기 (중요!)
-      console.log('🔄 [AuthStore] Waiting for Firebase Auth initialization...')
       await authService.waitForAuth()
-      console.log('✅ [AuthStore] Firebase Auth ready')
 
       // Google Identity Services 로드 (레거시 호환)
       await authService.loadGoogleIdentityServices()
@@ -69,10 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (userInfo) {
           user.value = userInfo
           saveUserToStorage(user.value)
-          console.log('✅ [AuthStore] User session restored:', userInfo)
         }
-      } else {
-        console.log('ℹ️ [AuthStore] No active session')
       }
 
       isInitialized.value = true
@@ -102,7 +96,6 @@ export const useAuthStore = defineStore('auth', () => {
           name: '테스트 사용자'
         }
         saveUserToStorage(user.value, keepSignedIn)
-        console.log('🔐 개발 모드 로그인:', user.value, keepSignedIn ? '(로그인 상태 유지)' : '(세션만)')
         return
       }
 
@@ -113,7 +106,6 @@ export const useAuthStore = defineStore('auth', () => {
       if (userInfo) {
         user.value = userInfo
         saveUserToStorage(user.value, keepSignedIn)
-        console.log('🔐 로그인 성공:', user.value, keepSignedIn ? '(로그인 상태 유지)' : '(세션만)')
       } else {
         // fallback: 사용자 정보를 가져오지 못한 경우
         user.value = {
@@ -121,7 +113,6 @@ export const useAuthStore = defineStore('auth', () => {
           name: 'User'
         }
         saveUserToStorage(user.value, keepSignedIn)
-        console.warn('⚠️ 사용자 정보를 가져오지 못했습니다. 기본값 사용')
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to sign in'
@@ -140,7 +131,6 @@ export const useAuthStore = defineStore('auth', () => {
       await authService.signOut()
       user.value = null
       clearUserFromStorage()
-      console.log('🔐 로그아웃 완료')
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to sign out'
       console.error('Sign out error:', err)
@@ -201,19 +191,14 @@ export const useAuthStore = defineStore('auth', () => {
    * 대신 Firebase Auth가 자동으로 토큰을 갱신하도록 의존
    */
   async function handleTokenExpired() {
-    console.warn('⚠️ [AuthStore] 토큰 만료 감지')
-
     // 재인증 중복 시도 방지
     if (isReauthenticating.value) {
-      console.log('ℹ️ [AuthStore] 이미 재인증 처리 중')
       return
     }
 
     isReauthenticating.value = true
 
     try {
-      console.log('🚪 [AuthStore] 세션 만료로 로그아웃 처리')
-
       // 로그아웃 처리
       await authService.signOut()
       user.value = null
@@ -221,7 +206,6 @@ export const useAuthStore = defineStore('auth', () => {
 
       // 로그인 페이지로 리디렉션
       if (router.currentRoute.value.name !== 'auth') {
-        console.log('🔄 [AuthStore] 로그인 페이지로 리디렉션')
         await router.push({
           name: 'auth',
           query: {

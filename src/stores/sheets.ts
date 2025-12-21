@@ -94,36 +94,21 @@ export const useSheetsStore = defineStore('sheets', () => {
   }
 
   async function addSheet(name: string, sheetUrl: string, tabName?: string, sheetType?: 'rental' | 'sale') {
-    console.log('➕ [SheetsStore.addSheet] 시작', {
-      name,
-      sheetUrl,
-      tabName,
-      sheetType,
-      timestamp: new Date().toISOString()
-    })
-
     try {
       isLoading.value = true
       error.value = null
 
-      console.log('🔍 [SheetsStore.addSheet] URL에서 Spreadsheet ID 추출 중...')
       const spreadsheetId = extractSpreadsheetId(sheetUrl)
 
       if (!spreadsheetId) {
-        console.error('❌ [SheetsStore.addSheet] 유효하지 않은 Google Sheets URL:', sheetUrl)
         throw new Error('Invalid Google Sheets URL')
       }
 
-      console.log('✅ [SheetsStore.addSheet] Spreadsheet ID 추출 완료:', spreadsheetId)
-
       // gid 추출 (탭 ID)
       const extractedGid = extractGid(sheetUrl)
-      console.log('🔢 [SheetsStore.addSheet] URL에서 gid 추출:', extractedGid || '없음')
 
       // 시트 접근 가능 여부 확인 및 실제 gid 가져오기
-      console.log('🔐 [SheetsStore.addSheet] 시트 접근 권한 확인 중...')
       const metadata = await sheetsService.getSpreadsheetMetadata(spreadsheetId)
-      console.log('✅ [SheetsStore.addSheet] 시트 접근 가능 확인')
 
       // metadata에서 시트 gid 가져오기
       let gid = extractedGid === null ? undefined : extractedGid
@@ -131,27 +116,12 @@ export const useSheetsStore = defineStore('sheets', () => {
       if (metadata.sheets && metadata.sheets.length > 0) {
         // tabName이 지정된 경우, 해당 이름의 시트를 찾아 gid 설정
         if (tabName && !gid) {
-          console.log('🔍 [SheetsStore.addSheet] tabName으로 시트 검색 중:', tabName)
           const matchedSheet = metadata.sheets.find(
             (s: any) => s.properties?.title === tabName
           )
 
           if (matchedSheet) {
             gid = matchedSheet.properties?.sheetId?.toString()
-            console.log('✅ [SheetsStore.addSheet] tabName 일치하는 시트 발견:', {
-              title: matchedSheet.properties?.title,
-              gid: gid,
-              index: matchedSheet.properties?.index
-            })
-          } else {
-            console.warn('⚠️ [SheetsStore.addSheet] tabName과 일치하는 시트를 찾을 수 없음:', tabName)
-            console.log('📋 [SheetsStore.addSheet] 사용 가능한 시트 목록:',
-              metadata.sheets.map((s: any) => ({
-                title: s.properties?.title,
-                gid: s.properties?.sheetId,
-                index: s.properties?.index
-              }))
-            )
           }
         }
 
@@ -161,12 +131,9 @@ export const useSheetsStore = defineStore('sheets', () => {
           const firstSheetGid = firstSheet?.properties?.sheetId?.toString()
           if (firstSheetGid) {
             gid = firstSheetGid
-            console.log('📋 [SheetsStore.addSheet] 기본값: 첫 번째 시트 gid 사용:', gid)
           }
         }
       }
-
-      console.log('🔢 [SheetsStore.addSheet] 최종 gid:', gid || 'auto-detect (모든 탭 자동 탐색)')
 
       const newSheet: SheetConfig = {
         id: generateId(),
@@ -179,27 +146,17 @@ export const useSheetsStore = defineStore('sheets', () => {
         createdAt: new Date()
       }
 
-      console.log('📋 [SheetsStore.addSheet] 새 시트 설정 생성:', {
-        id: newSheet.id,
-        name: newSheet.name,
-        spreadsheetId: newSheet.spreadsheetId,
-        tabName: newSheet.tabName || '(기본 탭)'
-      })
-
       sheets.value.push(newSheet)
 
       // 저장 가능한 형태로 직렬화
       const serialized = serializeSheetsForStorage(sheets.value)
       await storageService.set(STORAGE_KEY, serialized)
-      console.log('💾 [SheetsStore.addSheet] LocalStorage에 저장 완료')
 
       // 첫 시트라면 현재 시트로 설정
       if (sheets.value.length === 1) {
         currentSheetId.value = newSheet.id
-        console.log('🎯 [SheetsStore.addSheet] 첫 시트로 자동 선택됨')
       }
 
-      console.log('🎉 [SheetsStore.addSheet] 시트 추가 완료!')
       return newSheet
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to add sheet'
