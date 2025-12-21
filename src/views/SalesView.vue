@@ -45,6 +45,8 @@ const isMobile = ref(false)
 const showAddModal = ref(false)
 const showDetailModal = ref(false)
 const viewingSaleContract = ref<SaleContract | null>(null)
+const isEditMode = ref(false) // Track if we're editing an existing contract
+const editingContractId = ref<string | null>(null) // Store the ID of the contract being edited
 const saleForm = ref({
   category: '', // 자동 넘버링되므로 사용자는 입력하지 않음
   building: '',
@@ -298,6 +300,10 @@ function handleEditFromDetail() {
     notes: viewingSaleContract.value.notes
   }
 
+  // Set edit mode and store the contract ID
+  isEditMode.value = true
+  editingContractId.value = viewingSaleContract.value.id
+
   showDetailModal.value = false
   showAddModal.value = true
 }
@@ -350,6 +356,8 @@ const totalAmount = computed(() => {
 // Open add modal
 function openAddModal() {
   resetForm()
+  isEditMode.value = false // Reset to add mode
+  editingContractId.value = null // Clear editing contract ID
   showAddModal.value = true
 }
 
@@ -379,7 +387,7 @@ function resetForm() {
   }
 }
 
-// Submit new sale contract
+// Submit new sale contract or update existing one
 async function handleSubmit() {
   if (!sheetsStore.currentSheet) {
     message.error('시트가 연결되지 않았습니다')
@@ -394,40 +402,76 @@ async function handleSubmit() {
   try {
     const unit = `${saleForm.value.building}-${saleForm.value.unitNumber}`
 
-    await contractsStore.addSaleContract({
-      sheetId: sheetsStore.currentSheet.id,
-      rowIndex: 0, // Will be set by API
-      category: saleForm.value.category, // 자동 넘버링됨
-      building: saleForm.value.building,
-      unit,
-      buyer: saleForm.value.buyer,
-      contractDate: saleForm.value.contractDate ? new Date(saleForm.value.contractDate) : undefined,
-      downPayment: saleForm.value.downPayment,
-      downPayment2Date: saleForm.value.downPayment2Date ? new Date(saleForm.value.downPayment2Date) : undefined,
-      downPayment2: saleForm.value.downPayment2,
-      interimPayment1Date: saleForm.value.interimPayment1Date ? new Date(saleForm.value.interimPayment1Date) : undefined,
-      interimPayment1: saleForm.value.interimPayment1,
-      interimPayment2Date: saleForm.value.interimPayment2Date ? new Date(saleForm.value.interimPayment2Date) : undefined,
-      interimPayment2: saleForm.value.interimPayment2,
-      interimPayment3Date: saleForm.value.interimPayment3Date ? new Date(saleForm.value.interimPayment3Date) : undefined,
-      interimPayment3: saleForm.value.interimPayment3,
-      finalPaymentDate: saleForm.value.finalPaymentDate ? new Date(saleForm.value.finalPaymentDate) : undefined,
-      finalPayment: saleForm.value.finalPayment,
-      totalAmount: totalAmount.value,
-      contractFormat: saleForm.value.contractFormat,
-      bondTransfer: saleForm.value.bondTransfer,
-      status: saleForm.value.status,
-      notes: saleForm.value.notes
-    })
+    if (isEditMode.value && editingContractId.value) {
+      // Update existing contract
+      await contractsStore.updateSaleContract(editingContractId.value, {
+        category: saleForm.value.category,
+        building: saleForm.value.building,
+        unit,
+        buyer: saleForm.value.buyer,
+        contractDate: saleForm.value.contractDate ? new Date(saleForm.value.contractDate) : undefined,
+        downPayment: saleForm.value.downPayment,
+        downPayment2Date: saleForm.value.downPayment2Date ? new Date(saleForm.value.downPayment2Date) : undefined,
+        downPayment2: saleForm.value.downPayment2,
+        interimPayment1Date: saleForm.value.interimPayment1Date ? new Date(saleForm.value.interimPayment1Date) : undefined,
+        interimPayment1: saleForm.value.interimPayment1,
+        interimPayment2Date: saleForm.value.interimPayment2Date ? new Date(saleForm.value.interimPayment2Date) : undefined,
+        interimPayment2: saleForm.value.interimPayment2,
+        interimPayment3Date: saleForm.value.interimPayment3Date ? new Date(saleForm.value.interimPayment3Date) : undefined,
+        interimPayment3: saleForm.value.interimPayment3,
+        finalPaymentDate: saleForm.value.finalPaymentDate ? new Date(saleForm.value.finalPaymentDate) : undefined,
+        finalPayment: saleForm.value.finalPayment,
+        totalAmount: totalAmount.value,
+        contractFormat: saleForm.value.contractFormat,
+        bondTransfer: saleForm.value.bondTransfer,
+        status: saleForm.value.status,
+        notes: saleForm.value.notes
+      })
 
-    message.success('매도 계약이 등록되었습니다')
+      message.success('매도 계약이 수정되었습니다')
+    } else {
+      // Add new contract
+      await contractsStore.addSaleContract({
+        sheetId: sheetsStore.currentSheet.id,
+        rowIndex: 0, // Will be set by API
+        category: saleForm.value.category, // 자동 넘버링됨
+        building: saleForm.value.building,
+        unit,
+        buyer: saleForm.value.buyer,
+        contractDate: saleForm.value.contractDate ? new Date(saleForm.value.contractDate) : undefined,
+        downPayment: saleForm.value.downPayment,
+        downPayment2Date: saleForm.value.downPayment2Date ? new Date(saleForm.value.downPayment2Date) : undefined,
+        downPayment2: saleForm.value.downPayment2,
+        interimPayment1Date: saleForm.value.interimPayment1Date ? new Date(saleForm.value.interimPayment1Date) : undefined,
+        interimPayment1: saleForm.value.interimPayment1,
+        interimPayment2Date: saleForm.value.interimPayment2Date ? new Date(saleForm.value.interimPayment2Date) : undefined,
+        interimPayment2: saleForm.value.interimPayment2,
+        interimPayment3Date: saleForm.value.interimPayment3Date ? new Date(saleForm.value.interimPayment3Date) : undefined,
+        interimPayment3: saleForm.value.interimPayment3,
+        finalPaymentDate: saleForm.value.finalPaymentDate ? new Date(saleForm.value.finalPaymentDate) : undefined,
+        finalPayment: saleForm.value.finalPayment,
+        totalAmount: totalAmount.value,
+        contractFormat: saleForm.value.contractFormat,
+        bondTransfer: saleForm.value.bondTransfer,
+        status: saleForm.value.status,
+        notes: saleForm.value.notes
+      })
+
+      message.success('매도 계약이 등록되었습니다')
+    }
+
     showAddModal.value = false
 
     // Reload contracts
-    await contractsStore.loadContracts(sheetsStore.currentSheet.id)
+    await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
   } catch (error) {
-    message.error('매도 계약 등록에 실패했습니다')
-    console.error('Add error:', error)
+    if (isEditMode.value) {
+      message.error('매도 계약 수정에 실패했습니다')
+      console.error('Update error:', error)
+    } else {
+      message.error('매도 계약 등록에 실패했습니다')
+      console.error('Add error:', error)
+    }
   }
 }
 </script>
@@ -653,8 +697,8 @@ async function handleSubmit() {
       </n-card>
     </div>
 
-    <!-- Add Sale Modal -->
-    <n-modal v-model:show="showAddModal" preset="dialog" title="매도 계약 등록">
+    <!-- Add/Edit Sale Modal -->
+    <n-modal v-model:show="showAddModal" preset="dialog" :title="isEditMode ? '매도 계약 수정' : '매도 계약 등록'">
       <n-form :model="saleForm" label-placement="left" label-width="120">
         <n-form-item label="동" required>
           <n-input v-model:value="saleForm.building" placeholder="예: 108" />
@@ -733,7 +777,7 @@ async function handleSubmit() {
       <template #action>
         <n-space justify="end">
           <n-button @click="showAddModal = false">취소</n-button>
-          <n-button type="primary" @click="handleSubmit">등록</n-button>
+          <n-button type="primary" @click="handleSubmit">{{ isEditMode ? '수정' : '등록' }}</n-button>
         </n-space>
       </template>
     </n-modal>
