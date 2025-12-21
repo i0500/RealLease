@@ -331,14 +331,15 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       // 1. 번호(number) 자동 넘버링
-      // 기존 계약 중 동과 호가 있는 건수를 세서 다음 번호 부여
-      // 예: 기존 10건 → 신규는 11번
-      const existingCount = contracts.value.filter(c =>
-        c.sheetId === contract.sheetId &&
-        (c.building || c.unit) &&
-        !c.metadata.deletedAt
-      ).length
-      const autoNumber = (existingCount + 1).toString()
+      // 기존 계약 중 최대 번호를 찾아서 다음 번호 부여
+      // 예: 마지막 번호가 55번 → 신규는 56번
+      const existingNumbers = contracts.value
+        .filter(c => c.sheetId === contract.sheetId && !c.metadata.deletedAt)
+        .map(c => parseInt(c.number || '0', 10))
+        .filter(n => !isNaN(n))
+      const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0
+      const autoNumber = (maxNumber + 1).toString()
+      console.log(`📝 [addContract] 자동 넘버링: 최대번호 ${maxNumber} → 신규번호 ${autoNumber}`)
 
       const newContract: RentalContract = {
         ...contract,
