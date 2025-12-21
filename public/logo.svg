@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Background Circle -->
+  <circle cx="60" cy="60" r="56" fill="#3498db"/>
+
+  <!-- House Shape -->
+  <path d="M60 20 L95 50 L95 95 L25 95 L25 50 Z" fill="white"/>
+
+  <!-- Roof -->
+  <path d="M60 15 L100 50 L95 50 L60 20 L25 50 L20 50 Z" fill="#2c3e50"/>
+
+  <!-- Door -->
+  <rect x="50" y="60" width="20" height="35" rx="2" fill="#3498db"/>
+
+  <!-- Door Handle -->
+  <circle cx="65" cy="78" r="2" fill="white"/>
+
+  <!-- Window Left -->
+  <rect x="32" y="55" width="12" height="12" rx="1" fill="#3498db"/>
+  <line x1="38" y1="55" x2="38" y2="67" stroke="white" stroke-width="1"/>
+  <line x1="32" y1="61" x2="44" y2="61" stroke="white" stroke-width="1"/>
+
+  <!-- Window Right -->
+  <rect x="76" y="55" width="12" height="12" rx="1" fill="#3498db"/>
+  <line x1="82" y1="55" x2="82" y2="67" stroke="white" stroke-width="1"/>
+  <line x1="76" y1="61" x2="88" y2="61" stroke="white" stroke-width="1"/>
+
+  <!-- Checkmark (representing lease/contract) -->
+  <circle cx="85" cy="35" r="15" fill="#27ae60"/>
+  <path d="M78 35 L83 40 L92 30" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
