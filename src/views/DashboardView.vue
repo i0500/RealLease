@@ -65,7 +65,8 @@ const hugExpiringContracts = computed(() => {
 
 // 임대차 통계 (현재 선택된 시트만)
 const rentalStats = computed(() => {
-  const total = currentSheetContracts.value.filter(c => c.tenantName && c.tenantName.trim() !== '').length
+  // ✅ 전체계약: 동/호가 있는 모든 계약 (공실 포함)
+  const total = currentSheetContracts.value.length
   const vacant = currentSheetContracts.value.filter(c => !c.tenantName || c.tenantName.trim() === '').length
 
   // 계약 만료예정 (설정값 기반)

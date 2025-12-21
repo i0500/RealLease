@@ -206,35 +206,27 @@ export const useContractsStore = defineStore('contracts', () => {
         console.log('🔖 [ContractsStore.loadContracts] 헤더로 시트 타입 자동 감지:', sheetType)
       }
 
-      // 🔧 FIX: 헤더 행 및 빈 행 필터링 (강화)
+      // 🔧 FIX: 헤더 행 및 빈 행 필터링 (강화) - 키워드 매칭 방식으로 개선
       const isHeaderRow = (row: any[], type: SheetType) => {
         if (!row || row.length === 0) return true
 
-        const firstCell = row[0]?.toString().trim() || ''
-        const secondCell = row[1]?.toString().trim() || ''
-        const thirdCell = row[2]?.toString().trim() || ''
+        // 모든 셀을 문자열로 변환하여 키워드 매칭
+        const cells = row.map(cell => cell?.toString().toLowerCase().trim() || '')
 
         if (type === 'sale') {
-          // 매도현황 헤더 체크
-          return (
-            firstCell === '구분' ||
-            secondCell === '동-호' ||
-            thirdCell === '계약자'
-          )
+          // 매도현황 헤더 키워드 체크
+          const saleHeaderKeywords = ['구분', '동-호', '계약자', '계약금', '중도금', '잔금', '합계']
+          const matches = saleHeaderKeywords.filter(keyword =>
+            cells.some(cell => cell === keyword.toLowerCase())
+          ).length
+          return matches >= 2 // 2개 이상 매칭되면 헤더 행
         } else {
-          // 임대차 헤더 체크
-          const fourthCell = row[3]?.toString().trim() || ''
-          const startDateCell = row[13]?.toString().trim() || ''
-
-          return (
-            firstCell === '번호' ||
-            secondCell === '동' ||
-            thirdCell === '호수' ||
-            fourthCell === '이름' ||
-            fourthCell === '호수' ||
-            startDateCell === '시작일' ||
-            startDateCell.includes('임대차계약기간')
-          )
+          // 임대차 헤더 키워드 체크 (서브헤더, 병합셀 헤더 포함)
+          const rentalHeaderKeywords = ['번호', '동', '호수', '이름', '연락처', '임대보증금', '월세', '시작일', '종료일', '계약자', '계약기간']
+          const matches = rentalHeaderKeywords.filter(keyword =>
+            cells.some(cell => cell === keyword.toLowerCase())
+          ).length
+          return matches >= 2 // 2개 이상 매칭되면 헤더 행
         }
       }
 
@@ -859,7 +851,14 @@ export const useContractsStore = defineStore('contracts', () => {
       // 3. ✅ 동/호만 있어도 유효 (공실로 처리)
       // 동/호가 있으면 전체 계약에 포함, 계약자가 없으면 공실로 분류됨
 
-      // 4. 매매계약 건 필터링
+      // 4. 번호 컬럼이 헤더 텍스트인 경우 필터링 (헤더 행 누락 방지)
+      const headerTexts = ['번호', '구분', 'no', 'number', '#']
+      if (headerTexts.includes(number.toLowerCase())) {
+        console.log(`⏭️ [parseRowToContract] 헤더 행 스킵: number="${number}"`)
+        return null
+      }
+
+      // 5. 매매계약 건 필터링
       // X열(additionalInfo4)에 "매매계약" 텍스트가 있고, Y열(notes)에 "말소" 텍스트가 있으면
       // 매매계약으로 전환된 건이므로 임대차 리스트에서 제외
       if (additionalInfo4.includes('매매계약') && notes.includes('말소')) {
