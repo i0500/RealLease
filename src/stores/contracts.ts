@@ -330,16 +330,29 @@ export const useContractsStore = defineStore('contracts', () => {
         throw new Error('Sheet not found')
       }
 
-      // 1. 번호(number) 자동 넘버링
-      // 기존 계약 중 최대 번호를 찾아서 다음 번호 부여
-      // 예: 마지막 번호가 55번 → 신규는 56번
-      const existingNumbers = contracts.value
-        .filter(c => c.sheetId === contract.sheetId && !c.metadata.deletedAt)
-        .map(c => parseInt(c.number || '0', 10))
-        .filter(n => !isNaN(n))
-      const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0
+      // 1. 시트 B열 데이터 읽기 (번호 컬럼)
+      // ⚠️ B열에서 직접 번호를 읽어서 최대값 찾기 (AA열 등 다른 컬럼 무시)
+      const readRange = sheet.tabName ? `${sheet.tabName}!B1:B1000` : 'B1:B1000'
+      const sheetData = await sheetsService.readRange(sheet.spreadsheetId, readRange, sheet.gid)
+
+      // B열에서 마지막 데이터 행 및 최대 번호 찾기
+      let lastDataRow = 0
+      let maxNumber = 0
+      for (let i = 0; i < sheetData.length; i++) {
+        const cellValue = sheetData[i]?.[0]
+        if (cellValue !== undefined && cellValue !== null && cellValue.toString().trim() !== '') {
+          lastDataRow = i + 1 // 1-based index
+          // 숫자인 경우만 번호로 인식 (헤더 "번호" 등은 제외)
+          const numValue = parseInt(cellValue.toString().trim(), 10)
+          if (!isNaN(numValue) && numValue > maxNumber) {
+            maxNumber = numValue
+          }
+        }
+      }
+
+      // 2. 번호(number) 자동 넘버링 - B열 최대 번호 + 1
       const autoNumber = (maxNumber + 1).toString()
-      console.log(`📝 [addContract] 자동 넘버링: 최대번호 ${maxNumber} → 신규번호 ${autoNumber}`)
+      console.log(`📝 [addContract] B열 기준 자동 넘버링: 최대번호 ${maxNumber} → 신규번호 ${autoNumber}`)
 
       const newContract: RentalContract = {
         ...contract,
@@ -348,20 +361,6 @@ export const useContractsStore = defineStore('contracts', () => {
         metadata: {
           createdAt: new Date(),
           updatedAt: new Date()
-        }
-      }
-
-      // 2. 시트 데이터 읽어서 마지막 데이터 행 찾기
-      // ⚠️ appendRow 대신 updateRow 사용 (Google Sheets append API의 테이블 감지 문제 회피)
-      const readRange = sheet.tabName ? `${sheet.tabName}!B1:B1000` : 'B1:B1000'
-      const sheetData = await sheetsService.readRange(sheet.spreadsheetId, readRange, sheet.gid)
-
-      // B열에서 마지막으로 데이터가 있는 행 찾기
-      let lastDataRow = 0
-      for (let i = 0; i < sheetData.length; i++) {
-        const cellValue = sheetData[i]?.[0]
-        if (cellValue !== undefined && cellValue !== null && cellValue.toString().trim() !== '') {
-          lastDataRow = i + 1 // 1-based index
         }
       }
 
