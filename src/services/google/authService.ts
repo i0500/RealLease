@@ -6,7 +6,6 @@
  */
 
 import {
-  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signOut as firebaseSignOut,
@@ -15,17 +14,6 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
-
-/**
- * iOS PWA(홈 화면 바로가기) 환경 감지
- * iOS Safari의 standalone 모드에서는 팝업이 차단되므로 redirect 방식 사용 필요
- */
-function isIOSPWA(): boolean {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-  const isStandalone = (window.navigator as any).standalone === true ||
-                       window.matchMedia('(display-mode: standalone)').matches
-  return isIOS && isStandalone
-}
 
 export class AuthService {
   private currentUser: FirebaseUser | null = null
