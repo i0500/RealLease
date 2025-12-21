@@ -212,41 +212,14 @@ export class AuthService {
       // keepSignedIn 설정 저장 (리디렉트 후에도 유지)
       localStorage.setItem('pending_signin_keep_signed_in', String(keepSignedIn))
 
-      // iOS PWA 환경 감지
-      if (isIOSPWA()) {
-        console.log('📱 [AuthService] iOS PWA detected, using signInWithRedirect')
-        // iOS PWA에서는 팝업이 차단되므로 리디렉트 방식 사용
-        await signInWithRedirect(auth, googleProvider)
-        // 리디렉트되므로 여기서 함수 종료 (결과는 handleRedirectResult에서 처리)
-        return
-      }
+      // 🔧 FIX: 모든 환경에서 리다이렉트 방식 사용 (COOP 경고 방지)
+      // 팝업 방식은 Cross-Origin-Opener-Policy 충돌로 콘솔 경고 발생
+      console.log('🔄 [AuthService] Using signInWithRedirect (COOP-safe)')
+      await signInWithRedirect(auth, googleProvider)
+      // 리디렉트되므로 여기서 함수 종료 (결과는 handleRedirectResult에서 처리)
+      return
 
-      // 일반 브라우저에서는 팝업 방식 사용
-      console.log('🖥️ [AuthService] Using signInWithPopup')
-      const result = await signInWithPopup(auth, googleProvider)
-      this.currentUser = result.user
-
-      // Google OAuth Credentials에서 Access Token 추출
-      const credential = GoogleAuthProvider.credentialFromResult(result)
-      if (credential && credential.accessToken) {
-        this.googleAccessToken = credential.accessToken
-        this.saveGoogleAccessToken(credential.accessToken, keepSignedIn)
-        console.log('✅ [AuthService] Google OAuth Access Token obtained')
-
-        // 🔍 DEBUG: 토큰이 어떤 권한을 가지고 있는지 확인
-        this.debugTokenScopes(credential.accessToken)
-      } else {
-        console.warn('⚠️ [AuthService] No Google Access Token in credential')
-      }
-
-      // keepSignedIn 설정 제거 (성공 시)
-      localStorage.removeItem('pending_signin_keep_signed_in')
-
-      console.log('✅ [AuthService] Sign-in successful:', {
-        email: this.currentUser.email,
-        uid: this.currentUser.uid,
-        displayName: this.currentUser.displayName
-      })
+      // ⚠️ 팝업 방식 코드는 handleRedirectResult()에서 처리됨
     } catch (error: any) {
       console.error('❌ [AuthService] Sign-in failed:', error)
 
