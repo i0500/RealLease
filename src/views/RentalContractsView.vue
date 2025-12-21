@@ -98,7 +98,8 @@ onMounted(async () => {
   const { status, id } = route.query
 
   // Determine which sheet to use (route param takes priority)
-  const targetSheetId = sheetId || sheetsStore.currentSheet?.id
+  // ⚠️ 임대차현황 뷰에서는 반드시 rental 타입 시트 사용
+  const targetSheetId = sheetId || sheetsStore.currentRentalSheet?.id
 
   if (targetSheetId) {
     try {
@@ -384,8 +385,10 @@ function handleDelete(contract: RentalContract) {
 
 async function handleSave() {
   try {
-    if (!sheetsStore.currentSheet) {
-      message.error('시트가 선택되지 않았습니다')
+    // ⚠️ 임대차현황 뷰에서는 반드시 rental 타입 시트 사용
+    const rentalSheet = sheetsStore.currentRentalSheet
+    if (!rentalSheet) {
+      message.error('임대차 시트가 선택되지 않았습니다')
       return
     }
 
@@ -396,7 +399,7 @@ async function handleSave() {
     }
 
     const contractData: any = {
-      sheetId: sheetsStore.currentSheet.id,
+      sheetId: rentalSheet.id,
       rowIndex: editingContract.value?.rowIndex || 0,
       number: contractForm.value.number,
       building: contractForm.value.building,
@@ -444,10 +447,9 @@ async function handleSave() {
       message.success('계약이 추가되었습니다')
     }
 
-    // 저장 후 Google Sheets에서 최신 데이터 다시 로드
-    const currentSheetId = sheetsStore.currentSheet?.id
-    if (currentSheetId) {
-      await contractsStore.loadContracts(currentSheetId, 'rental')
+    // 저장 후 Google Sheets에서 최신 데이터 다시 로드 (rental 시트)
+    if (rentalSheet.id) {
+      await contractsStore.loadContracts(rentalSheet.id, 'rental')
     }
 
     showContractModal.value = false

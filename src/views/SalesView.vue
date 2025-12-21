@@ -108,9 +108,9 @@ onMounted(async () => {
         showDetailModal.value = true
       }
     }
-  } else if (sheetsStore.currentSheet) {
-    // Fallback to currentSheet if no route param (명시적으로 'sale' 타입 전달)
-    await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
+  } else if (sheetsStore.currentSaleSheet) {
+    // ⚠️ 매도현황 뷰에서는 반드시 sale 타입 시트 사용
+    await contractsStore.loadContracts(sheetsStore.currentSaleSheet.id, 'sale')
 
     // Open detail modal if sale id is provided (after data loaded)
     if (id && typeof id === 'string') {
@@ -323,9 +323,9 @@ async function handleDeleteFromDetail() {
         message.success('매도 계약이 삭제되었습니다')
         showDetailModal.value = false
 
-        // Reload contracts
-        if (sheetsStore.currentSheet) {
-          await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
+        // Reload contracts (sale 시트)
+        if (sheetsStore.currentSaleSheet) {
+          await contractsStore.loadContracts(sheetsStore.currentSaleSheet.id, 'sale')
         }
       } catch (error) {
         message.error('매도 계약 삭제에 실패했습니다')
@@ -389,8 +389,10 @@ function resetForm() {
 
 // Submit new sale contract or update existing one
 async function handleSubmit() {
-  if (!sheetsStore.currentSheet) {
-    message.error('시트가 연결되지 않았습니다')
+  // ⚠️ 매도현황 뷰에서는 반드시 sale 타입 시트 사용
+  const saleSheet = sheetsStore.currentSaleSheet
+  if (!saleSheet) {
+    message.error('매도현황 시트가 연결되지 않았습니다')
     return
   }
 
@@ -432,7 +434,7 @@ async function handleSubmit() {
     } else {
       // Add new contract
       await contractsStore.addSaleContract({
-        sheetId: sheetsStore.currentSheet.id,
+        sheetId: saleSheet.id,
         rowIndex: 0, // Will be set by API
         category: saleForm.value.category, // 자동 넘버링됨
         building: saleForm.value.building,
@@ -462,8 +464,8 @@ async function handleSubmit() {
 
     showAddModal.value = false
 
-    // Reload contracts
-    await contractsStore.loadContracts(sheetsStore.currentSheet.id, 'sale')
+    // Reload contracts (sale 시트)
+    await contractsStore.loadContracts(saleSheet.id, 'sale')
   } catch (error) {
     if (isEditMode.value) {
       message.error('매도 계약 수정에 실패했습니다')
@@ -498,12 +500,12 @@ async function handleSubmit() {
       </div>
 
       <!-- No sheet message -->
-      <n-alert v-if="!sheetsStore.currentSheet" type="warning" class="mb-4">
-        시트가 연결되지 않았습니다. 설정에서 시트를 연결해주세요.
+      <n-alert v-if="!sheetsStore.currentSaleSheet" type="warning" class="mb-4">
+        매도현황 시트가 연결되지 않았습니다. 설정에서 시트를 연결해주세요.
       </n-alert>
 
       <!-- Search and filters -->
-      <n-space v-if="sheetsStore.currentSheet" class="mb-4" align="center" :wrap="true">
+      <n-space v-if="sheetsStore.currentSaleSheet" class="mb-4" align="center" :wrap="true">
         <n-input
           v-model:value="searchQuery"
           placeholder="동-호, 계약자, 구분으로 검색..."
@@ -548,14 +550,14 @@ async function handleSubmit() {
     </n-alert>
 
     <!-- Empty State -->
-    <n-empty v-else-if="sheetsStore.currentSheet && filteredSales.length === 0" description="매도 계약이 없습니다">
+    <n-empty v-else-if="sheetsStore.currentSaleSheet && filteredSales.length === 0" description="매도 계약이 없습니다">
       <template #extra>
         <n-button type="primary" @click="openAddModal">첫 매도 계약 추가하기</n-button>
       </template>
     </n-empty>
 
     <!-- Table View - Desktop -->
-    <n-card v-else-if="sheetsStore.currentSheet && viewMode === 'table' && !isMobile">
+    <n-card v-else-if="sheetsStore.currentSaleSheet && viewMode === 'table' && !isMobile">
       <n-data-table
         :columns="desktopColumns"
         :data="filteredSales"
@@ -573,7 +575,7 @@ async function handleSubmit() {
     </n-card>
 
     <!-- Table View - Mobile (Dashboard Style List) -->
-    <div v-else-if="sheetsStore.currentSheet && viewMode === 'table' && isMobile" class="space-y-3">
+    <div v-else-if="sheetsStore.currentSaleSheet && viewMode === 'table' && isMobile" class="space-y-3">
       <div
         v-for="sale in filteredSales"
         :key="sale.id"
@@ -618,7 +620,7 @@ async function handleSubmit() {
     </div>
 
     <!-- Card View -->
-    <div v-else-if="sheetsStore.currentSheet && viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div v-else-if="sheetsStore.currentSaleSheet && viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <n-card
         v-for="sale in filteredSales"
         :key="sale.id"

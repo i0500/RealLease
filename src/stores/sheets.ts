@@ -19,6 +19,28 @@ export const useSheetsStore = defineStore('sheets', () => {
 
   const sheetCount = computed(() => sheets.value.length)
 
+  // 현재 그룹(이름)의 임대차 시트 반환
+  const currentRentalSheet = computed(() => {
+    const current = currentSheet.value
+    if (!current) return null
+
+    // 같은 이름(그룹)의 rental 타입 시트 찾기
+    return sheets.value.find(s =>
+      s.name === current.name && s.sheetType === 'rental'
+    ) || null
+  })
+
+  // 현재 그룹(이름)의 매도 시트 반환
+  const currentSaleSheet = computed(() => {
+    const current = currentSheet.value
+    if (!current) return null
+
+    // 같은 이름(그룹)의 sale 타입 시트 찾기
+    return sheets.value.find(s =>
+      s.name === current.name && s.sheetType === 'sale'
+    ) || null
+  })
+
   async function loadSheets() {
     try {
       isLoading.value = true
@@ -224,6 +246,8 @@ export const useSheetsStore = defineStore('sheets', () => {
     sheets,
     currentSheetId,
     currentSheet,
+    currentRentalSheet,
+    currentSaleSheet,
     sheetCount,
     isLoading,
     error,
