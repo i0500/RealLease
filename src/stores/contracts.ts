@@ -352,8 +352,9 @@ export const useContractsStore = defineStore('contracts', () => {
 
       // Note: appendRow adds to bottom of sheet
       // For sequential ordering, manual sorting in sheet required
+      // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외)
       const row = contractToRow(newContract)
-      const range = sheet.tabName ? `${sheet.tabName}!A:Z` : 'A:Z'
+      const range = sheet.tabName ? `${sheet.tabName}!B:Y` : 'B:Y'
       await sheetsService.appendRow(sheet.spreadsheetId, range, row)
 
       contracts.value.push(newContract)
@@ -394,10 +395,11 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       // 시트 업데이트
+      // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외)
       const row = contractToRow(updatedContract)
       const range = sheet.tabName
-        ? `${sheet.tabName}!A${contract.rowIndex}:Z${contract.rowIndex}`
-        : `A${contract.rowIndex}:Z${contract.rowIndex}`
+        ? `${sheet.tabName}!B${contract.rowIndex}:Y${contract.rowIndex}`
+        : `B${contract.rowIndex}:Y${contract.rowIndex}`
       await sheetsService.updateRow(sheet.spreadsheetId, range, row)
 
       contracts.value[index] = updatedContract
@@ -896,82 +898,80 @@ export const useContractsStore = defineStore('contracts', () => {
       }
     }
 
-    const row = new Array(25).fill('')
+    // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외) - 24개 요소
+    const row = new Array(24).fill('')
 
-    // A열(row[0]): 공란
-    row[0] = ''
+    // B열(row[0]): 번호
+    row[0] = contract.number || ''
 
-    // B열(row[1]): 번호
-    row[1] = contract.number || ''
+    // C열(row[1]): 동
+    row[1] = contract.building || ''
 
-    // C열(row[2]): 동
-    row[2] = contract.building || ''
+    // D열(row[2]): 호
+    row[2] = contract.unit || ''
 
-    // D열(row[3]): 호
-    row[3] = contract.unit || ''
+    // E열(row[3]): 계약자이름
+    row[3] = contract.tenantName || ''
 
-    // E열(row[4]): 계약자이름
-    row[4] = contract.tenantName || ''
+    // F열(row[4]): 연락처
+    row[4] = contract.phone || ''
 
-    // F열(row[5]): 연락처
-    row[5] = contract.phone || ''
+    // G열(row[5]): 연락처2 (또는 "갱신/신규")
+    row[5] = contract.phone2OrContractType || ''
 
-    // G열(row[6]): 연락처2 (또는 "갱신/신규")
-    row[6] = contract.phone2OrContractType || ''
+    // H열(row[6]): 계약유형
+    row[6] = contract.contractType || ''
 
-    // H열(row[7]): 계약유형
-    row[7] = contract.contractType || ''
+    // I열(row[7]): 주민번호
+    row[7] = contract.idNumber || ''
 
-    // I열(row[8]): 주민번호
-    row[8] = contract.idNumber || ''
+    // J열(row[8]): 전용면적
+    row[8] = contract.exclusiveArea || ''
 
-    // J열(row[9]): 전용면적
-    row[9] = contract.exclusiveArea || ''
+    // K열(row[9]): 공급면적
+    row[9] = contract.supplyArea || ''
 
-    // K열(row[10]): 공급면적
-    row[10] = contract.supplyArea || ''
+    // L열(row[10]): 임대보증금 (원 단위 그대로 저장)
+    row[10] = Math.round(contract.deposit || 0)
 
-    // L열(row[11]): 임대보증금 (원 단위 그대로 저장)
-    row[11] = Math.round(contract.deposit || 0)
+    // M열(row[11]): 월세 (원 단위 그대로 저장)
+    row[11] = Math.round(contract.monthlyRent || 0)
 
-    // M열(row[12]): 월세 (원 단위 그대로 저장)
-    row[12] = Math.round(contract.monthlyRent || 0)
+    // N열(row[12]): 계약서작성일
+    row[12] = formatDateSafe(contract.contractWrittenDate)
 
-    // N열(row[13]): 계약서작성일
-    row[13] = formatDateSafe(contract.contractWrittenDate)
+    // O열(row[13]): 시작일
+    row[13] = formatDateSafe(contract.startDate)
 
-    // O열(row[14]): 시작일
-    row[14] = formatDateSafe(contract.startDate)
+    // P열(row[14]): 종료일
+    row[14] = formatDateSafe(contract.endDate)
 
-    // P열(row[15]): 종료일
-    row[15] = formatDateSafe(contract.endDate)
+    // Q열(row[15]): 실제퇴거일
+    row[15] = formatDateSafe(contract.actualMoveOutDate)
 
-    // Q열(row[16]): 실제퇴거일
-    row[16] = formatDateSafe(contract.actualMoveOutDate)
+    // R열(row[16]): 계약기간
+    row[16] = contract.contractPeriod || ''
 
-    // R열(row[17]): 계약기간
-    row[17] = contract.contractPeriod || ''
+    // S열(row[17]): 보증보험 시작일
+    row[17] = formatDateSafe(contract.hugStartDate)
 
-    // S열(row[18]): 보증보험 시작일
-    row[18] = formatDateSafe(contract.hugStartDate)
+    // T열(row[18]): 보증보험 종료일
+    row[18] = formatDateSafe(contract.hugEndDate)
 
-    // T열(row[19]): 보증보험 종료일
-    row[19] = formatDateSafe(contract.hugEndDate)
+    // U열(row[19]): additionalInfo1
+    row[19] = contract.additionalInfo1 || ''
 
-    // U열(row[20]): additionalInfo1
-    row[20] = contract.additionalInfo1 || ''
+    // V열(row[20]): additionalInfo2
+    row[20] = contract.additionalInfo2 || ''
 
-    // V열(row[21]): additionalInfo2
-    row[21] = contract.additionalInfo2 || ''
+    // W열(row[21]): additionalInfo3
+    row[21] = contract.additionalInfo3 || ''
 
-    // W열(row[22]): additionalInfo3
-    row[22] = contract.additionalInfo3 || ''
+    // X열(row[22]): additionalInfo4
+    row[22] = contract.additionalInfo4 || ''
 
-    // X열(row[23]): additionalInfo4
-    row[23] = contract.additionalInfo4 || ''
-
-    // Y열(row[24]): 기타사항/비고
-    row[24] = contract.notes || ''
+    // Y열(row[23]): 기타사항/비고
+    row[23] = contract.notes || ''
 
     return row
   }
