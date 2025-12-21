@@ -600,10 +600,8 @@ export const useContractsStore = defineStore('contracts', () => {
         return null
       }
 
-      // 3. 필수 필드 검증: 계약자가 있어야 유효
-      if (!buyer) {
-        return null
-      }
+      // 3. ✅ 동+호수가 있으면 유효 (계약자 없어도 공실로 표시)
+      // 동만 있고 호수가 없는 경우는 위 isValidBuildingOrUnit에서 이미 제외됨
 
       // 날짜 파싱 헬퍼 함수 (안전한 날짜 처리)
       const parseDateSafe = (dateStr: string | undefined): Date | undefined => {
