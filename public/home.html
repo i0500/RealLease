@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RealLease - 부동산 임대차 계약 관리</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 24px;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+    }
+    h1 {
+      color: white;
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .tagline {
+      color: rgba(255,255,255,0.9);
+      font-size: 1.2rem;
+      margin-bottom: 40px;
+      max-width: 500px;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      max-width: 800px;
+      margin-bottom: 40px;
+    }
+    .feature {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 24px;
+      color: white;
+    }
+    .feature h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+    }
+    .feature p {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    .cta-button {
+      display: inline-block;
+      background: white;
+      color: #667eea;
+      padding: 16px 48px;
+      border-radius: 50px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    footer {
+      background: rgba(0,0,0,0.2);
+      padding: 24px;
+      text-align: center;
+    }
+    footer a {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      margin: 0 16px;
+      font-size: 0.9rem;
+    }
+    footer a:hover {
+      color: white;
+      text-decoration: underline;
+    }
+    .copyright {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.8rem;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="/logo.svg" alt="RealLease Logo" class="logo">
+    <h1>RealLease</h1>
+    <p class="tagline">Google Sheets와 연동하여 부동산 임대차 계약을 간편하게 관리하세요</p>
+
+    <div class="features">
+      <div class="feature">
+        <h3>계약 관리</h3>
+        <p>임대차 계약 목록을 한눈에 조회하고 관리할 수 있습니다</p>
+      </div>
+      <div class="feature">
+        <h3>만료일 알림</h3>
+        <p>계약 만료 예정인 항목을 미리 확인하고 대비하세요</p>
+      </div>
+      <div class="feature">
+        <h3>대시보드</h3>
+        <p>현황 통계를 한눈에 파악할 수 있는 직관적인 대시보드</p>
+      </div>
+      <div class="feature">
+        <h3>Google 연동</h3>
+        <p>기존 Google Sheets 데이터를 그대로 활용할 수 있습니다</p>
+      </div>
+    </div>
+
+    <a href="/" class="cta-button">앱 시작하기</a>
+  </div>
+
+  <footer>
+    <div>
+      <a href="/privacy.html">개인정보처리방침</a>
+      <a href="/terms.html">서비스 이용약관</a>
+      <a href="mailto:i0500ch@gmail.com">문의하기</a>
+    </div>
+    <p class="copyright">&copy; 2024 RealLease. All rights reserved.</p>
+  </footer>
+</body>
+</html>
