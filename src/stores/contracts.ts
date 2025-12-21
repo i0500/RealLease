@@ -852,12 +852,8 @@ export const useContractsStore = defineStore('contracts', () => {
         return null
       }
 
-      // 3. 대부분의 필드가 비어있는 무관한 데이터 체크
-      // 동/호는 있지만 계약자, 연락처, 보증금, 계약유형, 시작일, 종료일이 모두 없으면 무효
-      const hasMinimalData = tenantName || phone || deposit > 0 || contractType || startDate || endDate
-      if (!hasMinimalData) {
-        return null
-      }
+      // 3. ✅ 동/호만 있어도 유효 (공실로 처리)
+      // 동/호가 있으면 전체 계약에 포함, 계약자가 없으면 공실로 분류됨
 
       // 4. 매매계약 건 필터링
       // X열(additionalInfo4)에 "매매계약" 텍스트가 있고, Y열(notes)에 "말소" 텍스트가 있으면
