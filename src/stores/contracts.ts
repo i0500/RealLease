@@ -1115,19 +1115,33 @@ export const useContractsStore = defineStore('contracts', () => {
         throw new Error('Sale contract not found')
       }
 
-      // 소프트 삭제 (deletedAt 설정)
-      await updateSaleContract(contractId, {
-        metadata: {
-          ...contract.metadata,
-          deletedAt: new Date()
-        }
-      })
+      const sheet = sheetsStore.sheets.find(s => s.id === contract.sheetId)
+      if (!sheet) {
+        throw new Error('Sheet not found')
+      }
+
+      if (!sheet.gid) {
+        throw new Error('Sheet GID not found')
+      }
+
+      console.log(`🗑️ [ContractsStore.deleteSaleContract] 시트에서 행 삭제: {rowIndex: ${contract.rowIndex}, sheetId: ${sheet.id}}`)
+
+      // 시트에서 실제로 행 삭제
+      await sheetsService.deleteRow(
+        sheet.spreadsheetId,
+        sheet.gid,
+        contract.rowIndex
+      )
+
+      console.log(`✅ [ContractsStore.deleteSaleContract] 시트 행 삭제 완료: Row ${contract.rowIndex}`)
 
       // 로컬에서 제거
       saleContracts.value = saleContracts.value.filter(c => c.id !== contractId)
+
+      console.log(`✅ [ContractsStore.deleteSaleContract] 로컬 스토어에서 제거 완료`)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to delete sale contract'
-      console.error('Delete sale contract error:', err)
+      console.error('❌ [ContractsStore.deleteSaleContract] 삭제 실패:', err)
       throw err
     } finally {
       isLoading.value = false

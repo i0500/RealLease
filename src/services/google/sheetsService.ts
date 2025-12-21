@@ -369,6 +369,39 @@ export class SheetsService {
     return response.json()
   }
 
+  /**
+   * 시트에서 특정 행 삭제
+   * @param spreadsheetId - 스프레드시트 ID
+   * @param gid - 시트 GID
+   * @param rowIndex - 삭제할 행 번호 (1-based, 헤더=1)
+   */
+  async deleteRow(spreadsheetId: string, gid: string, rowIndex: number): Promise<any> {
+    console.log(`🗑️ [SheetsService.deleteRow] 행 삭제: {spreadsheetId: ${spreadsheetId}, gid: ${gid}, rowIndex: ${rowIndex}}`)
+
+    if (this.isDevMode()) {
+      console.log('📝 [SheetsService.deleteRow] Dev mode - 삭제 시뮬레이션')
+      return Promise.resolve({})
+    }
+
+    // Google Sheets API는 0-based index 사용
+    // rowIndex가 1이면 첫 번째 행 (헤더)
+    // 실제 데이터 행을 삭제하려면 rowIndex - 1을 startIndex로 사용
+    const requests = [
+      {
+        deleteDimension: {
+          range: {
+            sheetId: parseInt(gid),
+            dimension: 'ROWS',
+            startIndex: rowIndex - 1, // 0-based index
+            endIndex: rowIndex // exclusive (삭제할 행의 다음 행)
+          }
+        }
+      }
+    ]
+
+    return this.batchUpdate(spreadsheetId, requests)
+  }
+
   async getSheetNames(spreadsheetId: string): Promise<string[]> {
     if (this.isDevMode()) {
       return mockSheetsService.getSheetNames(spreadsheetId)
