@@ -422,6 +422,220 @@ export class SheetsService {
     })
     return response.json()
   }
+
+  /**
+   * 새로운 스프레드시트 생성
+   * @param title - 스프레드시트 제목 (현장명)
+   * @param createRental - 임대차 현황 탭 생성 여부
+   * @param createSale - 매도 현황 탭 생성 여부
+   * @returns 생성된 스프레드시트 정보
+   */
+  async createSpreadsheet(
+    title: string,
+    createRental: boolean = true,
+    createSale: boolean = false
+  ): Promise<{ spreadsheetId: string; spreadsheetUrl: string; sheets: Array<{ title: string; gid: string }> }> {
+    console.log('📝 [SheetsService.createSpreadsheet] 새 스프레드시트 생성 시작:', { title, createRental, createSale })
+
+    // 생성할 시트 목록
+    const sheetsToCreate: any[] = []
+    let sheetIndex = 0
+
+    if (createRental) {
+      sheetsToCreate.push({
+        properties: {
+          sheetId: sheetIndex,
+          title: '임대차현황',
+          index: sheetIndex,
+          gridProperties: {
+            rowCount: 1000,
+            columnCount: 26,
+            frozenRowCount: 1
+          }
+        }
+      })
+      sheetIndex++
+    }
+
+    if (createSale) {
+      sheetsToCreate.push({
+        properties: {
+          sheetId: sheetIndex,
+          title: '매도현황',
+          index: sheetIndex,
+          gridProperties: {
+            rowCount: 500,
+            columnCount: 22,
+            frozenRowCount: 1
+          }
+        }
+      })
+      sheetIndex++
+    }
+
+    // 스프레드시트 생성 요청
+    const createRequest = {
+      properties: {
+        title: `[RealLease] ${title}`,
+        locale: 'ko_KR',
+        timeZone: 'Asia/Seoul'
+      },
+      sheets: sheetsToCreate
+    }
+
+    const response = await this.fetchWithAuth(this.baseUrl, {
+      method: 'POST',
+      body: JSON.stringify(createRequest)
+    })
+
+    const result = await response.json()
+    const spreadsheetId = result.spreadsheetId
+    const spreadsheetUrl = result.spreadsheetUrl
+
+    console.log('✅ [SheetsService.createSpreadsheet] 스프레드시트 생성 완료:', { spreadsheetId, spreadsheetUrl })
+
+    // 각 시트에 헤더 및 스타일 적용
+    const createdSheets: Array<{ title: string; gid: string }> = []
+
+    for (const sheet of result.sheets) {
+      const sheetTitle = sheet.properties.title
+      const sheetId = sheet.properties.sheetId.toString()
+      createdSheets.push({ title: sheetTitle, gid: sheetId })
+
+      if (sheetTitle === '임대차현황') {
+        await this.setupRentalSheetTemplate(spreadsheetId, parseInt(sheetId))
+      } else if (sheetTitle === '매도현황') {
+        await this.setupSaleSheetTemplate(spreadsheetId, parseInt(sheetId))
+      }
+    }
+
+    console.log('✅ [SheetsService.createSpreadsheet] 템플릿 적용 완료')
+
+    return { spreadsheetId, spreadsheetUrl, sheets: createdSheets }
+  }
+
+  /**
+   * 임대차 현황 시트 템플릿 설정
+   */
+  private async setupRentalSheetTemplate(spreadsheetId: string, sheetId: number): Promise<void> {
+    console.log('🏠 [SheetsService] 임대차 현황 템플릿 적용 중...')
+
+    // 헤더 데이터 (A열은 공란, B열부터 시작)
+    const headers = [
+      ['', '번호', '동', '호수', '계약자', '연락처', '연락처2', '계약유형', '주민번호',
+       '전용면적', '공급면적', '임대보증금', '월세', '계약서작성일', '시작일', '종료일',
+       '실제퇴거일', '계약기간', '보증보험시작', '보증보험종료', '비고1', '비고2', '비고3', '비고4', '기타사항']
+    ]
+
+    // 헤더 쓰기
+    await this.writeRange(spreadsheetId, '임대차현황!A1:Y1', headers)
+
+    // 스타일 적용 (batchUpdate)
+    const styleRequests = [
+      // 헤더 행 배경색 (연한 파랑)
+      {
+        repeatCell: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 25 },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: { red: 0.8, green: 0.9, blue: 1.0 },
+              textFormat: { bold: true, fontSize: 10 },
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'MIDDLE',
+              borders: {
+                top: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } },
+                bottom: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } },
+                left: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } },
+                right: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } }
+              }
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,borders)'
+        }
+      },
+      // 열 너비 설정
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } },  // A열 (공란)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 50 }, fields: 'pixelSize' } },  // B열 (번호)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 60 }, fields: 'pixelSize' } },  // C열 (동)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 60 }, fields: 'pixelSize' } },  // D열 (호수)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // E열 (계약자)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } }, // F열 (연락처)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } }, // G열 (연락처2)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // H열 (계약유형)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 9 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } }, // I열 (주민번호)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 9, endIndex: 10 }, properties: { pixelSize: 70 }, fields: 'pixelSize' } }, // J열 (전용면적)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 10, endIndex: 11 }, properties: { pixelSize: 70 }, fields: 'pixelSize' } },// K열 (공급면적)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 11, endIndex: 12 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } },// L열 (임대보증금)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 12, endIndex: 13 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } }, // M열 (월세)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 13, endIndex: 14 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } },// N열 (계약서작성일)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 14, endIndex: 15 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } }, // O열 (시작일)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 15, endIndex: 16 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } }, // P열 (종료일)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 16, endIndex: 17 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } }, // Q열 (실제퇴거일)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 17, endIndex: 18 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } }, // R열 (계약기간)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 18, endIndex: 19 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } },// S열 (보증보험시작)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 19, endIndex: 20 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } },// T열 (보증보험종료)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 20, endIndex: 25 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } } // U-Y열 (비고)
+    ]
+
+    await this.batchUpdate(spreadsheetId, styleRequests)
+    console.log('✅ [SheetsService] 임대차 현황 템플릿 적용 완료')
+  }
+
+  /**
+   * 매도 현황 시트 템플릿 설정
+   */
+  private async setupSaleSheetTemplate(spreadsheetId: string, sheetId: number): Promise<void> {
+    console.log('🏢 [SheetsService] 매도 현황 템플릿 적용 중...')
+
+    // 헤더 데이터
+    const headers = [
+      ['구분', '동', '동-호', '계약자', '연락처', '주민번호', '계약일',
+       '계약금', '계약금2차일', '계약금2차', '중도금1차일', '중도금1차',
+       '중도금2차일', '중도금2차', '중도금3차일', '중도금3차',
+       '잔금일', '잔금', '합계', '계약형식', '채권양도', '비고']
+    ]
+
+    // 헤더 쓰기
+    await this.writeRange(spreadsheetId, '매도현황!A1:V1', headers)
+
+    // 스타일 적용
+    const styleRequests = [
+      // 헤더 행 배경색 (연한 녹색)
+      {
+        repeatCell: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 22 },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: { red: 0.85, green: 0.95, blue: 0.85 },
+              textFormat: { bold: true, fontSize: 10 },
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'MIDDLE',
+              borders: {
+                top: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } },
+                bottom: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } },
+                left: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } },
+                right: { style: 'SOLID', color: { red: 0.6, green: 0.6, blue: 0.6 } }
+              }
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,borders)'
+        }
+      },
+      // 열 너비 설정
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 70 }, fields: 'pixelSize' } },  // A열 (구분)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 60 }, fields: 'pixelSize' } },  // B열 (동)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // C열 (동-호)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // D열 (계약자)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } }, // E열 (연락처)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } }, // F열 (주민번호)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },  // G열 (계약일)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },  // H열 (계약금)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 22 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } }  // I-V열
+    ]
+
+    await this.batchUpdate(spreadsheetId, styleRequests)
+    console.log('✅ [SheetsService] 매도 현황 템플릿 적용 완료')
+  }
 }
 
 export const sheetsService = new SheetsService()

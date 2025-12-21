@@ -36,8 +36,10 @@ import {
   HomeOutline as HomeIcon,
   AddOutline as AddIcon,
   RefreshOutline as RefreshIcon,
-  HelpCircleOutline as HelpIcon
+  HelpCircleOutline as HelpIcon,
+  CreateOutline as CreateIcon
 } from '@vicons/ionicons5'
+import { sheetsService } from '@/services/google/sheetsService'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -59,6 +61,15 @@ const sheetForm = ref({
   name: '',
   sheetUrl: '',
   tabName: ''
+})
+
+// Create new sheet modal state
+const showCreateSheetModal = ref(false)
+const isCreatingSheet = ref(false)
+const createSheetForm = ref({
+  name: '',
+  createRental: true,
+  createSale: false
 })
 
 // Tab selection state
@@ -265,6 +276,76 @@ async function handleSaveSheet() {
   }
 }
 
+// Handle create new sheet
+async function handleCreateSheet() {
+  if (!createSheetForm.value.name.trim()) {
+    message.error('현장명(시트 이름)을 입력해주세요')
+    return
+  }
+
+  if (!createSheetForm.value.createRental && !createSheetForm.value.createSale) {
+    message.error('최소 하나의 탭을 선택해주세요')
+    return
+  }
+
+  try {
+    isCreatingSheet.value = true
+    console.log('📋 [SettingsView] 새 스프레드시트 생성 시작:', createSheetForm.value)
+
+    // Create new spreadsheet with selected tabs
+    const result = await sheetsService.createSpreadsheet(
+      createSheetForm.value.name.trim(),
+      createSheetForm.value.createRental,
+      createSheetForm.value.createSale
+    )
+
+    console.log('✅ [SettingsView] 스프레드시트 생성 완료:', result)
+
+    // Auto-register created sheets
+    for (const sheet of result.sheets) {
+      // Determine sheet type based on tab name
+      let sheetType: 'rental' | 'sale' | undefined
+      if (sheet.title.includes('매도현황')) {
+        sheetType = 'sale'
+      } else if (sheet.title.includes('임대차현황')) {
+        sheetType = 'rental'
+      }
+
+      console.log(`➕ [SettingsView] 시트 자동 등록:`, {
+        name: createSheetForm.value.name.trim(),
+        tabTitle: sheet.title,
+        gid: sheet.gid,
+        sheetType
+      })
+
+      await sheetsStore.addSheet(
+        createSheetForm.value.name.trim(),
+        result.spreadsheetUrl,
+        sheet.title,
+        sheetType
+      )
+    }
+
+    message.success(`"${createSheetForm.value.name}" 스프레드시트가 생성되고 자동 등록되었습니다!`)
+
+    // Open the created spreadsheet in new tab
+    window.open(result.spreadsheetUrl, '_blank')
+
+    // Reset form and close modal
+    showCreateSheetModal.value = false
+    createSheetForm.value = {
+      name: '',
+      createRental: true,
+      createSale: false
+    }
+  } catch (error: any) {
+    console.error('❌ [SettingsView] 스프레드시트 생성 실패:', error)
+    message.error(error.message || '스프레드시트 생성에 실패했습니다')
+  } finally {
+    isCreatingSheet.value = false
+  }
+}
+
 function handleRemoveSheet(sheet: SheetConfig) {
   dialog.warning({
     title: '시트 삭제',
@@ -404,6 +485,12 @@ function handleResetApp() {
                 <n-icon><HelpIcon /></n-icon>
               </template>
               도움말
+            </n-button>
+            <n-button type="info" @click="showCreateSheetModal = true">
+              <template #icon>
+                <n-icon><CreateIcon /></n-icon>
+              </template>
+              새 시트 생성
             </n-button>
             <n-button type="primary" @click="handleAddSheet">
               <template #icon>
@@ -790,6 +877,61 @@ function handleResetApp() {
       <template #footer>
         <n-space justify="end">
           <n-button type="primary" @click="showHelpGuide = false">확인</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- Create New Sheet Modal -->
+    <n-modal
+      v-model:show="showCreateSheetModal"
+      preset="card"
+      title="새 시트 생성"
+      style="width: 500px"
+    >
+      <n-form label-placement="left" label-width="120px">
+        <n-form-item label="현장명" required>
+          <n-input
+            v-model:value="createSheetForm.name"
+            placeholder="예: 아르테 오피스텔"
+          />
+        </n-form-item>
+
+        <n-form-item label="탭 선택" required>
+          <n-space vertical>
+            <n-checkbox
+              v-model:checked="createSheetForm.createRental"
+            >
+              📋 임대차현황 (임대차 계약 관리용)
+            </n-checkbox>
+            <n-checkbox
+              v-model:checked="createSheetForm.createSale"
+            >
+              🏠 매도현황 (매도 계약 관리용)
+            </n-checkbox>
+          </n-space>
+        </n-form-item>
+
+        <n-alert type="info" class="mt-4">
+          <strong>안내:</strong><br />
+          • 새로운 구글 스프레드시트가 생성됩니다<br />
+          • 선택한 탭에 맞는 헤더와 스타일이 자동 적용됩니다<br />
+          • 생성된 시트는 자동으로 앱에 등록됩니다<br />
+          • 생성 후 새 탭에서 시트가 열립니다
+        </n-alert>
+      </n-form>
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showCreateSheetModal = false" :disabled="isCreatingSheet">
+            취소
+          </n-button>
+          <n-button
+            type="primary"
+            :loading="isCreatingSheet"
+            @click="handleCreateSheet"
+          >
+            {{ isCreatingSheet ? '생성 중...' : '시트 생성' }}
+          </n-button>
         </n-space>
       </template>
     </n-modal>

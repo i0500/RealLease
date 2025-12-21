@@ -152,6 +152,16 @@ watch(
   { immediate: false }
 )
 
+// 전세/월세 구분 가져오기 (계약중 또는 만료예정인 경우에만)
+function getRentalType(contract: RentalContract): string {
+  // 공실이면 표시 안함
+  if (!contract.tenantName || contract.tenantName.trim() === '') {
+    return ''
+  }
+  // 월세가 있으면 "월", 없으면 "전"
+  return contract.monthlyRent > 0 ? '월' : '전'
+}
+
 // 계약 상태 가져오기
 function getContractStatus(contract: RentalContract): { text: string; type: 'success' | 'warning' | 'default' } {
   // 공실
@@ -172,9 +182,19 @@ function getContractStatus(contract: RentalContract): { text: string; type: 'suc
   return { text: '계약중', type: 'success' }
 }
 
+// 현재 시트 ID (route param 또는 currentRentalSheet)
+const currentSheetId = computed(() => {
+  const routeSheetId = route.params.sheetId as string
+  return routeSheetId || sheetsStore.currentRentalSheet?.id || null
+})
+
 // Filtered contracts
 const filteredContracts = computed(() => {
-  let result = contractsStore.contracts.filter(c => !c.metadata.deletedAt)
+  // 🔧 FIX: 현재 시트의 계약만 표시 (다른 시트 데이터 필터링)
+  let result = contractsStore.contracts.filter(c =>
+    !c.metadata.deletedAt &&
+    (currentSheetId.value ? c.sheetId === currentSheetId.value : true)
+  )
 
   // Search filter
   if (searchQuery.value) {
@@ -273,7 +293,7 @@ const desktopColumns = [
   {
     title: '상태',
     key: 'status',
-    width: 90,
+    width: 110,
     align: 'center' as const,
     render: (row: RentalContract) => {
       const hasName = row.tenantName && row.tenantName.trim() !== ''
@@ -283,12 +303,23 @@ const desktopColumns = [
         return row.endDate >= today && row.endDate <= threeMonthsLater
       })()
 
+      // 전세/월세 구분 (공실이 아닌 경우에만)
+      const rentalType = hasName ? (row.monthlyRent > 0 ? '월' : '전') : ''
+
       if (!hasName) {
         return h(NTag, { type: 'default', size: 'small' }, { default: () => '공실' })
       } else if (isExpiring) {
-        return h(NTag, { type: 'warning', size: 'small' }, { default: () => '만료예정' })
+        // 만료예정 + 전/월 표시 (줄바꿈 방지: flex nowrap)
+        return h('div', { style: 'display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap;' }, [
+          h(NTag, { type: 'warning', size: 'small' }, { default: () => '만료예정' }),
+          h(NTag, { type: rentalType === '월' ? 'info' : 'default', size: 'small', bordered: false }, { default: () => rentalType })
+        ])
       } else {
-        return h(NTag, { type: 'success', size: 'small' }, { default: () => '계약중' })
+        // 계약중 + 전/월 표시 (줄바꿈 방지: flex nowrap)
+        return h('div', { style: 'display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap;' }, [
+          h(NTag, { type: 'success', size: 'small' }, { default: () => '계약중' }),
+          h(NTag, { type: rentalType === '월' ? 'info' : 'default', size: 'small', bordered: false }, { default: () => rentalType })
+        ])
       }
     }
   },
@@ -603,13 +634,22 @@ function resetForm() {
           <h4 class="font-semibold text-blue-600 hover:underline text-sm">
             {{ contract.building }}동 {{ contract.unit }}호
           </h4>
-          <n-tag
-            :type="getContractStatus(contract).type"
-            size="small"
-            class="ml-2 flex-shrink-0"
-          >
-            {{ getContractStatus(contract).text }}
-          </n-tag>
+          <div class="flex items-center gap-1 ml-2 flex-shrink-0" style="white-space: nowrap;">
+            <n-tag
+              :type="getContractStatus(contract).type"
+              size="small"
+            >
+              {{ getContractStatus(contract).text }}
+            </n-tag>
+            <n-tag
+              v-if="getRentalType(contract)"
+              :type="getRentalType(contract) === '월' ? 'info' : 'default'"
+              size="small"
+              :bordered="false"
+            >
+              {{ getRentalType(contract) }}
+            </n-tag>
+          </div>
         </div>
 
         <!-- 계약자 & 계약유형 -->
@@ -646,16 +686,22 @@ function resetForm() {
         <template #header>
           <div class="flex items-center justify-between">
             <span class="font-bold text-lg">{{ contract.building }}동 {{ contract.unit }}호</span>
-            <n-tag
-              :type="
-                contract.tenantName && contract.tenantName.trim() !== ''
-                  ? 'success'
-                  : 'default'
-              "
-              size="small"
-            >
-              {{ contract.tenantName ? '계약중' : '공실' }}
-            </n-tag>
+            <div class="flex items-center gap-1" style="white-space: nowrap;">
+              <n-tag
+                :type="getContractStatus(contract).type"
+                size="small"
+              >
+                {{ getContractStatus(contract).text }}
+              </n-tag>
+              <n-tag
+                v-if="getRentalType(contract)"
+                :type="getRentalType(contract) === '월' ? 'info' : 'default'"
+                size="small"
+                :bordered="false"
+              >
+                {{ getRentalType(contract) }}
+              </n-tag>
+            </div>
           </div>
         </template>
         <div class="contract-info space-y-3">

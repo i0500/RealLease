@@ -149,9 +149,18 @@ const statusOptions = [
   { label: '종결', value: 'completed' }
 ]
 
+// 현재 시트 ID (route param 또는 currentSaleSheet)
+const currentSheetId = computed(() => {
+  const routeSheetId = route.params.sheetId as string
+  return routeSheetId || sheetsStore.currentSaleSheet?.id || null
+})
+
 // Filter sales contracts
 const filteredSales = computed(() => {
-  let sales = contractsStore.saleContracts
+  // 🔧 FIX: 현재 시트의 매도 계약만 표시 (다른 시트 데이터 필터링)
+  let sales = contractsStore.saleContracts.filter(sale =>
+    currentSheetId.value ? sale.sheetId === currentSheetId.value : true
+  )
 
   // Status 필터 적용
   if (statusFilter.value !== 'all') {

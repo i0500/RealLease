@@ -211,8 +211,27 @@ const menuOptions = computed<MenuOption[]>(() => {
       // 그룹 메뉴 추가 (첫 번째 시트의 ID를 대표로 사용)
       const firstSheet = sheets[0]
       if (firstSheet) {
+        // 🔧 FIX: PC에서 시트 parent 클릭 시 선택되도록 커스텀 렌더링
+        // NMenu는 children이 있는 parent 아이템 클릭 시 update:value를 발생시키지 않음
+        // 따라서 label에 클릭 핸들러를 직접 연결하여 시트 선택 처리
+        const sheetId = firstSheet.id
         options.push({
-          label: groupName,
+          label: () => h(
+            'span',
+            {
+              style: 'cursor: pointer; display: block; width: 100%;',
+              onClick: (e: Event) => {
+                e.stopPropagation() // 메뉴 확장/축소 이벤트와 분리
+                sheetsStore.setCurrentSheet(sheetId)
+                const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
+                if (sheet) {
+                  message.success(`"${sheet.name}" 파일을 선택했습니다`)
+                  router.push({ name: 'dashboard' })
+                }
+              }
+            },
+            groupName
+          ),
           key: `sheet-${firstSheet.id}`,
           icon: renderIcon(SheetIcon),
           extra: sheets.some(s => s.id === sheetsStore.currentSheetId) ? '✓' : undefined,
