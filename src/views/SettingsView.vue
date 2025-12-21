@@ -801,10 +801,26 @@ function handleResetApp() {
     <n-modal
       v-model:show="showHelpGuide"
       preset="card"
-      title="시트 등록 가이드"
-      style="width: 700px; max-width: 90vw"
+      title="📚 시트 등록 가이드"
+      style="width: 750px; max-width: 90vw; max-height: 85vh"
+      :content-style="{ overflowY: 'auto' }"
     >
       <n-space vertical size="large">
+        <!-- 방법 선택 안내 -->
+        <n-alert type="info">
+          <template #header>
+            <strong>시트 등록 방법 안내</strong>
+          </template>
+          <n-space vertical size="small" class="text-sm mt-2">
+            <p><strong>📋 기존 엑셀/구글 시트가 있는 경우:</strong> 1~3단계를 따라 시트를 등록하세요</p>
+            <p><strong>🆕 처음 시작하는 경우:</strong> 아래 "새 시트 생성" 가이드를 참고하세요</p>
+          </n-space>
+        </n-alert>
+
+        <n-divider title-placement="left">
+          <span class="text-base font-semibold">📂 기존 시트 등록하기</span>
+        </n-divider>
+
         <!-- Step 1 -->
         <div>
           <h3 class="text-lg font-semibold mb-3" style="color: #2c3e50;">
@@ -853,7 +869,7 @@ function handleResetApp() {
         <!-- Step 3 -->
         <div>
           <h3 class="text-lg font-semibold mb-3" style="color: #2c3e50;">
-            3단계: 공유 링크 복사 및 앱에 추가
+            3단계: 시트 URL 등록 및 탭 불러오기
           </h3>
           <n-space vertical size="small">
             <p class="text-sm text-gray-700">① 구글 시트 상단 주소창의 URL을 전체 선택하여 복사합니다</p>
@@ -862,14 +878,103 @@ function handleResetApp() {
             </p>
             <p class="text-sm text-gray-700">② RealLease 앱의 <strong>"시트 추가"</strong> 버튼을 클릭합니다</p>
             <p class="text-sm text-gray-700">③ <strong>"시트 이름"</strong>에 구분하기 쉬운 이름을 입력합니다</p>
-            <p class="text-sm text-gray-700 ml-4 text-gray-500">예: "아르테 임대차 현황", "A동 관리 시트" 등</p>
+            <p class="text-sm text-gray-700 ml-4 text-gray-500">예: "아르테 오피스텔", "A동 관리" 등 (현장명 권장)</p>
             <p class="text-sm text-gray-700">④ <strong>"시트 URL"</strong>에 복사한 구글 시트 링크를 붙여넣습니다</p>
-            <p class="text-sm text-gray-700">⑤ (선택) 특정 탭을 사용하려면 <strong>"탭 이름"</strong>을 입력합니다</p>
-            <p class="text-sm text-gray-700 ml-4 text-gray-500">비워두면 첫 번째 탭을 자동으로 사용합니다</p>
-            <p class="text-sm text-gray-700">⑥ <strong>"추가"</strong> 버튼을 클릭하여 시트를 등록합니다</p>
-            <n-alert type="info" class="mt-2">
-              <span class="text-sm">시트 추가 후 <strong>"동기화"</strong> 버튼을 클릭하면 최신 데이터를 불러올 수 있습니다</span>
+          </n-space>
+
+          <!-- 탭 불러오기 가이드 -->
+          <n-alert type="success" class="mt-4">
+            <template #header>
+              <strong>📋 탭 목록 불러오기 기능</strong>
+            </template>
+            <n-space vertical size="small" class="text-sm mt-2">
+              <p>⑤ <strong>"탭 목록 불러오기"</strong> 버튼을 클릭합니다</p>
+              <p class="ml-4 text-gray-600">→ 스프레드시트에 있는 모든 탭이 자동으로 조회됩니다</p>
+              <p>⑥ 등록하고 싶은 탭을 <strong>체크박스로 선택</strong>합니다</p>
+              <p class="ml-4 text-gray-600">→ 여러 탭을 동시에 선택할 수 있습니다</p>
+              <p class="ml-4 text-gray-600">→ "현재현황", "전체현황", "임대차" 포함 탭은 <strong>임대차현황</strong>으로 자동 분류</p>
+              <p class="ml-4 text-gray-600">→ "매도현황" 포함 탭은 <strong>매도현황</strong>으로 자동 분류</p>
+              <p>⑦ <strong>"추가"</strong> 버튼을 클릭하면 선택한 탭들이 같은 그룹으로 등록됩니다</p>
+            </n-space>
+          </n-alert>
+
+          <n-alert type="info" class="mt-2">
+            <span class="text-sm">
+              <strong>💡 그룹이란?</strong> 같은 현장(건물)의 여러 탭을 하나의 그룹으로 관리합니다.<br />
+              예: "아르테 오피스텔" 그룹 아래에 "임대차현황", "매도현황" 탭이 함께 등록됩니다.
+            </span>
+          </n-alert>
+        </div>
+
+        <n-divider title-placement="left">
+          <span class="text-base font-semibold">🆕 새 시트 생성하기 (데이터가 없는 경우)</span>
+        </n-divider>
+
+        <!-- New Sheet Creation Guide -->
+        <div>
+          <h3 class="text-lg font-semibold mb-3" style="color: #2c3e50;">
+            처음 시작할 때: 새 시트 생성
+          </h3>
+          <n-space vertical size="small">
+            <p class="text-sm text-gray-700">기존 엑셀 파일 없이 처음 시작하는 경우, 앱에서 직접 새 시트를 생성할 수 있습니다.</p>
+
+            <n-alert type="success" class="mt-2">
+              <template #header>
+                <strong>📝 새 시트 생성 방법</strong>
+              </template>
+              <n-space vertical size="small" class="text-sm mt-2">
+                <p>① 설정 화면에서 <strong>"새 시트 생성"</strong> 버튼을 클릭합니다</p>
+                <p>② <strong>"현장명"</strong>에 관리할 건물/현장 이름을 입력합니다</p>
+                <p class="ml-4 text-gray-600">예: "아르테 오피스텔", "강남 타워" 등</p>
+                <p>③ 필요한 탭을 선택합니다:</p>
+                <p class="ml-4 text-gray-600">• <strong>📋 임대차현황</strong>: 임대차 계약 관리용 (호수, 계약자, 보증금, 계약기간 등)</p>
+                <p class="ml-4 text-gray-600">• <strong>🏠 매도현황</strong>: 매도 계약 관리용 (호수, 매수자, 계약금, 잔금 등)</p>
+                <p>④ <strong>"시트 생성"</strong> 버튼을 클릭합니다</p>
+              </n-space>
             </n-alert>
+
+            <n-alert type="info" class="mt-2">
+              <template #header>
+                <strong>✨ 자동 설정 기능</strong>
+              </template>
+              <n-space vertical size="small" class="text-sm mt-2">
+                <p>• 구글 스프레드시트가 자동으로 생성됩니다</p>
+                <p>• 선택한 탭별로 <strong>헤더(열 제목)가 자동 생성</strong>됩니다</p>
+                <p>• 헤더에 <strong>스타일(색상, 고정 등)이 자동 적용</strong>됩니다</p>
+                <p>• 생성된 시트가 <strong>앱에 자동 등록</strong>됩니다</p>
+                <p>• 완료 후 새 탭에서 구글 시트가 열립니다</p>
+              </n-space>
+            </n-alert>
+
+            <n-alert type="warning" class="mt-2">
+              <span class="text-sm">
+                <strong>참고:</strong> 새로 생성된 시트는 자동으로 "링크가 있는 모든 사용자"에게 공유됩니다.<br />
+                데이터를 입력한 후 <strong>"동기화"</strong> 버튼을 클릭하면 앱에서 데이터를 확인할 수 있습니다.
+              </span>
+            </n-alert>
+          </n-space>
+        </div>
+
+        <n-divider />
+
+        <!-- FAQ Section -->
+        <div>
+          <h3 class="text-lg font-semibold mb-3" style="color: #2c3e50;">
+            ❓ 자주 묻는 질문
+          </h3>
+          <n-space vertical size="small">
+            <div class="p-3 bg-gray-50 rounded-lg">
+              <p class="text-sm font-semibold text-gray-800">Q: 탭 목록 불러오기가 실패해요</p>
+              <p class="text-sm text-gray-600 mt-1">A: 시트 공유 설정이 "링크가 있는 모든 사용자"로 되어있는지 확인해주세요. 공유 설정 후 몇 분 정도 기다린 후 다시 시도해보세요.</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-lg">
+              <p class="text-sm font-semibold text-gray-800">Q: 여러 탭을 등록했는데 어떻게 전환하나요?</p>
+              <p class="text-sm text-gray-600 mt-1">A: 대시보드나 메뉴에서 시트 그룹을 선택하면 해당 그룹의 임대차/매도현황 탭이 자동으로 표시됩니다.</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-lg">
+              <p class="text-sm font-semibold text-gray-800">Q: 데이터가 표시되지 않아요</p>
+              <p class="text-sm text-gray-600 mt-1">A: 시트 목록에서 해당 시트의 <strong>"동기화"</strong> 버튼을 클릭하여 최신 데이터를 불러오세요.</p>
+            </div>
           </n-space>
         </div>
       </n-space>
