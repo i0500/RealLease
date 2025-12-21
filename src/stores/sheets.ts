@@ -19,14 +19,32 @@ export const useSheetsStore = defineStore('sheets', () => {
 
   const sheetCount = computed(() => sheets.value.length)
 
+  // Helper: tabName으로 시트 타입 추론 (sheetType이 없는 기존 시트 지원)
+  function inferSheetType(sheet: SheetConfig): 'rental' | 'sale' | undefined {
+    // 명시적 sheetType이 있으면 그대로 사용
+    if (sheet.sheetType) return sheet.sheetType
+
+    // tabName으로 추론
+    if (sheet.tabName) {
+      const tabNameLower = sheet.tabName.toLowerCase()
+      if (tabNameLower.includes('매도') || tabNameLower.includes('sale')) {
+        return 'sale'
+      }
+      // 매도가 아니면 rental로 간주
+      return 'rental'
+    }
+
+    return undefined
+  }
+
   // 현재 그룹(이름)의 임대차 시트 반환
   const currentRentalSheet = computed(() => {
     const current = currentSheet.value
     if (!current) return null
 
-    // 같은 이름(그룹)의 rental 타입 시트 찾기
+    // 같은 이름(그룹)의 rental 타입 시트 찾기 (tabName으로 추론 포함)
     return sheets.value.find(s =>
-      s.name === current.name && s.sheetType === 'rental'
+      s.name === current.name && inferSheetType(s) === 'rental'
     ) || null
   })
 
@@ -35,9 +53,9 @@ export const useSheetsStore = defineStore('sheets', () => {
     const current = currentSheet.value
     if (!current) return null
 
-    // 같은 이름(그룹)의 sale 타입 시트 찾기
+    // 같은 이름(그룹)의 sale 타입 시트 찾기 (tabName으로 추론 포함)
     return sheets.value.find(s =>
-      s.name === current.name && s.sheetType === 'sale'
+      s.name === current.name && inferSheetType(s) === 'sale'
     ) || null
   })
 
