@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { sheetsService } from '@/services/google/sheetsService'
 import { useSheetsStore } from './sheets'
+import { useNotificationSettingsStore } from './notificationSettings'
 import type { RentalContract, SaleContract } from '@/types'
 import { generateId } from '@/utils/formatUtils'
 import { parseDate } from '@/utils/dateUtils'
@@ -61,14 +62,17 @@ export const useContractsStore = defineStore('contracts', () => {
     contracts.value.filter(c => (!c.tenantName || c.tenantName.trim() === '') && !c.metadata.deletedAt)
   )
 
-  // 만료예정: 종료일이 3개월 이내인 계약
+  // 만료예정: 설정의 contractExpiryNoticeDays 기준
   const expiringContracts = computed(() => {
+    const settingsStore = useNotificationSettingsStore()
     const today = new Date()
-    const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+    // ✅ 설정의 contractExpiryNoticeDays 사용 (기본 150일)
+    const noticeDays = settingsStore.settings.contractExpiryNoticeDays || 150
+    const expiryDate = new Date(today.getTime() + noticeDays * 24 * 60 * 60 * 1000)
 
     return contracts.value.filter(c => {
       if (!c.endDate || c.metadata.deletedAt) return false
-      return c.endDate >= today && c.endDate <= threeMonthsLater
+      return c.endDate >= today && c.endDate <= expiryDate
     })
   })
 

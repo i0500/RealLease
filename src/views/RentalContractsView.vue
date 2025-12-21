@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContractsStore } from '@/stores/contracts'
 import { useSheetsStore } from '@/stores/sheets'
+import { useNotificationSettingsStore } from '@/stores/notificationSettings'
 import { formatCurrency, formatCurrencyFull } from '@/utils/formatUtils'
 import { formatDate } from '@/utils/dateUtils'
 import type { RentalContract } from '@/types/contract'
@@ -35,6 +36,7 @@ const router = useRouter()
 const route = useRoute()
 const contractsStore = useContractsStore()
 const sheetsStore = useSheetsStore()
+const settingsStore = useNotificationSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 
@@ -185,23 +187,26 @@ const filteredContracts = computed(() => {
     )
   }
 
-  // Status filter
+  // Status filter - 설정값 사용
   if (filterStatus.value === 'vacant') {
     result = result.filter((c) => !c.tenantName || c.tenantName.trim() === '')
   } else if (filterStatus.value === 'expiring') {
     const today = new Date()
-    const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+    // ✅ 설정의 contractExpiryNoticeDays 사용 (기본 150일)
+    const noticeDays = settingsStore.settings.contractExpiryNoticeDays || 150
+    const expiryDate = new Date(today.getTime() + noticeDays * 24 * 60 * 60 * 1000)
     result = result.filter((c) => {
       if (!c.endDate) return false
-      return c.endDate >= today && c.endDate <= threeMonthsLater
+      return c.endDate >= today && c.endDate <= expiryDate
     })
   } else if (filterStatus.value === 'hugExpiring') {
-    // 🆕 HUG 보증보험 만료 예정 필터
+    // ✅ 설정의 hugExpiryNoticeDays 사용 (기본 90일)
     const today = new Date()
-    const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate())
+    const noticeDays = settingsStore.settings.hugExpiryNoticeDays || 90
+    const expiryDate = new Date(today.getTime() + noticeDays * 24 * 60 * 60 * 1000)
     result = result.filter((c) => {
       if (!c.hugEndDate) return false
-      return c.hugEndDate >= today && c.hugEndDate <= threeMonthsLater
+      return c.hugEndDate >= today && c.hugEndDate <= expiryDate
     })
   }
 
@@ -395,6 +400,12 @@ async function handleSave() {
     // 필수 필드 검증
     if (!contractForm.value.building || !contractForm.value.unit) {
       message.error('동과 호를 입력해주세요')
+      return
+    }
+
+    // 계약유형 필수 검증
+    if (!contractForm.value.contractType || contractForm.value.contractType.trim() === '') {
+      message.error('계약유형을 입력해주세요 (예: 최초, 갱신, 공실)')
       return
     }
 
@@ -875,8 +886,8 @@ function resetForm() {
         <n-form-item label="연락처2">
           <n-input v-model:value="contractForm.phone2OrContractType" placeholder="갱신/신규 등" />
         </n-form-item>
-        <n-form-item label="계약유형">
-          <n-input v-model:value="contractForm.contractType" placeholder="예: 신규, 갱신" />
+        <n-form-item label="계약유형" required>
+          <n-input v-model:value="contractForm.contractType" placeholder="예: 최초, 갱신, 공실" />
         </n-form-item>
         <n-form-item label="주민번호">
           <n-input v-model:value="contractForm.idNumber" />
