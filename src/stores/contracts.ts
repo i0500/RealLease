@@ -100,11 +100,11 @@ export const useContractsStore = defineStore('contracts', () => {
 
   // 매도현황 계약 computed
   const activeSaleContracts = computed(() =>
-    saleContracts.value.filter(c => c.status === 'active')
+    saleContracts.value.filter(c => c.status === 'active' && !c.metadata.deletedAt)
   )
 
   const completedSaleContracts = computed(() =>
-    saleContracts.value.filter(c => c.status === 'completed')
+    saleContracts.value.filter(c => c.status === 'completed' && !c.metadata.deletedAt)
   )
 
   const saleContractsBySheet = computed(() => {
@@ -1144,7 +1144,7 @@ export const useContractsStore = defineStore('contracts', () => {
     // E열 (row[4]): 호
     // F열 (row[5]): 계약자
     // G열 (row[6]): 계약일
-    // H열 (row[7]): 빈칸
+    // H열 (row[7]): 계약금 1차 금액
     // I열 (row[8]): 계약금 2차 일자
     // J열 (row[9]): 계약금 2차 금액
     // K열 (row[10]): 중도금 1차 일자
@@ -1187,7 +1187,8 @@ export const useContractsStore = defineStore('contracts', () => {
     row[5] = contract.buyer || '' // F열: 계약자
     row[6] = formatDateSafe(contract.contractDate) // G열: 계약일
 
-    // H열 (row[7]): 빈칸
+    // 계약금 1차 (H열)
+    row[7] = Math.round((contract.downPayment || 0) / 1000) // H열: 계약금 1차 금액 (원 → 천원)
 
     // 계약금 2차 (I-J열)
     row[8] = formatDateSafe(contract.downPayment2Date) // I열: 계약금 2차 일자
