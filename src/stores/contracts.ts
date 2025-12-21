@@ -289,6 +289,12 @@ export const useContractsStore = defineStore('contracts', () => {
           vacantCount: parsedContracts.filter(c => !c.tenantName || c.tenantName.trim() === '').length
         })
 
+        // 🔍 DEBUG: 파싱된 모든 계약의 번호, 동, 호 출력 (건수 불일치 디버깅용)
+        console.log('🔍 [DEBUG] 파싱된 전체 계약 목록:')
+        parsedContracts.forEach((c, i) => {
+          console.log(`  ${i + 1}. 번호="${c.number}", 동="${c.building}", 호="${c.unit}", 이름="${c.tenantName}"`)
+        })
+
         // 기존 계약 중 현재 시트의 계약 제거 후 새 데이터 추가
         const beforeCount = contracts.value.length
         contracts.value = [
@@ -562,9 +568,15 @@ export const useContractsStore = defineStore('contracts', () => {
       const isValidBuildingOrUnit = (value: string): boolean => {
         if (!value) return false
         const trimmed = value.trim()
+        const lowerTrimmed = trimmed.toLowerCase()
         // 빈 문자열, "-"만 있는 경우, 단위만 있는 경우 무효
         if (trimmed === '' || trimmed === '-') return false
         if (trimmed === '동' || trimmed === '호') return false
+        // 🔧 FIX: 합계 관련 키워드가 포함된 경우 무효
+        const summaryPatterns = ['계', '합계', 'total', '소계', 'sum', '전체', '세대']
+        if (summaryPatterns.some(pattern => lowerTrimmed.includes(pattern))) {
+          return false
+        }
         // 숫자가 포함되어야 유효 (예: "108", "108동", "307호", "1707")
         return /\d/.test(trimmed)
       }
@@ -818,9 +830,15 @@ export const useContractsStore = defineStore('contracts', () => {
       const isValidBuildingOrUnit = (value: string): boolean => {
         if (!value) return false
         const trimmed = value.trim()
+        const lowerTrimmed = trimmed.toLowerCase()
         // 빈 문자열, "-"만 있는 경우, 단위만 있는 경우 무효
         if (trimmed === '' || trimmed === '-') return false
         if (trimmed === '동' || trimmed === '호') return false
+        // 🔧 FIX: 합계 관련 키워드가 포함된 경우 무효
+        const summaryPatterns = ['계', '합계', 'total', '소계', 'sum', '전체', '세대']
+        if (summaryPatterns.some(pattern => lowerTrimmed.includes(pattern))) {
+          return false
+        }
         // 숫자가 포함되어야 유효 (예: "108", "108동", "307호", "1707")
         return /\d/.test(trimmed)
       }
