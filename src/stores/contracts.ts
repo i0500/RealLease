@@ -1027,9 +1027,10 @@ export const useContractsStore = defineStore('contracts', () => {
 
       if (emptyRowIndex !== null) {
         // 3-1. 빈 리스트 덮어쓰기 (updateRow 사용)
+        // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외)
         const updateRange = sheet.tabName
-          ? `${sheet.tabName}!A${emptyRowIndex}:Z${emptyRowIndex}`
-          : `A${emptyRowIndex}:Z${emptyRowIndex}`
+          ? `${sheet.tabName}!B${emptyRowIndex}:V${emptyRowIndex}`
+          : `B${emptyRowIndex}:V${emptyRowIndex}`
         await sheetsService.updateRow(sheet.spreadsheetId, updateRange, row)
 
         // rowIndex 설정
@@ -1038,7 +1039,8 @@ export const useContractsStore = defineStore('contracts', () => {
         console.log(`✅ [addSaleContract] 빈 리스트 덮어쓰기 완료: row ${emptyRowIndex}`)
       } else {
         // 3-2. 빈 리스트가 없으면 맨 아래에 추가 (appendRow 사용)
-        const appendRange = sheet.tabName ? `${sheet.tabName}!A:Z` : 'A:Z'
+        // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외)
+        const appendRange = sheet.tabName ? `${sheet.tabName}!B:V` : 'B:V'
         await sheetsService.appendRow(sheet.spreadsheetId, appendRange, row)
 
         // rowIndex는 추가된 위치 (sheetData.length + 1)
@@ -1086,10 +1088,11 @@ export const useContractsStore = defineStore('contracts', () => {
       }
 
       // 시트 업데이트
+      // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외)
       const row = saleContractToRow(updatedContract)
       const range = sheet.tabName
-        ? `${sheet.tabName}!A${contract.rowIndex}:Z${contract.rowIndex}`
-        : `A${contract.rowIndex}:Z${contract.rowIndex}`
+        ? `${sheet.tabName}!B${contract.rowIndex}:V${contract.rowIndex}`
+        : `B${contract.rowIndex}:V${contract.rowIndex}`
       await sheetsService.updateRow(sheet.spreadsheetId, range, row)
 
       saleContracts.value[index] = updatedContract
@@ -1150,36 +1153,39 @@ export const useContractsStore = defineStore('contracts', () => {
 
   // SaleContract를 시트 row로 변환
   function saleContractToRow(contract: SaleContract): any[] {
-    // 매도현황 시트 구조에 맞춰 row 생성 (올바른 열 매핑)
-    // A열 (row[0]): 빈칸
-    // B열 (row[1]): 구분
-    // C열 (row[2]): 동
-    // D열 (row[3]): 빈칸
-    // E열 (row[4]): 호
-    // F열 (row[5]): 계약자
-    // G열 (row[6]): 계약일
-    // H열 (row[7]): 계약금 1차 금액
-    // I열 (row[8]): 계약금 2차 일자
-    // J열 (row[9]): 계약금 2차 금액
-    // K열 (row[10]): 중도금 1차 일자
-    // L열 (row[11]): 중도금 1차 금액
-    // M열 (row[12]): 중도금 2차 일자
-    // N열 (row[13]): 중도금 2차 금액
-    // O열 (row[14]): 중도금 3차 일자
-    // P열 (row[15]): 중도금 3차 금액
-    // Q열 (row[16]): 잔금 일자
-    // R열 (row[17]): 잔금 금액
-    // S열 (row[18]): 합계
-    // T열 (row[19]): 계약형식
-    // U열 (row[20]): 채권양도
-    // V열 (row[21]): 비고 (종결 (note text) 형식)
+    // 매도현황 시트 구조에 맞춰 row 생성
+    // ⚠️ A열은 시트에서 항상 빈칸 → B열부터 시작하는 배열 생성
+    // Google Sheets API append가 빈 A열 감지 시 한 칸 밀리는 현상 방지
+    //
+    // B열 (row[0]): 구분
+    // C열 (row[1]): 동
+    // D열 (row[2]): 빈칸
+    // E열 (row[3]): 호
+    // F열 (row[4]): 계약자
+    // G열 (row[5]): 계약일
+    // H열 (row[6]): 계약금 1차 금액
+    // I열 (row[7]): 계약금 2차 일자
+    // J열 (row[8]): 계약금 2차 금액
+    // K열 (row[9]): 중도금 1차 일자
+    // L열 (row[10]): 중도금 1차 금액
+    // M열 (row[11]): 중도금 2차 일자
+    // N열 (row[12]): 중도금 2차 금액
+    // O열 (row[13]): 중도금 3차 일자
+    // P열 (row[14]): 중도금 3차 금액
+    // Q열 (row[15]): 잔금 일자
+    // R열 (row[16]): 잔금 금액
+    // S열 (row[17]): 합계
+    // T열 (row[18]): 계약형식
+    // U열 (row[19]): 채권양도
+    // V열 (row[20]): 비고 (종결 (note text) 형식)
 
     console.log('🔍 [saleContractToRow] contract.category:', contract.category)
     console.log('🔍 [saleContractToRow] contract.building:', contract.building)
     console.log('🔍 [saleContractToRow] contract.unit:', contract.unit)
     console.log('🔍 [saleContractToRow] contract.buyer:', contract.buyer)
 
-    const row = new Array(22).fill('')
+    // B열부터 시작 (A열 제외) - 21개 요소
+    const row = new Array(21).fill('')
 
     // 안전한 날짜 포맷 함수
     const formatDateSafe = (date: Date | undefined): string => {
@@ -1196,62 +1202,61 @@ export const useContractsStore = defineStore('contracts', () => {
       }
     }
 
-    // 기본 정보
-    row[1] = contract.category || '' // B열: 구분
-    row[2] = contract.building || '' // C열: 동
-    // D열 (row[3]): 빈칸
+    // 기본 정보 (인덱스 -1: B열부터 시작)
+    row[0] = contract.category || '' // B열: 구분
+    row[1] = contract.building || '' // C열: 동
+    // D열 (row[2]): 빈칸
     // 동-호에서 호수 추출 (예: "108-407" -> "407")
     const unitParts = contract.unit.split('-')
-    row[4] = unitParts[1] || contract.unit || '' // E열: 호
-    row[5] = contract.buyer || '' // F열: 계약자
-    row[6] = formatDateSafe(contract.contractDate) // G열: 계약일
+    row[3] = unitParts[1] || contract.unit || '' // E열: 호
+    row[4] = contract.buyer || '' // F열: 계약자
+    row[5] = formatDateSafe(contract.contractDate) // G열: 계약일
 
     // 계약금 1차 (H열)
-    row[7] = Math.round((contract.downPayment || 0) / 1000) // H열: 계약금 1차 금액 (원 → 천원)
+    row[6] = Math.round((contract.downPayment || 0) / 1000) // H열: 계약금 1차 금액 (원 → 천원)
 
     // 계약금 2차 (I-J열)
-    row[8] = formatDateSafe(contract.downPayment2Date) // I열: 계약금 2차 일자
-    row[9] = Math.round((contract.downPayment2 || 0) / 1000) // J열: 계약금 2차 금액 (원 → 천원)
+    row[7] = formatDateSafe(contract.downPayment2Date) // I열: 계약금 2차 일자
+    row[8] = Math.round((contract.downPayment2 || 0) / 1000) // J열: 계약금 2차 금액 (원 → 천원)
 
     // 중도금 1차 (K-L열)
-    row[10] = formatDateSafe(contract.interimPayment1Date) // K열: 중도금 1차 일자
-    row[11] = Math.round((contract.interimPayment1 || 0) / 1000) // L열: 중도금 1차 금액 (원 → 천원)
+    row[9] = formatDateSafe(contract.interimPayment1Date) // K열: 중도금 1차 일자
+    row[10] = Math.round((contract.interimPayment1 || 0) / 1000) // L열: 중도금 1차 금액 (원 → 천원)
 
     // 중도금 2차 (M-N열)
-    row[12] = formatDateSafe(contract.interimPayment2Date) // M열: 중도금 2차 일자
-    row[13] = Math.round((contract.interimPayment2 || 0) / 1000) // N열: 중도금 2차 금액 (원 → 천원)
+    row[11] = formatDateSafe(contract.interimPayment2Date) // M열: 중도금 2차 일자
+    row[12] = Math.round((contract.interimPayment2 || 0) / 1000) // N열: 중도금 2차 금액 (원 → 천원)
 
     // 중도금 3차 (O-P열)
-    row[14] = formatDateSafe(contract.interimPayment3Date) // O열: 중도금 3차 일자
-    row[15] = Math.round((contract.interimPayment3 || 0) / 1000) // P열: 중도금 3차 금액 (원 → 천원)
+    row[13] = formatDateSafe(contract.interimPayment3Date) // O열: 중도금 3차 일자
+    row[14] = Math.round((contract.interimPayment3 || 0) / 1000) // P열: 중도금 3차 금액 (원 → 천원)
 
     // 잔금 (Q-R열)
-    row[16] = formatDateSafe(contract.finalPaymentDate) // Q열: 잔금 일자
-    row[17] = Math.round((contract.finalPayment || 0) / 1000) // R열: 잔금 금액 (원 → 천원)
+    row[15] = formatDateSafe(contract.finalPaymentDate) // Q열: 잔금 일자
+    row[16] = Math.round((contract.finalPayment || 0) / 1000) // R열: 잔금 금액 (원 → 천원)
 
     // 합계 (S열)
-    row[18] = Math.round((contract.totalAmount || 0) / 1000) // S열: 합계 (원 → 천원)
+    row[17] = Math.round((contract.totalAmount || 0) / 1000) // S열: 합계 (원 → 천원)
 
     // 계약형식 (T열)
-    row[19] = contract.contractFormat || '' // T열: 계약형식
+    row[18] = contract.contractFormat || '' // T열: 계약형식
 
     // 채권양도 (U열)
-    row[20] = contract.bondTransfer || '' // U열: 채권양도
+    row[19] = contract.bondTransfer || '' // U열: 채권양도
 
     // 비고 (V열) - "종결 (note text)" 형식으로 결합
     if (contract.status === 'completed') {
-      row[21] = contract.notes ? `종결 (${contract.notes})` : '종결'
+      row[20] = contract.notes ? `종결 (${contract.notes})` : '종결'
     } else {
-      row[21] = contract.notes || ''
+      row[20] = contract.notes || ''
     }
 
-    console.log('📊 [saleContractToRow] 생성된 row 배열:')
-    console.log('  row[0] (A열 빈칸):', row[0])
-    console.log('  row[1] (B열 구분):', row[1])
-    console.log('  row[2] (C열 동):', row[2])
-    console.log('  row[3] (D열 빈칸):', row[3])
-    console.log('  row[4] (E열 호):', row[4])
-    console.log('  row[5] (F열 계약자):', row[5])
+    console.log('📊 [saleContractToRow] 생성된 row 배열 (B열부터 시작):')
+    console.log('  row[0] (B열 구분):', row[0])
+    console.log('  row[1] (C열 동):', row[1])
+    console.log('  row[2] (D열 빈칸):', row[2])
+    console.log('  row[3] (E열 호):', row[3])
+    console.log('  row[4] (F열 계약자):', row[4])
     console.log('  전체 row:', JSON.stringify(row.slice(0, 10)))
 
     return row
