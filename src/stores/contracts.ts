@@ -1174,6 +1174,11 @@ export const useContractsStore = defineStore('contracts', () => {
     // U열 (row[20]): 채권양도
     // V열 (row[21]): 비고 (종결 (note text) 형식)
 
+    console.log('🔍 [saleContractToRow] contract.category:', contract.category)
+    console.log('🔍 [saleContractToRow] contract.building:', contract.building)
+    console.log('🔍 [saleContractToRow] contract.unit:', contract.unit)
+    console.log('🔍 [saleContractToRow] contract.buyer:', contract.buyer)
+
     const row = new Array(22).fill('')
 
     // 안전한 날짜 포맷 함수
@@ -1239,6 +1244,15 @@ export const useContractsStore = defineStore('contracts', () => {
     } else {
       row[21] = contract.notes || ''
     }
+
+    console.log('📊 [saleContractToRow] 생성된 row 배열:')
+    console.log('  row[0] (A열 빈칸):', row[0])
+    console.log('  row[1] (B열 구분):', row[1])
+    console.log('  row[2] (C열 동):', row[2])
+    console.log('  row[3] (D열 빈칸):', row[3])
+    console.log('  row[4] (E열 호):', row[4])
+    console.log('  row[5] (F열 계약자):', row[5])
+    console.log('  전체 row:', JSON.stringify(row.slice(0, 10)))
 
     return row
   }
