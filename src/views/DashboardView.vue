@@ -152,6 +152,25 @@ const stats = computed(() => ({
   notifications: notificationsStore.unreadCount
 }))
 
+// 현재 시트 그룹에 해당하는 알림만 필터링
+const currentGroupNotifications = computed(() => {
+  if (!sheetsStore.currentSheet) return []
+
+  // 현재 그룹에 속한 모든 시트 ID
+  const currentGroupName = sheetsStore.currentSheet.name
+  const groupSheetIds = sheetsStore.sheets
+    .filter(s => s.name === currentGroupName)
+    .map(s => s.id)
+
+  // 해당 그룹의 알림만 필터링 (미읽음)
+  return notificationsStore.sortedNotifications.filter(n =>
+    !n.read && n.sheetId && groupSheetIds.includes(n.sheetId)
+  )
+})
+
+// 현재 그룹의 미읽음 알림 개수
+const currentGroupUnreadCount = computed(() => currentGroupNotifications.value.length)
+
 // 데이터 로드 함수 - 현재 선택된 파일(그룹)의 시트들만 로드
 async function loadData() {
   if (sheetsStore.sheets.length === 0) {
@@ -527,7 +546,7 @@ function getPriorityColor(priority: string) {
         </div>
       </section>
 
-      <!-- Notifications Section -->
+      <!-- Notifications Section (현재 시트 그룹의 알림만 표시) -->
       <section class="dashboard-section">
         <div class="section-header">
           <div class="section-title-group">
@@ -535,8 +554,8 @@ function getPriorityColor(priority: string) {
               <NotificationIcon />
             </n-icon>
             <h2 class="section-title">최근 알림</h2>
-            <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">
-              {{ notificationsStore.unreadCount }}
+            <span v-if="currentGroupUnreadCount > 0" class="notification-badge">
+              {{ currentGroupUnreadCount }}
             </span>
           </div>
           <n-button text type="primary" @click="navigateToNotifications()">
@@ -545,9 +564,9 @@ function getPriorityColor(priority: string) {
         </div>
 
         <div class="notifications-card">
-          <div v-if="notificationsStore.unreadNotifications.length > 0" class="notification-list">
+          <div v-if="currentGroupNotifications.length > 0" class="notification-list">
             <div
-              v-for="notification in notificationsStore.sortedNotifications.filter(n => !n.read).slice(0, 5)"
+              v-for="notification in currentGroupNotifications.slice(0, 5)"
               :key="notification.id"
               class="notification-item"
               @click="handleNotificationClick(notification)"
@@ -555,9 +574,6 @@ function getPriorityColor(priority: string) {
               <div class="notification-priority" :style="{ backgroundColor: getPriorityColor(notification.priority) }"></div>
               <div class="notification-content">
                 <div class="notification-header">
-                  <span class="notification-sheet" v-if="notification.sheetName">
-                    {{ notification.sheetName }}
-                  </span>
                   <span class="notification-type">
                     {{ notification.type === 'contract_expiring' ? '계약만료' : 'HUG만료' }}
                   </span>
@@ -576,7 +592,7 @@ function getPriorityColor(priority: string) {
               </div>
             </div>
           </div>
-          <n-empty v-else description="새로운 알림이 없습니다" class="py-8" />
+          <n-empty v-else description="이 시트 그룹의 알림이 없습니다" class="py-8" />
         </div>
       </section>
 

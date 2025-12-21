@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSheetsStore } from '@/stores/sheets'
+import type { SheetConfig } from '@/types'
 import { formatDate } from '@/utils/dateUtils'
 import type { Notification } from '@/types/notification'
 import {
@@ -32,14 +33,27 @@ const dialog = useDialog()
 // Filter state
 const filterType = ref<'all' | 'contract_expiring' | 'hug_expiring'>('all')
 const filterPriority = ref<'all' | 'high' | 'medium' | 'low'>('all')
+const filterSheet = ref<'all' | string>('all')
 const showRead = ref(false)
 
-// Load notifications on mount
-onMounted(async () => {
-  // 🔧 FIX: 알림 중복 생성 방지
-  // checkNotifications()는 DashboardView에서만 호출하고,
-  // 여기서는 이미 로드된 알림만 표시
-  console.log('✅ [NotificationsView] 알림 페이지 로드 - 기존 알림 표시')
+// 시트 그룹 목록 (중복 제거된 시트 이름)
+const sheetGroups = computed(() => {
+  const groups = new Map<string, SheetConfig>()
+  sheetsStore.sheets.forEach(sheet => {
+    if (!groups.has(sheet.name)) {
+      groups.set(sheet.name, sheet)
+    }
+  })
+  return Array.from(groups.values())
+})
+
+// 시트 필터 옵션
+const sheetOptions = computed(() => {
+  const options = [{ label: '전체 시트', value: 'all' }]
+  sheetGroups.value.forEach(sheet => {
+    options.push({ label: sheet.name, value: sheet.name })
+  })
+  return options
 })
 
 // Filter options
@@ -59,6 +73,15 @@ const priorityOptions = [
 // Filtered notifications
 const filteredNotifications = computed(() => {
   let result = notificationsStore.notifications
+
+  // Sheet filter (시트 그룹명으로 필터링)
+  if (filterSheet.value !== 'all') {
+    // 해당 그룹에 속한 모든 시트 ID 찾기
+    const groupSheetIds = sheetsStore.sheets
+      .filter(s => s.name === filterSheet.value)
+      .map(s => s.id)
+    result = result.filter((n) => n.sheetId && groupSheetIds.includes(n.sheetId))
+  }
 
   // Type filter
   if (filterType.value !== 'all') {
@@ -181,22 +204,30 @@ function isRead(notificationId: string) {
       </div>
 
       <!-- Filters -->
-      <n-space align="center">
+      <n-space align="center" wrap>
+        <n-select
+          v-model:value="filterSheet"
+          :options="sheetOptions"
+          style="width: 150px"
+          placeholder="시트 선택"
+        />
+
         <n-select
           v-model:value="filterType"
           :options="typeOptions"
-          style="width: 150px"
+          style="width: 130px"
         />
 
         <n-select
           v-model:value="filterPriority"
           :options="priorityOptions"
-          style="width: 120px"
+          style="width: 100px"
         />
 
         <n-button
           :type="showRead ? 'primary' : 'default'"
           @click="showRead = !showRead"
+          size="small"
         >
           {{ showRead ? '읽은 알림 숨기기' : '읽은 알림 보기' }}
         </n-button>
