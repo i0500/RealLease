@@ -7,7 +7,17 @@ import { useNotificationSettingsStore } from '@/stores/notificationSettings'
 import { useSheetsStore } from '@/stores/sheets'
 import { formatDate } from '@/utils/dateUtils'
 import { formatCurrency } from '@/utils/formatUtils'
-import { NCard, NStatistic, NSpin, NAlert, NEmpty, NButton, NTag, NModal, NDescriptions, NDescriptionsItem, NSpace, useMessage } from 'naive-ui'
+import { NCard, NSpin, NAlert, NEmpty, NButton, NTag, NModal, NDescriptions, NDescriptionsItem, NSpace, NIcon, useMessage } from 'naive-ui'
+import {
+  HomeOutline as HomeIcon,
+  WarningOutline as WarningIcon,
+  CheckmarkCircleOutline as CheckIcon,
+  TimeOutline as TimeIcon,
+  DocumentTextOutline as DocumentIcon,
+  NotificationsOutline as NotificationIcon,
+  TrendingUpOutline as TrendingIcon,
+  BusinessOutline as BuildingIcon
+} from '@vicons/ionicons5'
 import type { RentalContract } from '@/types/contract'
 import type { Notification } from '@/types/notification'
 
@@ -65,9 +75,10 @@ const hugExpiringContracts = computed(() => {
 
 // 임대차 통계 (현재 선택된 시트만)
 const rentalStats = computed(() => {
-  // ✅ 전체계약: 동/호가 있는 모든 계약 (공실 포함)
+  // 전체계약: 동/호가 있는 모든 계약 (공실 포함)
   const total = currentSheetContracts.value.length
   const vacant = currentSheetContracts.value.filter(c => !c.tenantName || c.tenantName.trim() === '').length
+  const occupied = total - vacant
 
   // 계약 만료예정 (설정값 기반)
   const today = new Date()
@@ -83,7 +94,10 @@ const rentalStats = computed(() => {
   // 보증보험 만료예정
   const hugExpiring = hugExpiringContracts.value.length
 
-  return { total, vacant, expiring, hugExpiring }
+  // 입주율 계산
+  const occupancyRate = total > 0 ? Math.round((occupied / total) * 100) : 0
+
+  return { total, vacant, occupied, expiring, hugExpiring, occupancyRate }
 })
 
 // 현재 그룹의 매도 계약만 필터링
@@ -128,45 +142,47 @@ const saleStats = computed(() => {
 const stats = computed(() => ({
   rentalTotal: rentalStats.value.total,
   rentalVacant: rentalStats.value.vacant,
+  rentalOccupied: rentalStats.value.occupied,
   rentalExpiring: rentalStats.value.expiring,
-  hugExpiring: rentalStats.value.hugExpiring, // 보증보험 만료예정
+  hugExpiring: rentalStats.value.hugExpiring,
+  occupancyRate: rentalStats.value.occupancyRate,
   saleTotal: saleStats.value.total,
   saleActive: saleStats.value.active,
   saleCompleted: saleStats.value.completed,
   notifications: notificationsStore.unreadCount
 }))
 
-// ✅ 데이터 로드 함수 - 현재 선택된 파일(그룹)의 시트들만 로드
+// 데이터 로드 함수 - 현재 선택된 파일(그룹)의 시트들만 로드
 async function loadData() {
   if (sheetsStore.sheets.length === 0) {
-    console.log('📋 [DashboardView.loadData] 등록된 시트가 없습니다')
+    console.log('[DashboardView.loadData] 등록된 시트가 없습니다')
     return
   }
 
   if (!sheetsStore.currentSheet) {
-    console.log('📋 [DashboardView.loadData] 선택된 시트가 없습니다')
+    console.log('[DashboardView.loadData] 선택된 시트가 없습니다')
     return
   }
 
   try {
     const currentSheetName = sheetsStore.currentSheet.name
-    console.log('🔄 [DashboardView.loadData] 선택된 파일 데이터 로딩 시작:', currentSheetName)
+    console.log('[DashboardView.loadData] 선택된 파일 데이터 로딩 시작:', currentSheetName)
 
-    // ✅ 같은 name(그룹)을 가진 시트들만 로드
+    // 같은 name(그룹)을 가진 시트들만 로드
     const groupSheets = sheetsStore.sheets.filter(s => s.name === currentSheetName)
-    console.log(`📋 [DashboardView.loadData] "${currentSheetName}" 그룹의 시트 ${groupSheets.length}개 발견`)
+    console.log(`[DashboardView.loadData] "${currentSheetName}" 그룹의 시트 ${groupSheets.length}개 발견`)
 
     for (const sheet of groupSheets) {
-      // ✅ sheetType 사용 (이미 저장되어 있음)
+      // sheetType 사용 (이미 저장되어 있음)
       await contractsStore.loadContracts(sheet.id, sheet.sheetType)
     }
 
     // 알림 확인
     await notificationsStore.checkNotifications()
 
-    console.log(`✅ [DashboardView.loadData] "${currentSheetName}" 파일 데이터 로딩 완료`)
+    console.log(`[DashboardView.loadData] "${currentSheetName}" 파일 데이터 로딩 완료`)
   } catch (error) {
-    console.error('❌ [DashboardView.loadData] 데이터 로딩 실패:', error)
+    console.error('[DashboardView.loadData] 데이터 로딩 실패:', error)
   }
 }
 
@@ -175,9 +191,9 @@ onMounted(async () => {
   // 알림 설정 로드
   await notificationSettingsStore.initialize()
 
-  // 🔧 FIX: 새로고침 시 sheets가 로드되지 않은 경우를 대비해 먼저 로드
+  // 새로고침 시 sheets가 로드되지 않은 경우를 대비해 먼저 로드
   if (sheetsStore.sheets.length === 0) {
-    console.log('📦 [DashboardView] Sheets 데이터 로딩 중...')
+    console.log('[DashboardView] Sheets 데이터 로딩 중...')
     await sheetsStore.loadSheets()
   }
   await loadData()
@@ -188,7 +204,7 @@ watch(
   () => sheetsStore.currentSheet?.id,
   (newSheetId, oldSheetId) => {
     if (newSheetId && newSheetId !== oldSheetId) {
-      console.log('🔄 [DashboardView] 시트 변경 감지, 데이터 재로드:', newSheetId)
+      console.log('[DashboardView] 시트 변경 감지, 데이터 재로드:', newSheetId)
       loadData()
     }
   }
@@ -297,42 +313,83 @@ function handleSaleClick(saleId: string) {
   })
 }
 
+function navigateToNotifications() {
+  router.push({ name: 'notifications' })
+}
+
+// 우선순위별 색상 반환
+function getPriorityColor(priority: string) {
+  switch (priority) {
+    case 'high': return '#ef4444'
+    case 'medium': return '#f59e0b'
+    case 'low': return '#3b82f6'
+    default: return '#6b7280'
+  }
+}
 </script>
 
 <template>
-  <div>
-    <div class="mb-4 md:mb-6">
-      <h1 class="text-xl md:text-2xl font-bold" style="color: #2c3e50;">대시보드</h1>
-    </div>
+  <div class="dashboard-container">
+    <!-- Header Section -->
+    <header class="dashboard-header">
+      <div class="header-content">
+        <div class="header-left">
+          <div class="header-icon">
+            <n-icon size="28" color="#fff">
+              <BuildingIcon />
+            </n-icon>
+          </div>
+          <div class="header-text">
+            <h1 class="header-title">Dashboard</h1>
+            <p class="header-subtitle" v-if="sheetsStore.currentSheet">
+              {{ sheetsStore.currentSheet.name }}
+            </p>
+          </div>
+        </div>
+        <div class="header-right" v-if="sheetsStore.currentSheet">
+          <div class="header-stat">
+            <span class="stat-label">입주율</span>
+            <span class="stat-value" :class="{ 'text-success': stats.occupancyRate >= 90, 'text-warning': stats.occupancyRate >= 70 && stats.occupancyRate < 90, 'text-danger': stats.occupancyRate < 70 }">
+              {{ stats.occupancyRate }}%
+            </span>
+          </div>
+        </div>
+      </div>
+    </header>
 
     <!-- No sheets message -->
-    <div v-if="!sheetsStore.currentSheet" class="flex items-center justify-center" style="min-height: 400px;">
-      <div class="text-center max-w-md px-4">
-        <h2 class="text-xl md:text-2xl font-semibold mb-2 md:mb-3" style="color: #2c3e50;">
-          시트 연결이 필요합니다
-        </h2>
-        <p class="text-xs md:text-sm mb-4 md:mb-6" style="color: #7f8c8d; line-height: 1.6;">
+    <div v-if="!sheetsStore.currentSheet" class="empty-state">
+      <div class="empty-state-content">
+        <div class="empty-icon">
+          <n-icon size="64" color="#94a3b8">
+            <DocumentIcon />
+          </n-icon>
+        </div>
+        <h2 class="empty-title">시트 연결이 필요합니다</h2>
+        <p class="empty-description">
           구글 스프레드시트를 연결하여<br />
           임대차 계약 관리를 시작하세요
         </p>
         <n-button
           type="primary"
-          size="medium"
+          size="large"
           @click="router.push({ name: 'settings' })"
-          class="w-full sm:w-auto"
-          style="min-width: 140px;"
+          class="empty-button"
         >
           시트 연결하기
         </n-button>
       </div>
     </div>
 
-    <div v-else-if="contractsStore.isLoading" class="text-center py-10">
+    <!-- Loading State -->
+    <div v-else-if="contractsStore.isLoading" class="loading-state">
       <n-spin size="large" />
-      <p class="mt-4 text-gray-600">데이터를 불러오는 중...</p>
+      <p class="loading-text">데이터를 불러오는 중...</p>
     </div>
 
-    <div v-else>
+    <!-- Main Content -->
+    <div v-else class="dashboard-content">
+      <!-- Error Alert -->
       <n-alert
         v-if="contractsStore.error"
         type="error"
@@ -343,169 +400,285 @@ function handleSaleClick(saleId: string) {
         {{ contractsStore.error }}
       </n-alert>
 
-      <!-- 통계 카드 -->
-      <div class="mb-4 md:mb-6">
-        <h2 class="text-base md:text-lg font-semibold mb-2 md:mb-3" style="color: #2c3e50;">임대차 현황</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts()">
-            <n-statistic label="전체 계약" :value="stats.rentalTotal" />
-          </n-card>
-
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('vacant')">
-            <n-statistic label="공실" :value="stats.rentalVacant" />
-          </n-card>
-
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('expiring')">
-            <n-statistic label="계약만료 도래" :value="stats.rentalExpiring" />
-          </n-card>
-
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToContracts('hugExpiring')">
-            <n-statistic label="보험만료 도래" :value="stats.hugExpiring" />
-          </n-card>
+      <!-- Rental Status Section -->
+      <section class="dashboard-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <n-icon size="20" color="#3b82f6">
+              <HomeIcon />
+            </n-icon>
+            <h2 class="section-title">임대차 현황</h2>
+          </div>
+          <n-button text type="primary" @click="navigateToContracts()">
+            전체보기 &rarr;
+          </n-button>
         </div>
-      </div>
 
-      <!-- 매도현황 통계 카드 -->
-      <div v-if="stats.saleTotal > 0" class="mb-4 md:mb-6">
-        <h2 class="text-base md:text-lg font-semibold mb-2 md:mb-3" style="color: #2c3e50;">매도현황</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales()">
-            <n-statistic label="전체 매도" :value="stats.saleTotal" />
-          </n-card>
+        <div class="kpi-grid">
+          <!-- 전체 계약 -->
+          <div class="kpi-card kpi-primary" @click="navigateToContracts()">
+            <div class="kpi-icon-wrap primary">
+              <n-icon size="24" color="#3b82f6">
+                <DocumentIcon />
+              </n-icon>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-value">{{ stats.rentalTotal }}</span>
+              <span class="kpi-label">전체 계약</span>
+            </div>
+          </div>
 
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales('active')">
-            <n-statistic label="진행중" :value="stats.saleActive" />
-          </n-card>
+          <!-- 공실 -->
+          <div class="kpi-card kpi-neutral" @click="navigateToContracts('vacant')">
+            <div class="kpi-icon-wrap neutral">
+              <n-icon size="24" color="#6b7280">
+                <HomeIcon />
+              </n-icon>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-value">{{ stats.rentalVacant }}</span>
+              <span class="kpi-label">공실</span>
+            </div>
+          </div>
 
-          <n-card hoverable class="cursor-pointer text-center" @click="navigateToSales('completed')">
-            <n-statistic label="종결" :value="stats.saleCompleted" />
-          </n-card>
+          <!-- 계약만료 도래 -->
+          <div class="kpi-card kpi-warning" @click="navigateToContracts('expiring')">
+            <div class="kpi-icon-wrap warning">
+              <n-icon size="24" color="#f59e0b">
+                <TimeIcon />
+              </n-icon>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-value">{{ stats.rentalExpiring }}</span>
+              <span class="kpi-label">계약만료 도래</span>
+            </div>
+            <div v-if="stats.rentalExpiring > 0" class="kpi-badge warning">주의</div>
+          </div>
+
+          <!-- 보험만료 도래 -->
+          <div class="kpi-card kpi-danger" @click="navigateToContracts('hugExpiring')">
+            <div class="kpi-icon-wrap danger">
+              <n-icon size="24" color="#ef4444">
+                <WarningIcon />
+              </n-icon>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-value">{{ stats.hugExpiring }}</span>
+              <span class="kpi-label">보험만료 도래</span>
+            </div>
+            <div v-if="stats.hugExpiring > 0" class="kpi-badge danger">긴급</div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 최근 알림 -->
-      <n-card title="최근 알림" class="mb-4 md:mb-6">
-        <div v-if="notificationsStore.unreadNotifications.length > 0" class="space-y-2">
-          <div
-            v-for="notification in notificationsStore.sortedNotifications.filter(n => !n.read).slice(0, 5)"
-            :key="notification.id"
-            class="border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-red-50 hover:border-red-300 transition-all"
-            @click="handleNotificationClick(notification)"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex-1 min-w-0">
-                <h4 class="font-semibold text-blue-600 hover:underline text-sm sm:text-base truncate">
-                  {{ notification.title }}
-                </h4>
-                <p class="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
-                  {{ notification.message }}
-                </p>
+      <!-- Sale Status Section -->
+      <section v-if="stats.saleTotal > 0" class="dashboard-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <n-icon size="20" color="#10b981">
+              <TrendingIcon />
+            </n-icon>
+            <h2 class="section-title">매도현황</h2>
+          </div>
+          <n-button text type="primary" @click="navigateToSales()">
+            전체보기 &rarr;
+          </n-button>
+        </div>
+
+        <div class="kpi-grid kpi-grid-3">
+          <!-- 전체 매도 -->
+          <div class="kpi-card kpi-success" @click="navigateToSales()">
+            <div class="kpi-icon-wrap success">
+              <n-icon size="24" color="#10b981">
+                <TrendingIcon />
+              </n-icon>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-value">{{ stats.saleTotal }}</span>
+              <span class="kpi-label">전체 매도</span>
+            </div>
+          </div>
+
+          <!-- 진행중 -->
+          <div class="kpi-card kpi-info" @click="navigateToSales('active')">
+            <div class="kpi-icon-wrap info">
+              <n-icon size="24" color="#0ea5e9">
+                <TimeIcon />
+              </n-icon>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-value">{{ stats.saleActive }}</span>
+              <span class="kpi-label">진행중</span>
+            </div>
+          </div>
+
+          <!-- 종결 -->
+          <div class="kpi-card kpi-complete" @click="navigateToSales('completed')">
+            <div class="kpi-icon-wrap complete">
+              <n-icon size="24" color="#22c55e">
+                <CheckIcon />
+              </n-icon>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-value">{{ stats.saleCompleted }}</span>
+              <span class="kpi-label">종결</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Notifications Section -->
+      <section class="dashboard-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <n-icon size="20" color="#f59e0b">
+              <NotificationIcon />
+            </n-icon>
+            <h2 class="section-title">최근 알림</h2>
+            <span v-if="notificationsStore.unreadCount > 0" class="notification-badge">
+              {{ notificationsStore.unreadCount }}
+            </span>
+          </div>
+          <n-button text type="primary" @click="navigateToNotifications()">
+            전체보기 &rarr;
+          </n-button>
+        </div>
+
+        <div class="notifications-card">
+          <div v-if="notificationsStore.unreadNotifications.length > 0" class="notification-list">
+            <div
+              v-for="notification in notificationsStore.sortedNotifications.filter(n => !n.read).slice(0, 5)"
+              :key="notification.id"
+              class="notification-item"
+              @click="handleNotificationClick(notification)"
+            >
+              <div class="notification-priority" :style="{ backgroundColor: getPriorityColor(notification.priority) }"></div>
+              <div class="notification-content">
+                <div class="notification-header">
+                  <span class="notification-sheet" v-if="notification.sheetName">
+                    {{ notification.sheetName }}
+                  </span>
+                  <span class="notification-type">
+                    {{ notification.type === 'contract_expiring' ? '계약만료' : 'HUG만료' }}
+                  </span>
+                </div>
+                <h4 class="notification-title">{{ notification.title }}</h4>
+                <p class="notification-message">{{ notification.message }}</p>
               </div>
-              <n-tag
-                :type="notification.priority === 'high' ? 'error' : notification.priority === 'medium' ? 'warning' : 'default'"
-                size="small"
-                class="flex-shrink-0"
-              >
-                D-{{ notification.daysLeft }}
-              </n-tag>
+              <div class="notification-dday">
+                <span class="dday-value" :class="{
+                  'dday-high': notification.priority === 'high',
+                  'dday-medium': notification.priority === 'medium',
+                  'dday-low': notification.priority === 'low'
+                }">
+                  D-{{ notification.daysLeft }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <n-empty v-else description="새로운 알림이 없습니다" class="py-8" />
+        </div>
+      </section>
+
+      <!-- Recent Contracts Section -->
+      <section class="dashboard-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <n-icon size="20" color="#8b5cf6">
+              <DocumentIcon />
+            </n-icon>
+            <h2 class="section-title">최근 계약</h2>
+          </div>
+          <n-button text type="primary" @click="navigateToContracts()">
+            전체보기 &rarr;
+          </n-button>
+        </div>
+
+        <div class="contracts-card">
+          <div v-if="recentContracts.length > 0" class="contract-list">
+            <div
+              v-for="contract in recentContracts"
+              :key="contract.id"
+              class="contract-item"
+              @click="handleContractClick(contract)"
+            >
+              <div class="contract-main">
+                <div class="contract-location">
+                  <span class="location-text">{{ contract.building }}동 {{ contract.unit }}호</span>
+                  <n-tag
+                    :type="contract.tenantName ? 'success' : 'default'"
+                    size="small"
+                  >
+                    {{ contract.tenantName ? '계약중' : '공실' }}
+                  </n-tag>
+                </div>
+                <div class="contract-details">
+                  <span class="tenant-name">{{ contract.tenantName || '공실' }}</span>
+                  <span v-if="contract.contractType" class="contract-type">{{ contract.contractType }}</span>
+                  <span v-if="contract.deposit > 0" class="contract-amount">
+                    {{ formatCurrency(contract.deposit) }}
+                    <span v-if="contract.monthlyRent > 0"> / {{ (contract.monthlyRent / 1000).toLocaleString() }}천</span>
+                  </span>
+                </div>
+              </div>
+              <div v-if="contract.startDate || contract.endDate" class="contract-dates">
+                <span v-if="contract.startDate">{{ formatDate(contract.startDate, 'yyyy.MM.dd') }}</span>
+                <span v-if="contract.startDate && contract.endDate" class="date-separator">~</span>
+                <span v-if="contract.endDate">{{ formatDate(contract.endDate, 'yyyy.MM.dd') }}</span>
+              </div>
+            </div>
+          </div>
+          <n-empty v-else description="계약이 없습니다" class="py-8" />
+        </div>
+      </section>
+
+      <!-- Recent Sales Section -->
+      <section v-if="saleStats.total > 0" class="dashboard-section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <n-icon size="20" color="#10b981">
+              <TrendingIcon />
+            </n-icon>
+            <h2 class="section-title">최근 매도</h2>
+          </div>
+          <n-button text type="primary" @click="navigateToSales()">
+            전체보기 &rarr;
+          </n-button>
+        </div>
+
+        <div class="contracts-card">
+          <div class="contract-list">
+            <div
+              v-for="sale in currentGroupSaleContracts.slice(0, 5)"
+              :key="sale.id"
+              class="contract-item sale-item"
+              @click="handleSaleClick(sale.id)"
+            >
+              <div class="contract-main">
+                <div class="contract-location">
+                  <span class="location-text">{{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호</span>
+                  <n-tag
+                    :type="sale.status === 'completed' ? 'success' : 'info'"
+                    size="small"
+                  >
+                    {{ sale.status === 'completed' ? '종결' : '진행중' }}
+                  </n-tag>
+                </div>
+                <div class="contract-details">
+                  <span class="tenant-name">{{ sale.buyer }}</span>
+                  <n-tag v-if="sale.contractFormat" type="warning" size="small">
+                    {{ sale.contractFormat }}
+                  </n-tag>
+                </div>
+              </div>
+              <div class="sale-amount">
+                <span class="amount-label">합계</span>
+                <span class="amount-value">{{ formatCurrency(sale.totalAmount) }}</span>
+              </div>
             </div>
           </div>
         </div>
-        <n-empty v-else description="새로운 알림이 없습니다" />
-      </n-card>
-
-      <!-- 최근 계약 (시작일 기준 최근 5개) -->
-      <n-card title="최근 계약">
-        <div v-if="recentContracts.length > 0" class="space-y-3">
-          <div
-            v-for="contract in recentContracts"
-            :key="contract.id"
-            class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all"
-            @click="handleContractClick(contract)"
-          >
-            <!-- Header: 동-호 & 계약자 -->
-            <div class="flex items-start justify-between mb-2">
-              <h4 class="font-semibold text-blue-600 hover:underline text-sm sm:text-base">
-                {{ contract.building }}동 {{ contract.unit }}호
-              </h4>
-              <n-tag
-                :type="contract.tenantName ? 'success' : 'default'"
-                size="small"
-                class="ml-2 flex-shrink-0"
-              >
-                {{ contract.tenantName ? '계약중' : '공실' }}
-              </n-tag>
-            </div>
-
-            <!-- Tenant & Type -->
-            <div class="flex flex-wrap items-center gap-2 mb-2 text-xs sm:text-sm text-gray-600">
-              <span class="font-medium">{{ contract.tenantName || '공실' }}</span>
-              <span v-if="contract.contractType" class="text-gray-400">·</span>
-              <span v-if="contract.contractType" class="font-medium">{{ contract.contractType }}</span>
-              <span v-if="contract.deposit > 0" class="text-gray-400">·</span>
-              <span v-if="contract.deposit > 0" class="font-medium">
-                보증금 {{ formatCurrency(contract.deposit) }}
-                <span v-if="contract.monthlyRent > 0"> / 월세 {{ (contract.monthlyRent / 1000).toLocaleString() }}천</span>
-              </span>
-            </div>
-
-            <!-- Dates -->
-            <div v-if="contract.startDate || contract.endDate" class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-gray-500">
-              <span v-if="contract.startDate">시작: {{ formatDate(contract.startDate, 'yyyy.MM.dd') }}</span>
-              <span v-if="contract.startDate && contract.endDate" class="hidden sm:inline text-gray-400">→</span>
-              <span v-if="contract.endDate">종료: {{ formatDate(contract.endDate, 'yyyy.MM.dd') }}</span>
-            </div>
-          </div>
-        </div>
-        <n-empty v-else description="계약이 없습니다" />
-      </n-card>
-
-      <!-- 최근 매도 (현재 선택된 파일 그룹의 시트만) -->
-      <n-card v-if="saleStats.total > 0" title="최근 매도" class="mt-4 md:mt-6">
-        <div class="space-y-3">
-          <div
-            v-for="sale in currentGroupSaleContracts.slice(0, 5)"
-            :key="sale.id"
-            class="border border-gray-200 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all"
-            @click="handleSaleClick(sale.id)"
-          >
-            <!-- Header: 동-호 & 상태 -->
-            <div class="flex items-start justify-between mb-2">
-              <h4 class="font-semibold text-green-600 hover:underline text-sm sm:text-base">
-                {{ sale.building }}동 {{ sale.unit.split('-')[1] || sale.unit.split('-')[0] }}호
-              </h4>
-              <n-tag
-                :type="sale.status === 'completed' ? 'success' : 'info'"
-                size="small"
-                class="ml-2 flex-shrink-0"
-              >
-                {{ sale.status === 'completed' ? '종결' : '진행중' }}
-              </n-tag>
-            </div>
-
-            <!-- Buyer & Contract Format -->
-            <div class="flex flex-wrap items-center gap-2 mb-2 text-xs sm:text-sm text-gray-600">
-              <span class="font-medium">{{ sale.buyer }}</span>
-              <span v-if="sale.contractFormat" class="text-gray-400">·</span>
-              <n-tag v-if="sale.contractFormat" type="warning" size="small">
-                {{ sale.contractFormat }}
-              </n-tag>
-            </div>
-
-            <!-- Payment Info (억원 단위) -->
-            <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-              <span v-if="sale.downPayment > 0">계약금 {{ formatCurrency(sale.downPayment) }}</span>
-              <span v-if="sale.downPayment2 > 0">계약금2차 {{ formatCurrency(sale.downPayment2) }}</span>
-              <span v-if="sale.interimPayment1 > 0">중도1 {{ formatCurrency(sale.interimPayment1) }}</span>
-              <span v-if="sale.interimPayment2 > 0">중도2 {{ formatCurrency(sale.interimPayment2) }}</span>
-              <span v-if="sale.interimPayment3 > 0">중도3 {{ formatCurrency(sale.interimPayment3) }}</span>
-              <span v-if="sale.finalPayment > 0">잔금 {{ formatCurrency(sale.finalPayment) }}</span>
-              <span class="text-gray-400">·</span>
-              <span class="font-medium text-green-600">합계 {{ formatCurrency(sale.totalAmount) }}</span>
-            </div>
-          </div>
-        </div>
-      </n-card>
+      </section>
     </div>
 
     <!-- 계약 상세보기 모달 -->
@@ -659,3 +832,525 @@ function handleSaleClick(saleId: string) {
     </n-modal>
   </div>
 </template>
+
+<style scoped>
+.dashboard-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+/* Header Styles */
+.dashboard-header {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+  padding: 1.5rem;
+  margin: -1rem -1rem 1.5rem -1rem;
+  border-radius: 0 0 1.5rem 1.5rem;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.header-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.header-subtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0.25rem 0 0 0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-stat {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.stat-value.text-success { color: #4ade80; }
+.stat-value.text-warning { color: #fbbf24; }
+.stat-value.text-danger { color: #f87171; }
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem;
+}
+
+.empty-state-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.empty-icon {
+  margin-bottom: 1.5rem;
+}
+
+.empty-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.75rem;
+}
+
+.empty-description {
+  font-size: 0.938rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.empty-button {
+  min-width: 160px;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+}
+
+.loading-text {
+  color: #64748b;
+  font-size: 0.938rem;
+}
+
+/* Main Content */
+.dashboard-content {
+  padding: 0 1rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Section Styles */
+.dashboard-section {
+  margin-bottom: 2rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.notification-badge {
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* KPI Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .kpi-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* KPI Card */
+.kpi-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.kpi-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.kpi-icon-wrap.primary { background: rgba(59, 130, 246, 0.1); }
+.kpi-icon-wrap.neutral { background: rgba(107, 114, 128, 0.1); }
+.kpi-icon-wrap.warning { background: rgba(245, 158, 11, 0.1); }
+.kpi-icon-wrap.danger { background: rgba(239, 68, 68, 0.1); }
+.kpi-icon-wrap.success { background: rgba(16, 185, 129, 0.1); }
+.kpi-icon-wrap.info { background: rgba(14, 165, 233, 0.1); }
+.kpi-icon-wrap.complete { background: rgba(34, 197, 94, 0.1); }
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+}
+
+.kpi-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+}
+
+.kpi-badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.kpi-badge.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.kpi-badge.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+/* Notifications Card */
+.notifications-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: #fef2f2;
+}
+
+.notification-priority {
+  width: 4px;
+  height: 100%;
+  min-height: 60px;
+  border-radius: 2px;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.notification-sheet {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+.notification-type {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.notification-title {
+  font-size: 0.938rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+}
+
+.notification-message {
+  font-size: 0.813rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.notification-dday {
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
+.dday-value {
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.375rem 0.75rem;
+  border-radius: 8px;
+}
+
+.dday-high {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.dday-medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.dday-low {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+/* Contracts Card */
+.contracts-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.contract-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.contract-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.contract-item:last-child {
+  border-bottom: none;
+}
+
+.contract-item:hover {
+  background: #f8fafc;
+}
+
+.sale-item:hover {
+  background: #f0fdf4;
+}
+
+.contract-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.contract-location {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.location-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.contract-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.813rem;
+  color: #64748b;
+}
+
+.tenant-name {
+  font-weight: 500;
+  color: #475569;
+}
+
+.contract-type {
+  color: #64748b;
+}
+
+.contract-type::before {
+  content: '|';
+  margin-right: 0.5rem;
+  color: #cbd5e1;
+}
+
+.contract-amount {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.contract-dates {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
+.date-separator {
+  color: #cbd5e1;
+}
+
+.sale-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 1rem;
+}
+
+.amount-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.amount-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .dashboard-header {
+    padding: 1.25rem;
+    margin: -0.5rem -0.5rem 1rem -0.5rem;
+    border-radius: 0 0 1rem 1rem;
+  }
+
+  .header-title {
+    font-size: 1.25rem;
+  }
+
+  .header-stat {
+    display: none;
+  }
+
+  .kpi-value {
+    font-size: 1.5rem;
+  }
+
+  .contract-dates {
+    display: none;
+  }
+
+  .notification-dday {
+    display: none;
+  }
+}
+</style>

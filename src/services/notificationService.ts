@@ -1,4 +1,4 @@
-import type { Notification, RentalContract } from '@/types'
+import type { Notification, RentalContract, SheetConfig } from '@/types'
 import { getDaysLeft, isExpiringSoon } from '@/utils/dateUtils'
 
 export class NotificationService {
@@ -7,24 +7,34 @@ export class NotificationService {
    * @param contracts 계약 목록
    * @param contractExpiryDays 계약 만료 알림 일수
    * @param hugExpiryDays HUG 보증 만료 알림 일수
+   * @param sheets 시트 목록 (시트명 조회용)
    */
   checkExpirations(
     contracts: RentalContract[],
     contractExpiryDays: number = 90,
-    hugExpiryDays: number = 90
+    hugExpiryDays: number = 90,
+    sheets: SheetConfig[] = []
   ): Notification[] {
     const notifications: Notification[] = []
     const today = new Date()
 
+    // sheetId → sheetName 매핑 생성
+    const sheetNameMap = new Map<string, string>()
+    sheets.forEach(sheet => {
+      sheetNameMap.set(sheet.id, sheet.name)
+    })
+
     contracts.forEach(contract => {
+      const sheetName = sheetNameMap.get(contract.sheetId) || ''
+
       // 계약 만료 알림 (계약자가 있고 종료일이 있는 경우)
       if (contract.tenantName && contract.tenantName.trim() !== '' && contract.endDate) {
         const daysLeft = getDaysLeft(contract.endDate)
 
         if (isExpiringSoon(contract.endDate, contractExpiryDays)) {
           const address = `${contract.building}동 ${contract.unit}호`
-          // Deterministic ID: building-unit-tenantName-type (시트 간 중복 방지)
-          const notificationId = `${contract.building}-${contract.unit}-${contract.tenantName}-contract_expiring`
+          // Deterministic ID: sheetId-building-unit-tenantName-type (시트별 고유성 보장)
+          const notificationId = `${contract.sheetId}-${contract.building}-${contract.unit}-${contract.tenantName}-contract_expiring`
           notifications.push({
             id: notificationId,
             contractId: contract.id,
@@ -39,6 +49,7 @@ export class NotificationService {
             building: contract.building,
             unit: contract.unit,
             sheetId: contract.sheetId,
+            sheetName, // 시트 그룹 이름 추가
             tenantName: contract.tenantName
           })
         }
@@ -50,8 +61,8 @@ export class NotificationService {
 
         if (isExpiringSoon(contract.hugEndDate, hugExpiryDays)) {
           const address = `${contract.building}동 ${contract.unit}호`
-          // Deterministic ID: building-unit-type (시트 간 중복 방지, 호수별 HUG는 고유)
-          const notificationId = `${contract.building}-${contract.unit}-hug_expiring`
+          // Deterministic ID: sheetId-building-unit-type (시트별 고유성 보장)
+          const notificationId = `${contract.sheetId}-${contract.building}-${contract.unit}-hug_expiring`
           notifications.push({
             id: notificationId,
             contractId: contract.id,
@@ -66,6 +77,7 @@ export class NotificationService {
             building: contract.building,
             unit: contract.unit,
             sheetId: contract.sheetId,
+            sheetName, // 시트 그룹 이름 추가
             tenantName: contract.tenantName // HUG는 호수 기준이지만 현재 계약자 정보도 포함
           })
         }

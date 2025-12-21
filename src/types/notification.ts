@@ -12,6 +12,7 @@ export interface Notification {
   building?: string
   unit?: string
   sheetId?: string
+  sheetName?: string // 시트 그룹 이름 (여러 시트 구분용)
   tenantName?: string
 }
 

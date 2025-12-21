@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useContractsStore } from './contracts'
 import { useNotificationSettingsStore } from './notificationSettings'
+import { useSheetsStore } from './sheets'
 import { notificationService } from '@/services/notificationService'
 import { storageService } from '@/services/storageService'
 import { pushNotificationService } from '@/services/pushNotificationService'
@@ -16,6 +17,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   const contractsStore = useContractsStore()
   const settingsStore = useNotificationSettingsStore()
+  const sheetsStore = useSheetsStore()
 
   const unreadNotifications = computed(() =>
     notifications.value.filter(n => !n.read)
@@ -67,11 +69,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
       // 설정값 가져오기
       const { contractExpiryNoticeDays, hugExpiryNoticeDays } = settingsStore.settings
 
-      // 활성 계약에 대한 알림 체크 (설정값 사용)
+      // 활성 계약에 대한 알림 체크 (설정값 사용, 시트 목록 전달)
       const newNotifications = notificationService.checkExpirations(
         contractsStore.activeContracts,
         contractExpiryNoticeDays,
-        hugExpiryNoticeDays
+        hugExpiryNoticeDays,
+        sheetsStore.sheets
       )
 
       // 🎯 심플한 중복 체크: 기존 알림(읽음+미읽음 모두)에서 ID로 찾기

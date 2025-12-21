@@ -231,7 +231,18 @@ function isRead(notificationId: string) {
             :key="notification.id"
             @click="handleViewContract(notification)"
           >
-            <n-thing :title="notification.title" :description="notification.message">
+            <n-thing>
+              <template #header>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span v-if="notification.sheetName" class="sheet-name-tag">
+                    {{ notification.sheetName }}
+                  </span>
+                  <span class="notification-title-text">{{ notification.title }}</span>
+                </div>
+              </template>
+              <template #description>
+                {{ notification.message }}
+              </template>
               <template #header-extra>
                 <n-space align="center">
                   <n-tag :type="getDaysLeftColor(notification.daysLeft)" size="small">
@@ -268,7 +279,18 @@ function isRead(notificationId: string) {
             :key="notification.id"
             @click="handleViewContract(notification)"
           >
-            <n-thing :title="notification.title" :description="notification.message">
+            <n-thing>
+              <template #header>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span v-if="notification.sheetName" class="sheet-name-tag">
+                    {{ notification.sheetName }}
+                  </span>
+                  <span class="notification-title-text">{{ notification.title }}</span>
+                </div>
+              </template>
+              <template #description>
+                {{ notification.message }}
+              </template>
               <template #header-extra>
                 <n-space align="center">
                   <n-tag :type="getDaysLeftColor(notification.daysLeft)" size="small">
@@ -305,7 +327,18 @@ function isRead(notificationId: string) {
             :key="notification.id"
             @click="handleViewContract(notification)"
           >
-            <n-thing :title="notification.title" :description="notification.message">
+            <n-thing>
+              <template #header>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span v-if="notification.sheetName" class="sheet-name-tag">
+                    {{ notification.sheetName }}
+                  </span>
+                  <span class="notification-title-text">{{ notification.title }}</span>
+                </div>
+              </template>
+              <template #description>
+                {{ notification.message }}
+              </template>
               <template #header-extra>
                 <n-space align="center">
                   <n-tag :type="getDaysLeftColor(notification.daysLeft)" size="small">
@@ -374,5 +407,19 @@ function isRead(notificationId: string) {
 
 .space-y-4 > * + * {
   margin-top: 1rem;
+}
+
+.sheet-name-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+.notification-title-text {
+  font-weight: 600;
+  color: #1e293b;
 }
 </style>
