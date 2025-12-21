@@ -237,80 +237,36 @@ function navigateToSales(status?: 'active' | 'completed') {
 }
 
 function handleNotificationClick(notification: Notification) {
-  if (!sheetsStore.currentSheet) {
+  // 알림을 읽음 처리
+  notificationsStore.markAsRead(notification.id)
+
+  // 알림 타입에 따른 필터 결정
+  const statusFilter = notification.type === 'contract_expiring' ? 'expiring' : 'hugExpiring'
+
+  // sheetId 결정: 알림에 저장된 sheetId 또는 현재 rental 시트
+  let targetSheetId = notification.sheetId
+
+  if (!targetSheetId) {
+    // sheetId가 없으면 현재 선택된 rental 시트 사용
+    if (sheetsStore.currentRentalSheet) {
+      targetSheetId = sheetsStore.currentRentalSheet.id
+    } else if (sheetsStore.currentSheet) {
+      // rental 시트가 없으면 현재 시트 사용
+      targetSheetId = sheetsStore.currentSheet.id
+    }
+  }
+
+  if (!targetSheetId) {
     message.warning('시트를 선택해주세요')
     return
   }
 
-  // 알림을 읽음 처리
-  notificationsStore.markAsRead(notification.id)
-
-  console.log('🔔 [DashboardView] 알림 클릭:', {
-    notificationId: notification.id,
-    contractId: notification.contractId,
-    building: notification.building,
-    unit: notification.unit,
-    totalContracts: contractsStore.contracts.length
+  // 임대차 현황 페이지로 이동 (필터 적용)
+  router.push({
+    name: 'rental-contracts',
+    params: { sheetId: targetSheetId },
+    query: { status: statusFilter }
   })
-
-  // contractId로 계약 찾기
-  let contract = contractsStore.contracts.find(c => c.id === notification.contractId)
-
-  // contractId로 못 찾으면 building, unit, sheetId로 검색 (기존 알림 대응)
-  if (!contract && notification.building && notification.unit) {
-    console.log('🔍 [DashboardView] contractId로 못 찾음, building/unit으로 검색')
-
-    // 같은 building, unit을 가진 계약 찾기
-    const candidates = contractsStore.contracts.filter(c =>
-      c.building === notification.building &&
-      c.unit === notification.unit &&
-      !c.metadata.deletedAt
-    )
-
-    console.log(`✅ [DashboardView] ${candidates.length}개 후보 발견`)
-
-    if (candidates.length === 1) {
-      // 유일한 매칭이면 사용
-      contract = candidates[0]
-    } else if (candidates.length > 1) {
-      // 여러 개면 sheetId와 tenantName으로 추가 필터링
-      if (notification.sheetId) {
-        const sheetFiltered = candidates.filter(c => c.sheetId === notification.sheetId)
-        if (sheetFiltered.length === 1) {
-          contract = sheetFiltered[0]
-        } else if (sheetFiltered.length > 1 && notification.tenantName) {
-          // tenantName으로 추가 필터링
-          contract = sheetFiltered.find(c => c.tenantName === notification.tenantName)
-        }
-      } else if (notification.tenantName) {
-        // sheetId 없으면 tenantName으로만 필터링
-        contract = candidates.find(c => c.tenantName === notification.tenantName)
-      }
-
-      // 여전히 못 찾으면 첫 번째 것 사용
-      if (!contract && candidates.length > 0) {
-        console.log('⚠️ [DashboardView] 정확한 매칭 실패, 첫 번째 후보 사용')
-        contract = candidates[0]
-      }
-    }
-  }
-
-  if (!contract) {
-    console.error('❌ [DashboardView] 계약을 찾을 수 없음:', {
-      notificationId: notification.id,
-      contractId: notification.contractId,
-      building: notification.building,
-      unit: notification.unit
-    })
-    message.error('계약을 찾을 수 없습니다')
-    return
-  }
-
-  console.log('✅ [DashboardView] 계약 찾음, 모달 열기:', contract.id)
-
-  // 계약 상세 모달 열기
-  viewingContract.value = contract
-  showDetailModal.value = true
 }
 
 function handleContractClick(contract: RentalContract) {
