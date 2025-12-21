@@ -343,8 +343,9 @@ export const useContractsStore = defineStore('contracts', () => {
         if (cellValue !== undefined && cellValue !== null && cellValue.toString().trim() !== '') {
           lastDataRow = i + 1 // 1-based index
           // 숫자인 경우만 번호로 인식 (헤더 "번호" 등은 제외)
+          // ⚠️ 1000 이하의 숫자만 계약 번호로 인식 (연도값 2025 등 제외)
           const numValue = parseInt(cellValue.toString().trim(), 10)
-          if (!isNaN(numValue) && numValue > maxNumber) {
+          if (!isNaN(numValue) && numValue > maxNumber && numValue <= 1000) {
             maxNumber = numValue
           }
         }
