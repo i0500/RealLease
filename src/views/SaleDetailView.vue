@@ -463,7 +463,8 @@ async function handleDelete() {
   margin: 0 auto;
 }
 
-@media (min-width: 768px) {
+/* PC & Galaxy Fold Unfolded Layout */
+@media (min-width: 717px) {
   .sale-detail-view {
     padding: 2rem;
   }

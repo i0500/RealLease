@@ -950,7 +950,8 @@ async function handleSubmit() {
   margin: 0 auto;
 }
 
-@media (min-width: 768px) {
+/* PC & Galaxy Fold Unfolded Layout */
+@media (min-width: 717px) {
   .sales-view {
     padding: 2rem;
   }
@@ -1005,7 +1006,8 @@ async function handleSubmit() {
   word-break: keep-all;
 }
 
-@media (max-width: 768px) {
+/* Mobile Layout (Galaxy Fold folded and smaller) */
+@media (max-width: 716px) {
   .sale-info {
     font-size: 13px;
   }

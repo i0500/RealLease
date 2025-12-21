@@ -1035,7 +1035,8 @@ function getPriorityColor(priority: string) {
   gap: 1rem;
 }
 
-@media (min-width: 768px) {
+/* PC & Galaxy Fold Unfolded Layout */
+@media (min-width: 717px) {
   .kpi-grid {
     grid-template-columns: repeat(4, 1fr);
   }
@@ -1349,8 +1350,8 @@ function getPriorityColor(priority: string) {
   color: #10b981;
 }
 
-/* Responsive */
-@media (max-width: 640px) {
+/* Mobile Layout (Galaxy Fold folded and smaller) */
+@media (max-width: 716px) {
   .dashboard-header {
     padding: 1.25rem;
     margin: 0 0 1rem 0;

@@ -1095,7 +1095,8 @@ function resetForm() {
   word-break: keep-all;
 }
 
-@media (max-width: 768px) {
+/* Mobile Layout (Galaxy Fold folded and smaller) */
+@media (max-width: 716px) {
   .contract-info {
     font-size: 13px;
   }
@@ -1163,7 +1164,8 @@ function resetForm() {
   font-weight: 400;
 }
 
-@media (max-width: 768px) {
+/* Mobile Layout (Galaxy Fold folded and smaller) */
+@media (max-width: 716px) {
   .detail-grid {
     grid-template-columns: 1fr;
   }

@@ -9,17 +9,12 @@ import { useNotificationSettingsStore } from '@/stores/notificationSettings'
 import { formatDate } from '@/utils/dateUtils'
 import type { SheetConfig } from '@/types/sheet'
 import {
-  NCard,
   NButton,
   NInput,
   NSpace,
-  NList,
   NIcon,
-  NListItem,
-  NThing,
   NSpin,
   NAlert,
-  NEmpty,
   NModal,
   NForm,
   NFormItem,
@@ -37,7 +32,13 @@ import {
   AddOutline as AddIcon,
   RefreshOutline as RefreshIcon,
   HelpCircleOutline as HelpIcon,
-  CreateOutline as CreateIcon
+  CreateOutline as CreateIcon,
+  SettingsOutline as SettingsIcon,
+  PersonOutline as PersonIcon,
+  DocumentTextOutline as DocumentIcon,
+  NotificationsOutline as NotificationIcon,
+  TimeOutline as TimeIcon,
+  InformationCircleOutline as InfoIcon
 } from '@vicons/ionicons5'
 import { sheetsService } from '@/services/google/sheetsService'
 
@@ -447,285 +448,326 @@ function handleResetApp() {
 </script>
 
 <template>
-  <div class="settings-view">
-    <!-- Navigation Header -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold" style="color: #2c3e50;">설정</h1>
-      <n-space>
-        <n-button @click="router.push('/')" secondary>
+  <div class="settings-container">
+    <!-- Header Section -->
+    <header class="settings-header">
+      <div class="header-content">
+        <div class="header-left">
+          <div class="header-icon">
+            <n-icon size="24" color="#fff">
+              <SettingsIcon />
+            </n-icon>
+          </div>
+          <div class="header-text">
+            <h1 class="header-title">설정</h1>
+            <p class="header-subtitle">시스템 환경설정</p>
+          </div>
+        </div>
+        <n-button @click="router.push('/')" class="home-button">
           <template #icon>
             <n-icon><HomeIcon /></n-icon>
           </template>
-          메인 화면
+          <span class="home-button-text">메인 화면</span>
         </n-button>
-      </n-space>
-    </div>
+      </div>
+    </header>
 
-    <!-- User Profile -->
-    <n-card title="계정 정보" class="mb-6">
-      <n-space vertical>
-        <div v-if="authStore.user">
-          <p><strong>이메일:</strong> {{ authStore.user.email }}</p>
-          <p><strong>이름:</strong> {{ authStore.user.name }}</p>
+    <div class="settings-content">
+      <!-- Account Section -->
+      <section class="settings-section">
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon account">
+              <n-icon size="20" color="#8b5cf6"><PersonIcon /></n-icon>
+            </div>
+            <div class="section-header-text">
+              <h2 class="section-title">계정 정보</h2>
+              <p class="section-subtitle">로그인 및 계정 관리</p>
+            </div>
+          </div>
+          <div class="section-card-body">
+            <div v-if="authStore.user" class="account-info">
+              <div class="account-row">
+                <span class="account-label">이메일</span>
+                <span class="account-value">{{ authStore.user.email }}</span>
+              </div>
+              <div class="account-row">
+                <span class="account-label">이름</span>
+                <span class="account-value">{{ authStore.user.name }}</span>
+              </div>
+            </div>
+            <div class="section-actions">
+              <n-button type="error" size="small" @click="handleLogout">
+                로그아웃
+              </n-button>
+            </div>
+          </div>
         </div>
-        <n-button type="error" @click="handleLogout">로그아웃</n-button>
-      </n-space>
-    </n-card>
+      </section>
 
-    <n-divider />
-
-    <!-- Sheet Management -->
-    <n-card class="mb-6">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-semibold">구글 시트 관리</h2>
-          <n-space>
-            <n-button @click="showHelpGuide = true">
+      <!-- Sheet Management Section -->
+      <section class="settings-section">
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon sheets">
+              <n-icon size="20" color="#10b981"><DocumentIcon /></n-icon>
+            </div>
+            <div class="section-header-text">
+              <h2 class="section-title">구글 시트 관리</h2>
+              <p class="section-subtitle">데이터 소스 연결 및 동기화</p>
+            </div>
+          </div>
+          <div class="sheet-actions-bar">
+            <n-button quaternary size="small" @click="showHelpGuide = true">
               <template #icon>
                 <n-icon><HelpIcon /></n-icon>
               </template>
               도움말
             </n-button>
-            <n-button type="info" @click="showCreateSheetModal = true">
-              <template #icon>
-                <n-icon><CreateIcon /></n-icon>
-              </template>
-              새 시트 생성
-            </n-button>
-            <n-button type="primary" @click="handleAddSheet">
-              <template #icon>
-                <n-icon><AddIcon /></n-icon>
-              </template>
-              시트 추가
-            </n-button>
-          </n-space>
-        </div>
-      </template>
+            <div class="sheet-actions-main">
+              <n-button type="info" size="small" @click="showCreateSheetModal = true">
+                <template #icon>
+                  <n-icon><CreateIcon /></n-icon>
+                </template>
+                <span class="btn-text">새 시트</span>
+              </n-button>
+              <n-button type="primary" size="small" @click="handleAddSheet">
+                <template #icon>
+                  <n-icon><AddIcon /></n-icon>
+                </template>
+                <span class="btn-text">시트 추가</span>
+              </n-button>
+            </div>
+          </div>
+          <div class="section-card-body">
+            <!-- Loading State -->
+            <div v-if="sheetsStore.isLoading" class="loading-state">
+              <n-spin size="medium" />
+              <p>시트 목록을 불러오는 중...</p>
+            </div>
 
-      <!-- Loading State -->
-      <div v-if="sheetsStore.isLoading" class="text-center py-10">
-        <n-spin size="large" />
-        <p class="mt-4 text-gray-600">시트 목록을 불러오는 중...</p>
-      </div>
+            <!-- Error State -->
+            <n-alert
+              v-else-if="sheetsStore.error"
+              type="error"
+              closable
+              @close="sheetsStore.clearError"
+            >
+              {{ sheetsStore.error }}
+            </n-alert>
 
-      <!-- Error State -->
-      <n-alert
-        v-else-if="sheetsStore.error"
-        type="error"
-        class="mb-4"
-        closable
-        @close="sheetsStore.clearError"
-      >
-        {{ sheetsStore.error }}
-      </n-alert>
+            <!-- Empty State -->
+            <div v-else-if="sheetsStore.sheets.length === 0" class="empty-state">
+              <div class="empty-icon">
+                <n-icon size="48" color="#94a3b8"><DocumentIcon /></n-icon>
+              </div>
+              <p class="empty-title">연결된 시트가 없습니다</p>
+              <p class="empty-desc">구글 스프레드시트를 연결하여 시작하세요</p>
+              <n-button type="primary" @click="handleAddSheet">첫 시트 추가하기</n-button>
+            </div>
 
-      <!-- Empty State -->
-      <n-empty v-else-if="sheetsStore.sheets.length === 0" description="연결된 시트가 없습니다">
-        <template #extra>
-          <n-button type="primary" @click="handleAddSheet">첫 시트 추가하기</n-button>
-        </template>
-      </n-empty>
-
-      <!-- Sheets List -->
-      <n-list v-else hoverable>
-        <n-list-item v-for="sheet in sheetsStore.sheets" :key="sheet.id">
-          <n-thing :title="sheet.name">
-
-            <template #description>
-              <n-space vertical size="small">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm text-gray-600">URL:</span>
-                  <a
-                    :href="sheet.sheetUrl"
-                    target="_blank"
-                    class="text-blue-500 hover:underline text-sm"
+            <!-- Sheets List -->
+            <div v-else class="sheets-list">
+              <div v-for="sheet in sheetsStore.sheets" :key="sheet.id" class="sheet-item">
+                <div class="sheet-info">
+                  <div class="sheet-name">{{ sheet.name }}</div>
+                  <div class="sheet-meta">
+                    <span v-if="sheet.tabName" class="sheet-tab">{{ sheet.tabName }}</span>
+                    <a :href="sheet.sheetUrl" target="_blank" class="sheet-link">
+                      {{ sheet.spreadsheetId.substring(0, 20) }}...
+                    </a>
+                  </div>
+                  <div class="sheet-dates">
+                    <span>생성: {{ formatDate(sheet.createdAt) }}</span>
+                    <span v-if="sheet.lastSynced">· 동기화: {{ formatDate(sheet.lastSynced) }}</span>
+                  </div>
+                </div>
+                <div class="sheet-actions">
+                  <n-button
+                    size="tiny"
+                    quaternary
+                    @click="copySheetUrl(sheet.sheetUrl)"
                   >
-                    {{ sheet.spreadsheetId }}
-                  </a>
-                  <n-button size="tiny" @click="copySheetUrl(sheet.sheetUrl)">복사</n-button>
+                    복사
+                  </n-button>
+                  <n-button
+                    size="tiny"
+                    :loading="syncingSheetId === sheet.id"
+                    @click="handleSyncSheet(sheet)"
+                  >
+                    <template #icon>
+                      <n-icon size="14"><RefreshIcon /></n-icon>
+                    </template>
+                    동기화
+                  </n-button>
+                  <n-button
+                    size="tiny"
+                    type="error"
+                    quaternary
+                    @click="handleRemoveSheet(sheet)"
+                  >
+                    삭제
+                  </n-button>
                 </div>
-                <div v-if="sheet.tabName" class="text-sm text-gray-600">
-                  탭: {{ sheet.tabName }}
-                </div>
-                <div class="text-sm text-gray-600">
-                  생성일: {{ formatDate(sheet.createdAt) }}
-                </div>
-                <div v-if="sheet.lastSynced" class="text-sm text-gray-600">
-                  마지막 동기화: {{ formatDate(sheet.lastSynced) }}
-                </div>
-              </n-space>
-            </template>
-
-            <template #footer>
-              <n-space>
-                <n-button
-                  size="small"
-                  :loading="syncingSheetId === sheet.id"
-                  @click="handleSyncSheet(sheet)"
-                >
-                  <template #icon>
-                    <n-icon><RefreshIcon /></n-icon>
-                  </template>
-                  동기화
-                </n-button>
-                <n-button
-                  size="small"
-                  type="error"
-                  @click="handleRemoveSheet(sheet)"
-                >
-                  삭제
-                </n-button>
-              </n-space>
-            </template>
-          </n-thing>
-        </n-list-item>
-      </n-list>
-    </n-card>
-
-    <n-divider />
-
-    <!-- Notification Settings -->
-    <n-card title="푸시 알림 설정" class="mb-6">
-      <n-space vertical>
-        <p class="text-sm text-gray-700">
-          계약 만료, HUG 보증 만료 등 중요한 알림을 푸시로 받을 수 있습니다.
-        </p>
-
-        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div>
-            <p class="font-semibold mb-1">알림 권한 상태</p>
-            <p class="text-sm text-gray-600">
-              <span v-if="notificationPermission === 'granted'" class="text-green-600 font-medium">
-                ✅ 허용됨 - 푸시 알림을 받을 수 있습니다
-              </span>
-              <span v-else-if="notificationPermission === 'denied'" class="text-red-600 font-medium">
-                ❌ 거부됨 - 브라우저 설정에서 권한을 변경해주세요
-              </span>
-              <span v-else class="text-gray-600 font-medium">
-                ⚠️ 미설정 - 아래 버튼을 눌러 권한을 허용해주세요
-              </span>
-            </p>
+              </div>
+            </div>
           </div>
-          <n-button
-            v-if="notificationPermission !== 'granted'"
-            type="primary"
-            :loading="isRequestingPermission"
-            @click="handleRequestNotificationPermission"
-          >
-            🔔 알림 허용하기
-          </n-button>
         </div>
+      </section>
 
-        <n-alert type="info" class="mt-2">
-          <template #header>
-            <strong>📱 모바일에서 푸시 알림 받기</strong>
-          </template>
-          <n-space vertical size="small" class="text-sm">
-            <p>1. 모바일 브라우저에서 이 사이트를 엽니다</p>
-            <p>2. 브라우저 메뉴에서 <strong>"홈 화면에 추가"</strong> 또는 <strong>"바로가기 추가"</strong>를 선택합니다</p>
-            <p>3. 홈 화면에 추가된 아이콘을 통해 앱을 실행합니다</p>
-            <p>4. 위의 <strong>"알림 허용하기"</strong> 버튼을 눌러 권한을 허용합니다</p>
-            <p>5. 이제 새로운 알림이 생성되면 푸시로 받을 수 있습니다!</p>
-          </n-space>
-        </n-alert>
-
-        <n-alert type="warning" class="mt-2">
-          <strong>주의사항</strong><br />
-          • 푸시 알림은 권한을 허용한 기기에서만 받을 수 있습니다<br />
-          • 앱이 백그라운드에 있어도 알림을 받을 수 있습니다<br />
-          • 알림 권한을 거부하면 브라우저 설정에서 직접 변경해야 합니다
-        </n-alert>
-      </n-space>
-    </n-card>
-
-    <n-divider />
-
-    <!-- Notification Period Settings -->
-    <n-card title="⏰ 알림 기간 설정" class="mb-6">
-      <n-space vertical size="large">
-        <p class="text-sm text-gray-700">
-          계약 만료 및 보험 만료 알림을 받을 기간을 설정할 수 있습니다.
-        </p>
-
-        <!-- 계약 만료 알림 기간 -->
-        <n-form-item label="계약 만료 알림 기간" label-placement="left">
-          <n-select
-            v-model:value="contractExpiryNoticeDays"
-            :options="periodOptions"
-            style="width: 200px"
-          />
-        </n-form-item>
-
-        <!-- HUG 보증 만료 알림 기간 -->
-        <n-form-item label="보험 만료 알림 기간" label-placement="left">
-          <n-select
-            v-model:value="hugExpiryNoticeDays"
-            :options="periodOptions"
-            style="width: 200px"
-          />
-        </n-form-item>
-
-        <!-- 푸시 알림 활성화 -->
-        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div>
-            <p class="font-semibold mb-1">푸시 알림 활성화</p>
-            <p class="text-sm text-gray-600">
-              설정한 시간에 하루 한 번 알림을 푸시로 받습니다
-            </p>
+      <!-- Push Notification Section -->
+      <section class="settings-section">
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon notification">
+              <n-icon size="20" color="#f59e0b"><NotificationIcon /></n-icon>
+            </div>
+            <div class="section-header-text">
+              <h2 class="section-title">푸시 알림</h2>
+              <p class="section-subtitle">알림 권한 및 설정</p>
+            </div>
           </div>
-          <n-switch v-model:value="enablePushNotifications" />
+          <div class="section-card-body">
+            <!-- Permission Status -->
+            <div class="permission-card" :class="{
+              'granted': notificationPermission === 'granted',
+              'denied': notificationPermission === 'denied'
+            }">
+              <div class="permission-status">
+                <span class="permission-icon">
+                  {{ notificationPermission === 'granted' ? '✅' : notificationPermission === 'denied' ? '❌' : '⚠️' }}
+                </span>
+                <div class="permission-text">
+                  <span class="permission-label">알림 권한</span>
+                  <span class="permission-value">
+                    {{ notificationPermission === 'granted' ? '허용됨' : notificationPermission === 'denied' ? '거부됨' : '미설정' }}
+                  </span>
+                </div>
+              </div>
+              <n-button
+                v-if="notificationPermission !== 'granted'"
+                type="primary"
+                size="small"
+                :loading="isRequestingPermission"
+                @click="handleRequestNotificationPermission"
+              >
+                알림 허용
+              </n-button>
+            </div>
+
+            <!-- Mobile Guide -->
+            <div class="info-card">
+              <div class="info-header">
+                <span class="info-icon">📱</span>
+                <span class="info-title">모바일에서 푸시 알림 받기</span>
+              </div>
+              <ol class="info-steps">
+                <li>모바일 브라우저에서 이 사이트를 엽니다</li>
+                <li>브라우저 메뉴에서 "홈 화면에 추가"를 선택합니다</li>
+                <li>홈 화면 아이콘으로 앱을 실행합니다</li>
+                <li>"알림 허용" 버튼을 눌러 권한을 허용합니다</li>
+              </ol>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <!-- 푸시 알림 시간대 -->
-        <n-form-item
-          v-if="enablePushNotifications"
-          label="푸시 알림 시간"
-          label-placement="left"
-        >
-          <n-time-picker
-            v-model:formatted-value="pushNotificationTime"
-            format="HH:mm"
-            value-format="HH:mm"
-            style="width: 200px"
-          />
-        </n-form-item>
-
-        <n-alert type="info">
-          <strong>알림 정책</strong><br />
-          • 설정한 기간 이내에 만료되는 계약/보험에 대해 알림이 생성됩니다<br />
-          • 푸시 알림은 앱을 열었을 때 설정 시간이 지났으면 자동으로 발송됩니다<br />
-          • 알림 권한이 허용되어 있어야 푸시 알림을 받을 수 있습니다
-        </n-alert>
-
-        <div class="flex justify-end">
-          <n-button type="primary" @click="handleSaveNotificationSettings">
-            💾 설정 저장
-          </n-button>
+      <!-- Notification Period Section -->
+      <section class="settings-section">
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon time">
+              <n-icon size="20" color="#3b82f6"><TimeIcon /></n-icon>
+            </div>
+            <div class="section-header-text">
+              <h2 class="section-title">알림 기간 설정</h2>
+              <p class="section-subtitle">만료 알림 수신 기간</p>
+            </div>
+          </div>
+          <div class="section-card-body">
+            <div class="settings-form">
+              <div class="form-row">
+                <label class="form-label">계약 만료 알림</label>
+                <n-select
+                  v-model:value="contractExpiryNoticeDays"
+                  :options="periodOptions"
+                  class="form-select"
+                />
+              </div>
+              <div class="form-row">
+                <label class="form-label">보험 만료 알림</label>
+                <n-select
+                  v-model:value="hugExpiryNoticeDays"
+                  :options="periodOptions"
+                  class="form-select"
+                />
+              </div>
+              <div class="form-row toggle-row">
+                <div class="toggle-info">
+                  <span class="form-label">푸시 알림 활성화</span>
+                  <span class="form-hint">매일 설정한 시간에 알림 발송</span>
+                </div>
+                <n-switch v-model:value="enablePushNotifications" />
+              </div>
+              <div v-if="enablePushNotifications" class="form-row">
+                <label class="form-label">알림 시간</label>
+                <n-time-picker
+                  v-model:formatted-value="pushNotificationTime"
+                  format="HH:mm"
+                  value-format="HH:mm"
+                  class="form-select"
+                />
+              </div>
+            </div>
+            <div class="section-footer">
+              <n-button type="primary" @click="handleSaveNotificationSettings">
+                설정 저장
+              </n-button>
+            </div>
+          </div>
         </div>
-      </n-space>
-    </n-card>
+      </section>
 
-    <!-- App Information -->
-    <n-card title="앱 정보">
-      <n-space vertical>
-        <p><strong>버전:</strong> {{ appVersion }}</p>
-        <p><strong>앱 이름:</strong> {{ appName }}</p>
-        <p class="text-sm text-gray-600">
-          부동산 임대차 관리 시스템 - 구글 스프레드시트와 연동하여 임대차 계약을 관리합니다.
-        </p>
-
-        <n-divider />
-
-        <div>
-          <p class="text-sm text-gray-600 mb-2">
-            <strong>문제 해결:</strong> 데이터가 제대로 표시되지 않거나 개발 모드 데이터가 보이는 경우
-          </p>
-          <n-button type="error" @click="handleResetApp">
-            🔄 앱 데이터 초기화
-          </n-button>
+      <!-- App Info Section -->
+      <section class="settings-section">
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon info">
+              <n-icon size="20" color="#6b7280"><InfoIcon /></n-icon>
+            </div>
+            <div class="section-header-text">
+              <h2 class="section-title">앱 정보</h2>
+              <p class="section-subtitle">버전 및 시스템 정보</p>
+            </div>
+          </div>
+          <div class="section-card-body">
+            <div class="app-info">
+              <div class="info-row">
+                <span class="info-label">앱 이름</span>
+                <span class="info-value">{{ appName }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">버전</span>
+                <span class="info-value">{{ appVersion }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">설명</span>
+                <span class="info-value desc">구글 스프레드시트와 연동하여 임대차 계약을 관리합니다</span>
+              </div>
+            </div>
+            <div class="danger-zone">
+              <div class="danger-header">
+                <span class="danger-title">문제 해결</span>
+                <span class="danger-desc">데이터가 제대로 표시되지 않는 경우</span>
+              </div>
+              <n-button type="error" size="small" @click="handleResetApp">
+                앱 데이터 초기화
+              </n-button>
+            </div>
+          </div>
         </div>
-      </n-space>
-    </n-card>
+      </section>
+    </div>
 
     <!-- Add Sheet Modal -->
     <n-modal
@@ -1044,9 +1086,640 @@ function handleResetApp() {
 </template>
 
 <style scoped>
-.settings-view {
-  padding: 1rem;
+/* Container */
+.settings-container {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+/* Header */
+.settings-header {
+  background: linear-gradient(135deg, #1a252f 0%, #2c3e50 50%, #34495e 100%);
+  padding: 1.5rem;
+  margin: 0 0 1.5rem 0;
+  border-radius: 0 0 16px 16px;
+  box-shadow: 0 4px 20px rgba(44, 62, 80, 0.25);
+}
+
+.header-content {
   max-width: 1200px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-text {
+  color: #fff;
+}
+
+.header-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.header-subtitle {
+  font-size: 0.875rem;
+  opacity: 0.8;
+  margin: 0.25rem 0 0 0;
+}
+
+.home-button {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+}
+
+.home-button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Content */
+.settings-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem 2rem 1rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* Section Cards */
+.settings-section {
+  width: 100%;
+}
+
+.section-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.section-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.section-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.section-icon.account {
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.section-icon.sheets {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.section-icon.notification {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.section-icon.time {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.section-icon.info {
+  background: rgba(107, 114, 128, 0.1);
+}
+
+.section-header-text {
+  flex: 1;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.section-subtitle {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+}
+
+.section-card-body {
+  padding: 1.25rem;
+}
+
+.section-actions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.section-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Account Info */
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  min-width: 60px;
+}
+
+.account-value {
+  font-size: 0.9375rem;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+/* Sheet Actions Bar */
+.sheet-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sheet-actions-main {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Loading & Empty States */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: #64748b;
+  gap: 1rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 1rem;
+}
+
+.empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 0.5rem 0;
+}
+
+.empty-desc {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0 0 1.5rem 0;
+}
+
+/* Sheets List */
+.sheets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sheet-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.sheet-item:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.sheet-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.sheet-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.sheet-tab {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+.sheet-link {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-link:hover {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.sheet-dates {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+/* Permission Card */
+.permission-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.permission-card.granted {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.permission-card.denied {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.permission-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.permission-icon {
+  font-size: 1.5rem;
+}
+
+.permission-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.permission-label {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.permission-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Info Card */
+.info-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-card .info-icon {
+  font-size: 1.25rem;
+}
+
+.info-card .info-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.info-steps {
+  margin: 0;
+  padding-left: 1.5rem;
+  font-size: 0.875rem;
+  color: #475569;
+  line-height: 1.8;
+}
+
+/* Settings Form */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.form-select {
+  flex: 1;
+  max-width: 200px;
+}
+
+.toggle-row {
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* App Info */
+.app-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.info-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.info-value {
+  font-size: 0.9375rem;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.info-value.desc {
+  font-weight: 400;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* Danger Zone */
+.danger-zone {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.danger-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.danger-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.danger-desc {
+  font-size: 0.75rem;
+  color: #991b1b;
+}
+
+/* PC & Galaxy Fold Unfolded Layout (2 columns) */
+@media (min-width: 717px) {
+  .settings-content {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 0 1.5rem 2rem 1.5rem;
+  }
+
+  .settings-section:first-child,
+  .settings-section:nth-child(2) {
+    grid-column: span 1;
+  }
+
+  .settings-section:nth-child(n+3) {
+    grid-column: span 1;
+  }
+
+  .header-content {
+    padding: 0 0.5rem;
+  }
+
+  .home-button-text {
+    display: inline;
+  }
+
+  .btn-text {
+    display: inline;
+  }
+
+  .form-row {
+    max-width: 400px;
+  }
+}
+
+/* Mobile Layout (Galaxy Fold folded and smaller) */
+@media (max-width: 716px) {
+  .settings-header {
+    padding: 1rem;
+    border-radius: 0;
+    margin: 0 0 1rem 0;
+  }
+
+  .header-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .header-title {
+    font-size: 1.25rem;
+  }
+
+  .home-button-text {
+    display: none;
+  }
+
+  .btn-text {
+    display: none;
+  }
+
+  .settings-content {
+    padding: 0 0.75rem 1.5rem 0.75rem;
+    gap: 1rem;
+  }
+
+  .section-card {
+    border-radius: 12px;
+  }
+
+  .section-card-header {
+    padding: 1rem;
+  }
+
+  .section-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .section-title {
+    font-size: 1rem;
+  }
+
+  .section-card-body {
+    padding: 1rem;
+  }
+
+  .sheet-actions-bar {
+    padding: 0.5rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .sheet-item {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .sheet-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .form-label {
+    min-width: auto;
+  }
+
+  .form-select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .toggle-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .danger-zone {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .permission-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 </style>
