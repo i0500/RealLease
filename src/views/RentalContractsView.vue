@@ -42,9 +42,16 @@ const dialog = useDialog()
 
 // View state
 const isMobile = ref(false)
-const viewMode = ref<'table' | 'card'>('table')
+// viewMode 영속화: localStorage에서 복원
+const savedViewMode = localStorage.getItem('reallease_rental_view_mode') as 'table' | 'card' | null
+const viewMode = ref<'table' | 'card'>(savedViewMode || 'table')
 const searchQuery = ref('')
 const filterStatus = ref<'all' | 'vacant' | 'expiring' | 'hugExpiring'>('all')
+
+// viewMode 변경 시 localStorage에 저장
+watch(viewMode, (newMode) => {
+  localStorage.setItem('reallease_rental_view_mode', newMode)
+})
 
 // Modal state
 const showContractModal = ref(false)
@@ -150,6 +157,22 @@ watch(
     }
   },
   { immediate: false }
+)
+
+// 🔧 FIX: 시트 그룹 변경 시 데이터 리로드
+watch(
+  () => route.params.sheetId,
+  async (newSheetId) => {
+    if (newSheetId && typeof newSheetId === 'string') {
+      try {
+        sheetsStore.setCurrentSheet(newSheetId)
+        await contractsStore.loadContracts(newSheetId, 'rental')
+      } catch (error) {
+        console.error('Failed to reload contracts:', error)
+        message.error('계약 정보를 불러오는데 실패했습니다')
+      }
+    }
+  }
 )
 
 // 전세/월세 구분 가져오기 (계약중 또는 만료예정인 경우에만)

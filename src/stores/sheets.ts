@@ -6,10 +6,13 @@ import type { SheetConfig } from '@/types'
 import { generateId, extractSpreadsheetId, extractGid } from '@/utils/formatUtils'
 
 const STORAGE_KEY = 'sheet_configs'
+const CURRENT_SHEET_KEY = 'current_sheet_id'
 
 export const useSheetsStore = defineStore('sheets', () => {
+  // 현재 선택된 시트 ID 영속화: localStorage에서 복원
+  const savedCurrentSheetId = localStorage.getItem(CURRENT_SHEET_KEY)
   const sheets = ref<SheetConfig[]>([])
-  const currentSheetId = ref<string | null>(null)
+  const currentSheetId = ref<string | null>(savedCurrentSheetId)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -72,8 +75,22 @@ export const useSheetsStore = defineStore('sheets', () => {
           lastSynced: s.lastSynced ? new Date(s.lastSynced) : undefined
         }))
 
-        if (sheets.value.length > 0 && !currentSheetId.value) {
+        // 저장된 currentSheetId가 유효한지 확인
+        if (currentSheetId.value) {
+          const isValidSheet = sheets.value.some(s => s.id === currentSheetId.value)
+          if (!isValidSheet) {
+            // 유효하지 않으면 첫 번째 시트로 설정
+            currentSheetId.value = sheets.value.length > 0 ? sheets.value[0]!.id : null
+            if (currentSheetId.value) {
+              localStorage.setItem(CURRENT_SHEET_KEY, currentSheetId.value)
+            } else {
+              localStorage.removeItem(CURRENT_SHEET_KEY)
+            }
+          }
+        } else if (sheets.value.length > 0) {
+          // currentSheetId가 없으면 첫 번째 시트로 설정
           currentSheetId.value = sheets.value[0]!.id
+          localStorage.setItem(CURRENT_SHEET_KEY, currentSheetId.value)
         }
       }
     } catch (err) {
@@ -186,6 +203,12 @@ export const useSheetsStore = defineStore('sheets', () => {
       // 현재 시트가 삭제되었다면 다른 시트로 변경
       if (currentSheetId.value === sheetId) {
         currentSheetId.value = sheets.value.length > 0 ? sheets.value[0]!.id : null
+        // localStorage 업데이트
+        if (currentSheetId.value) {
+          localStorage.setItem(CURRENT_SHEET_KEY, currentSheetId.value)
+        } else {
+          localStorage.removeItem(CURRENT_SHEET_KEY)
+        }
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to remove sheet'
@@ -210,6 +233,8 @@ export const useSheetsStore = defineStore('sheets', () => {
   function setCurrentSheet(sheetId: string) {
     if (sheets.value.some(s => s.id === sheetId)) {
       currentSheetId.value = sheetId
+      // 현재 선택된 시트 ID 영속화
+      localStorage.setItem(CURRENT_SHEET_KEY, sheetId)
     }
   }
 

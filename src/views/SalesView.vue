@@ -38,10 +38,17 @@ const message = useMessage()
 const dialog = useDialog()
 
 // View state
-const viewMode = ref<'table' | 'card'>('table')
+// viewMode 영속화: localStorage에서 복원
+const savedViewMode = localStorage.getItem('reallease_sales_view_mode') as 'table' | 'card' | null
+const viewMode = ref<'table' | 'card'>(savedViewMode || 'table')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'active' | 'completed'>('all')
 const isMobile = ref(false)
+
+// viewMode 변경 시 localStorage에 저장
+watch(viewMode, (newMode) => {
+  localStorage.setItem('reallease_sales_view_mode', newMode)
+})
 const showAddModal = ref(false)
 const showDetailModal = ref(false)
 const viewingSaleContract = ref<SaleContract | null>(null)
@@ -140,6 +147,21 @@ watch(
     }
   },
   { immediate: false }
+)
+
+// 🔧 FIX: 시트 그룹 변경 시 데이터 리로드
+watch(
+  () => route.params.sheetId,
+  async (newSheetId) => {
+    if (newSheetId && typeof newSheetId === 'string') {
+      try {
+        sheetsStore.setCurrentSheet(newSheetId)
+        await contractsStore.loadContracts(newSheetId, 'sale')
+      } catch (error) {
+        console.error('Failed to reload sale contracts:', error)
+      }
+    }
+  }
 )
 
 // Status filter options

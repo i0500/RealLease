@@ -2,7 +2,6 @@
 import { onMounted, h, ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useSheetsStore } from '@/stores/sheets'
-import { useContractsStore } from '@/stores/contracts'
 import { useNotificationsStore } from '@/stores/notifications'
 import type { SheetConfig } from '@/types'
 import {
@@ -34,7 +33,6 @@ import type { MenuOption } from 'naive-ui'
 const router = useRouter()
 const route = useRoute()
 const sheetsStore = useSheetsStore()
-const contractsStore = useContractsStore()
 const notificationsStore = useNotificationsStore()
 const message = useMessage()
 
@@ -47,6 +45,21 @@ const connectionStatus = computed(() => {
     return { text: '시트 미연결', type: 'warning' as const }
   }
   return { text: sheetsStore.currentSheet.name, type: 'success' as const }
+})
+
+// PC 사이드바 메뉴 기본 펼침 키 (시트 그룹들)
+const defaultExpandedKeys = computed<string[]>(() => {
+  if (sheetsStore.sheets.length === 0) return []
+
+  // 시트 그룹별로 첫 번째 시트의 ID를 키로 사용
+  const groups = new Map<string, string>()
+  sheetsStore.sheets.forEach(sheet => {
+    if (!groups.has(sheet.name)) {
+      groups.set(sheet.name, `sheet-${sheet.id}`)
+    }
+  })
+
+  return Array.from(groups.values())
 })
 
 // ✅ 모바일 메뉴용 시트 그룹 (같은 name끼리 그룹화)
@@ -114,8 +127,29 @@ async function handleMobileMenuSelect(key: string) {
       const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
       if (sheet) {
         message.success(`"${sheet.name}" 시트를 선택했습니다`)
-        // 선택한 시트의 데이터 로드
-        await contractsStore.loadContracts(sheetId)
+
+        // 현재 그룹의 rental/sale 시트 ID 찾기
+        const groupSheets = sheetsStore.sheets.filter(s => s.name === sheet.name)
+        const groupRentalSheet = groupSheets.find(s => s.sheetType === 'rental')
+        const groupSaleSheet = groupSheets.find(s => s.sheetType === 'sale')
+
+        // 현재 페이지가 임대차현황 또는 매도현황이면 해당 페이지 유지하며 시트 변경
+        const currentRouteName = route.name as string
+        if (currentRouteName === 'rental-contracts' && groupRentalSheet) {
+          router.push({
+            name: 'rental-contracts',
+            params: { sheetId: groupRentalSheet.id }
+          })
+        } else if ((currentRouteName === 'sales' || currentRouteName === 'sale-detail') && groupSaleSheet) {
+          router.push({
+            name: 'sales',
+            params: { sheetId: groupSaleSheet.id }
+          })
+        } else {
+          // 그 외의 경우 대시보드로 이동
+          router.push({ name: 'dashboard' })
+        }
+
         await notificationsStore.checkNotifications()
       }
     } catch (error) {
@@ -215,26 +249,54 @@ const menuOptions = computed<MenuOption[]>(() => {
         // NMenu는 children이 있는 parent 아이템 클릭 시 update:value를 발생시키지 않음
         // 따라서 label에 클릭 핸들러를 직접 연결하여 시트 선택 처리
         const sheetId = firstSheet.id
+        const isSelected = sheets.some(s => s.id === sheetsStore.currentSheetId)
+
+        // 현재 그룹의 rental/sale 시트 ID 찾기
+        const groupRentalSheet = sheets.find(s => s.sheetType === 'rental')
+        const groupSaleSheet = sheets.find(s => s.sheetType === 'sale')
+
         options.push({
           label: () => h(
             'span',
             {
-              style: 'cursor: pointer; display: block; width: 100%;',
+              style: 'cursor: pointer; display: flex; align-items: center; width: 100%; gap: 8px;',
               onClick: (e: Event) => {
                 e.stopPropagation() // 메뉴 확장/축소 이벤트와 분리
                 sheetsStore.setCurrentSheet(sheetId)
                 const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
                 if (sheet) {
                   message.success(`"${sheet.name}" 파일을 선택했습니다`)
-                  router.push({ name: 'dashboard' })
+
+                  // 현재 페이지가 임대차현황 또는 매도현황이면 해당 페이지 유지하며 시트 변경
+                  const currentRouteName = route.name as string
+                  if (currentRouteName === 'rental-contracts' && groupRentalSheet) {
+                    router.push({
+                      name: 'rental-contracts',
+                      params: { sheetId: groupRentalSheet.id }
+                    })
+                  } else if ((currentRouteName === 'sales' || currentRouteName === 'sale-detail') && groupSaleSheet) {
+                    router.push({
+                      name: 'sales',
+                      params: { sheetId: groupSaleSheet.id }
+                    })
+                  } else {
+                    // 그 외의 경우 대시보드로 이동
+                    router.push({ name: 'dashboard' })
+                  }
                 }
               }
             },
-            groupName
+            [
+              groupName,
+              isSelected
+                ? h('span', {
+                    style: 'color: #18a058; font-weight: bold; font-size: 14px; margin-left: 4px;'
+                  }, '✓')
+                : null
+            ]
           ),
           key: `sheet-${firstSheet.id}`,
           icon: renderIcon(SheetIcon),
-          extra: sheets.some(s => s.id === sheetsStore.currentSheetId) ? '✓' : undefined,
           children: children.length > 0 ? children : undefined
         })
       }
@@ -328,6 +390,7 @@ async function handleMenuSelect(key: string) {
         :value="(route.name as string)"
         @update:value="handleMenuSelect"
         :inverted="true"
+        :default-expanded-keys="defaultExpandedKeys"
         style="background-color: #2c3e50;"
       />
     </n-layout-sider>

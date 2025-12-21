@@ -496,23 +496,23 @@ export class SheetsService {
    */
   private async setupSaleSheetTemplate(spreadsheetId: string, sheetId: number): Promise<void> {
 
-    // 헤더 데이터
+    // 헤더 데이터 (A열은 공란, B열부터 시작)
     const headers = [
-      ['구분', '동', '동-호', '계약자', '연락처', '주민번호', '계약일',
+      ['', '구분', '동', '동-호', '계약자', '연락처', '주민번호', '계약일',
        '계약금', '계약금2차일', '계약금2차', '중도금1차일', '중도금1차',
        '중도금2차일', '중도금2차', '중도금3차일', '중도금3차',
        '잔금일', '잔금', '합계', '계약형식', '채권양도', '비고']
     ]
 
-    // 헤더 쓰기
-    await this.writeRange(spreadsheetId, '매도현황!A1:V1', headers)
+    // 헤더 쓰기 (A1:W1 = 23열)
+    await this.writeRange(spreadsheetId, '매도현황!A1:W1', headers)
 
-    // 스타일 적용
+    // 스타일 적용 (23열: A~W)
     const styleRequests = [
       // 헤더 행 배경색 (연한 녹색)
       {
         repeatCell: {
-          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 22 },
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 23 },
           cell: {
             userEnteredFormat: {
               backgroundColor: { red: 0.85, green: 0.95, blue: 0.85 },
@@ -530,16 +530,17 @@ export class SheetsService {
           fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,borders)'
         }
       },
-      // 열 너비 설정
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 70 }, fields: 'pixelSize' } },  // A열 (구분)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 60 }, fields: 'pixelSize' } },  // B열 (동)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // C열 (동-호)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // D열 (계약자)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } }, // E열 (연락처)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } }, // F열 (주민번호)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },  // G열 (계약일)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },  // H열 (계약금)
-      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 22 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } }  // I-V열
+      // 열 너비 설정 (A열 공란, B열부터 데이터)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } },  // A열 (공란)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 70 }, fields: 'pixelSize' } },  // B열 (구분)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 60 }, fields: 'pixelSize' } },  // C열 (동)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // D열 (동-호)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 80 }, fields: 'pixelSize' } },  // E열 (계약자)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } }, // F열 (연락처)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } }, // G열 (주민번호)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },  // H열 (계약일)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 9 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },  // I열 (계약금)
+      { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 9, endIndex: 23 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } }  // J-W열
     ]
 
     await this.batchUpdate(spreadsheetId, styleRequests)
