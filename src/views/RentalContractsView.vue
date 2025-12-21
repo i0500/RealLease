@@ -532,6 +532,10 @@ function resetForm() {
           <n-radio value="table">테이블</n-radio>
           <n-radio value="card">카드</n-radio>
         </n-radio-group>
+
+        <div class="text-sm text-gray-600">
+          총 {{ filteredContracts.length }}건
+        </div>
       </n-space>
     </div>
 
