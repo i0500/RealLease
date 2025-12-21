@@ -350,12 +350,36 @@ export const useContractsStore = defineStore('contracts', () => {
         }
       }
 
-      // Note: appendRow adds to bottom of sheet
-      // For sequential ordering, manual sorting in sheet required
-      // ⚠️ B열부터 시작 (A열은 항상 빈칸이므로 제외)
+      // 2. 시트 데이터 읽어서 마지막 데이터 행 찾기
+      // ⚠️ appendRow 대신 updateRow 사용 (Google Sheets append API의 테이블 감지 문제 회피)
+      const readRange = sheet.tabName ? `${sheet.tabName}!B1:B1000` : 'B1:B1000'
+      const sheetData = await sheetsService.readRange(sheet.spreadsheetId, readRange, sheet.gid)
+
+      // B열에서 마지막으로 데이터가 있는 행 찾기
+      let lastDataRow = 0
+      for (let i = 0; i < sheetData.length; i++) {
+        const cellValue = sheetData[i]?.[0]
+        if (cellValue !== undefined && cellValue !== null && cellValue.toString().trim() !== '') {
+          lastDataRow = i + 1 // 1-based index
+        }
+      }
+
+      // 다음 행에 데이터 작성
+      const newRowIndex = lastDataRow + 1
+      console.log(`📝 [addContract] B열 마지막 데이터 행: ${lastDataRow}, 새 데이터 작성 행: ${newRowIndex}`)
+
       const row = contractToRow(newContract)
-      const range = sheet.tabName ? `${sheet.tabName}!B:Y` : 'B:Y'
-      await sheetsService.appendRow(sheet.spreadsheetId, range, row)
+
+      // ⚠️ B열부터 Y열까지 직접 지정하여 updateRow로 작성
+      const writeRange = sheet.tabName
+        ? `${sheet.tabName}!B${newRowIndex}:Y${newRowIndex}`
+        : `B${newRowIndex}:Y${newRowIndex}`
+      await sheetsService.updateRow(sheet.spreadsheetId, writeRange, row)
+
+      // rowIndex 설정
+      newContract.rowIndex = newRowIndex
+
+      console.log(`✅ [addContract] 새 계약 추가 완료: row ${newRowIndex}`)
 
       contracts.value.push(newContract)
 
