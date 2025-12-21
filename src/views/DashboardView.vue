@@ -857,11 +857,11 @@ function getPriorityColor(priority: string) {
 
 /* Header Styles */
 .dashboard-header {
-  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+  background: linear-gradient(135deg, #1a252f 0%, #2c3e50 50%, #34495e 100%);
   padding: 1.5rem;
-  margin: -1rem -1rem 1.5rem -1rem;
-  border-radius: 0 0 1.5rem 1.5rem;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+  margin: 0 0 1.5rem 0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(44, 62, 80, 0.25);
 }
 
 .header-content {
@@ -1055,6 +1055,9 @@ function getPriorityColor(priority: string) {
   border: 1px solid #e2e8f0;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .kpi-card:hover {
@@ -1063,13 +1066,13 @@ function getPriorityColor(priority: string) {
 }
 
 .kpi-icon-wrap {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .kpi-icon-wrap.primary { background: rgba(59, 130, 246, 0.1); }
@@ -1083,19 +1086,24 @@ function getPriorityColor(priority: string) {
 .kpi-content {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  flex: 1;
 }
 
 .kpi-value {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: #1e293b;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .kpi-label {
-  font-size: 0.875rem;
+  font-size: 0.813rem;
   color: #64748b;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kpi-badge {
@@ -1345,8 +1353,8 @@ function getPriorityColor(priority: string) {
 @media (max-width: 640px) {
   .dashboard-header {
     padding: 1.25rem;
-    margin: -0.5rem -0.5rem 1rem -0.5rem;
-    border-radius: 0 0 1rem 1rem;
+    margin: 0 0 1rem 0;
+    border-radius: 12px;
   }
 
   .header-title {
@@ -1357,8 +1365,22 @@ function getPriorityColor(priority: string) {
     display: none;
   }
 
+  .kpi-card {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .kpi-icon-wrap {
+    width: 44px;
+    height: 44px;
+  }
+
   .kpi-value {
     font-size: 1.5rem;
+  }
+
+  .kpi-label {
+    font-size: 0.75rem;
   }
 
   .contract-dates {
