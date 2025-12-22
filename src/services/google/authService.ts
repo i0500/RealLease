@@ -29,6 +29,7 @@ export class AuthService {
   private tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null
   private authReady: Promise<void>
   private authReadyResolve!: () => void
+  private redirectCheckComplete: boolean = false // redirect 결과 확인 완료 여부
   private keepSignedInPreference: boolean = true // 로그인 상태 유지 설정
   private redirectLoginProcessed: boolean = false // redirect 로그인 처리 완료 여부
   private onRedirectLoginSuccess: ((user: FirebaseUser) => void) | null = null // redirect 로그인 성공 콜백
@@ -38,6 +39,7 @@ export class AuthService {
 
   constructor() {
     // Firebase Auth 초기화 완료를 기다릴 Promise 생성
+    // 🔧 FIX: authReady = redirect 결과 처리 + onAuthStateChanged 첫 콜백 모두 완료
     this.authReady = new Promise((resolve) => {
       this.authReadyResolve = resolve
     })
@@ -49,6 +51,8 @@ export class AuthService {
   /**
    * 비동기 초기화 - redirect 결과 확인 후 auth listener 설정
    * iOS PWA: redirect 결과는 저장해두고 콜백 등록 후 처리
+   *
+   * 🔧 FIX: authReady는 redirect 결과 확인 + onAuthStateChanged 첫 콜백 모두 완료 후 resolve
    */
   private async initializeAuth(): Promise<void> {
     // 1. 저장된 토큰 먼저 로드
@@ -57,8 +61,30 @@ export class AuthService {
     // 2. iOS PWA redirect 결과 확인 (결과만 저장, 콜백은 나중에 처리)
     await this.checkRedirectResult()
 
+    // ✅ redirect 결과 확인 완료 표시
+    this.redirectCheckComplete = true
+    console.log('✅ [AuthService] Redirect check complete')
+
+    // 두 조건 모두 완료되었는지 확인하고 authReady resolve
+    this.tryResolveAuthReady()
+
     // 3. Auth state listener 설정
     this.initializeAuthListener()
+  }
+
+  /**
+   * authReady promise resolve 시도
+   * redirect 결과 확인 + onAuthStateChanged 첫 콜백 모두 완료되어야 resolve
+   */
+  private authStateFirstCallbackDone: boolean = false
+
+  private tryResolveAuthReady(): void {
+    if (this.redirectCheckComplete && this.authStateFirstCallbackDone) {
+      console.log('✅ [AuthService] Both conditions met, resolving authReady')
+      this.authReadyResolve()
+    } else {
+      console.log(`⏳ [AuthService] Waiting for auth ready: redirect=${this.redirectCheckComplete}, authState=${this.authStateFirstCallbackDone}`)
+    }
   }
 
   /**
@@ -187,6 +213,8 @@ export class AuthService {
   /**
    * 인증 상태 변경 리스너 초기화
    * Firebase가 자동으로 토큰을 갱신하고 세션을 유지합니다
+   *
+   * 🔧 FIX: 첫 콜백에서 authStateFirstCallbackDone 설정 후 tryResolveAuthReady 호출
    */
   private initializeAuthListener(): void {
     console.log('🔐 [AuthService] Initializing auth state listener...')
@@ -210,11 +238,14 @@ export class AuthService {
         this.googleAccessToken = null
       }
 
-      // 첫 콜백에서 초기화 완료 신호
+      // 🔧 FIX: 첫 콜백에서 authStateFirstCallbackDone 표시 + tryResolveAuthReady 호출
       if (isFirstCall) {
         isFirstCall = false
-        this.authReadyResolve()
-        console.log('✅ [AuthService] Auth initialization complete')
+        this.authStateFirstCallbackDone = true
+        console.log('✅ [AuthService] Auth state first callback done')
+
+        // 두 조건 모두 완료되었는지 확인하고 authReady resolve
+        this.tryResolveAuthReady()
       }
     })
   }
@@ -668,15 +699,19 @@ export class AuthService {
 
   /**
    * 🛡️ 저장된 토큰 검증 및 정리
-   * readonly 권한만 있는 오래된 토큰은 자동 삭제하고 로그아웃
+   *
+   * 🔧 FIX: 토큰 만료/검증 실패시 로그아웃하지 않음!
+   * Firebase Auth 세션은 유지하고, OAuth 토큰만 삭제
+   * 실제 API 호출 시점에 재인증 요청
    */
   private async verifyAndCleanupToken(accessToken: string, storageType: 'localStorage' | 'sessionStorage'): Promise<void> {
     try {
       const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
       if (!response.ok) {
-        console.warn(`⚠️ [AuthService] ${storageType} 토큰 검증 실패, 삭제 처리`)
+        console.warn(`⚠️ [AuthService] ${storageType} 토큰 만료/검증 실패 - 토큰만 삭제 (로그인 유지)`)
         this.clearGoogleAccessToken()
-        await this.signOut()
+        this.tokenRefreshNeeded = true // API 호출 시 재인증 필요 표시
+        // 🔧 FIX: signOut() 호출 제거 - Firebase 세션은 유지!
         return
       }
 
@@ -695,22 +730,23 @@ export class AuthService {
 
       // readonly 권한만 있고 write 권한이 없는 경우
       if (hasReadonly && !hasFullSpreadsheets) {
-        console.warn(`⚠️ [AuthService] ${storageType}에 readonly 토큰 발견! 자동 삭제 및 로그아웃`)
+        console.warn(`⚠️ [AuthService] ${storageType}에 readonly 토큰 발견 - 토큰 삭제 (로그인 유지)`)
         this.clearGoogleAccessToken()
-        await this.signOut()
-        // 사용자에게 재로그인 필요 알림
-        alert('Google Sheets 권한이 업데이트되었습니다.\n다시 로그인하여 새로운 권한을 부여해주세요.')
+        this.tokenRefreshNeeded = true
+        // 🔧 FIX: signOut() 및 alert 제거 - API 호출 시 재인증 유도
       } else if (hasFullSpreadsheets) {
         console.log(`✅ [AuthService] ${storageType} 토큰에 write 권한 확인됨!`)
       } else {
-        console.warn(`⚠️ [AuthService] ${storageType} 토큰에 spreadsheets 권한 없음!`)
+        console.warn(`⚠️ [AuthService] ${storageType} 토큰에 spreadsheets 권한 없음 - 토큰 삭제 (로그인 유지)`)
         this.clearGoogleAccessToken()
-        await this.signOut()
+        this.tokenRefreshNeeded = true
+        // 🔧 FIX: signOut() 제거
       }
     } catch (error) {
       console.error(`❌ [AuthService] ${storageType} 토큰 검증 중 오류:`, error)
-      // 검증 실패 시 안전을 위해 토큰 삭제
+      // 🔧 FIX: 검증 실패해도 로그아웃하지 않음 - 토큰만 삭제
       this.clearGoogleAccessToken()
+      this.tokenRefreshNeeded = true
     }
   }
 
