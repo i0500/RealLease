@@ -111,8 +111,13 @@ export class AuthService {
    * @returns true if redirect login was successful
    */
   private async checkRedirectResult(): Promise<boolean> {
+    console.log('🔍 [AuthService] checkRedirectResult 시작...')
+    console.log('🔍 [AuthService] 현재 URL:', window.location.href)
+    console.log('🔍 [AuthService] auth.currentUser:', auth.currentUser?.email || 'null')
+
     try {
       const result = await getRedirectResult(auth)
+      console.log('🔍 [AuthService] getRedirectResult 결과:', result ? '있음' : 'null')
 
       if (result) {
         this.currentUser = result.user
@@ -145,11 +150,13 @@ export class AuthService {
           }
         }
 
+        console.log('✅ [AuthService] Redirect 로그인 성공:', result.user.email)
         return true
       }
+      console.log('⚠️ [AuthService] Redirect 결과 없음 (정상: 첫 방문 또는 팝업 로그인)')
       return false
     } catch (error: any) {
-      console.error('❌ [AuthService] Redirect result error:', error)
+      console.error('❌ [AuthService] Redirect result error:', error.code, error.message)
       return false
     }
   }
@@ -179,6 +186,7 @@ export class AuthService {
     let isFirstCall = true
 
     this.authStateListener = onAuthStateChanged(auth, (user) => {
+      console.log('🔍 [AuthService] onAuthStateChanged:', user ? user.email : 'null', isFirstCall ? '(첫 콜백)' : '')
       this.currentUser = user
 
       if (user) {
@@ -422,10 +430,14 @@ export class AuthService {
    * @returns Promise<void> - 팝업 방식일 때만 즉시 완료, 리디렉트 방식은 페이지 이동
    */
   async signIn(keepSignedIn: boolean = true): Promise<void> {
+    console.log('🔍 [AuthService] signIn 시작, keepSignedIn:', keepSignedIn)
+    console.log('🔍 [AuthService] isPopupBlocked:', isPopupBlocked())
+
     try {
       await setAuthPersistence(keepSignedIn)
 
       if (isPopupBlocked()) {
+        console.log('🔍 [AuthService] Redirect 방식으로 로그인 시도...')
         localStorage.setItem('pending_keep_signed_in', String(keepSignedIn))
         await signInWithRedirect(auth, googleProvider)
         return
