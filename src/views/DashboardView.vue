@@ -232,41 +232,45 @@ watch(
 
 // Navigation handlers
 function navigateToContracts(status?: 'vacant' | 'expiring' | 'hugExpiring') {
-  if (!sheetsStore.currentSheet) {
-    console.warn('No current sheet selected')
+  // 🔧 FIX: 임대관리는 반드시 rental 타입 시트 ID 사용
+  const targetSheetId = sheetsStore.currentRentalSheet?.id || sheetsStore.currentSheet?.id
+  if (!targetSheetId) {
+    console.warn('No rental sheet found')
     return
   }
 
   if (status) {
     router.push({
       name: 'rental-contracts',
-      params: { sheetId: sheetsStore.currentSheet.id },
+      params: { sheetId: targetSheetId },
       query: { status }
     })
   } else {
     router.push({
       name: 'rental-contracts',
-      params: { sheetId: sheetsStore.currentSheet.id }
+      params: { sheetId: targetSheetId }
     })
   }
 }
 
 function navigateToSales(status?: 'active' | 'completed') {
-  if (!sheetsStore.currentSheet) {
-    console.warn('No current sheet selected')
+  // 🔧 FIX: 매도관리는 반드시 sale 타입 시트 ID 사용
+  const targetSheetId = sheetsStore.currentSaleSheet?.id || sheetsStore.currentSheet?.id
+  if (!targetSheetId) {
+    console.warn('No sale sheet found')
     return
   }
 
   if (status) {
     router.push({
       name: 'sales',
-      params: { sheetId: sheetsStore.currentSheet.id },
+      params: { sheetId: targetSheetId },
       query: { status }
     })
   } else {
     router.push({
       name: 'sales',
-      params: { sheetId: sheetsStore.currentSheet.id }
+      params: { sheetId: targetSheetId }
     })
   }
 }
