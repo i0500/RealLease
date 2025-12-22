@@ -20,6 +20,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Firebase Auth 경로는 Service Worker가 처리하지 않음
+        navigateFallbackDenylist: [/^\/__\//, /^\/firebase\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
