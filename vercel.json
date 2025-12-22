@@ -28,7 +28,16 @@
       ]
     },
     {
-      "source": "/(.*)",
+      "source": "/__/auth/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    },
+    {
+      "source": "/((?!__/auth/).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
