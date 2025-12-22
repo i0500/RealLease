@@ -58,14 +58,15 @@ export function isIOSSafari(): boolean {
 /**
  * 팝업이 차단되는 환경인지 확인
  *
- * 🔧 FIX: iOS Safari도 ITP(Intelligent Tracking Prevention)로 인해
- * Google OAuth 팝업이 "트래커" 로 차단됨
- * → iOS 전체에서 redirect 방식 사용
+ * 🔧 FIX: PWA standalone 모드에서만 redirect 사용
+ * - 일반 브라우저 (Chrome, Firefox, Safari) → popup 사용
+ * - PWA 모드 (iOS/Android 홈 화면 추가) → redirect 사용
+ *
+ * PWA에서 popup이 제대로 작동하지 않으므로 redirect 방식 사용
  */
 export function isPopupBlocked(): boolean {
-  // iOS 전체 (Safari + PWA 모두)에서 redirect 사용
-  // Safari ITP가 cross-origin OAuth 팝업을 트래커로 차단함
-  return isIOS()
+  // PWA standalone 모드에서만 redirect 사용
+  return isPWA()
 }
 
 /**
