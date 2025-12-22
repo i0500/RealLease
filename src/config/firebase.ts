@@ -11,8 +11,7 @@ import {
   GoogleAuthProvider,
   setPersistence,
   browserLocalPersistence,
-  browserSessionPersistence,
-  indexedDBLocalPersistence
+  browserSessionPersistence
 } from 'firebase/auth'
 
 // Firebase configuration from environment variables
@@ -48,43 +47,17 @@ try {
 }
 
 /**
- * iOS PWA 환경 감지
- */
-function isIOSPWA(): boolean {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
-  const isStandalone = (window.navigator as any).standalone === true
-  return isIOS && isStandalone
-}
-
-/**
  * Set authentication persistence
  * @param keepSignedIn - true: localStorage (persist), false: sessionStorage (session only)
- *
- * iOS PWA에서는 indexedDBLocalPersistence 사용 권장 (더 안정적)
  */
 export async function setAuthPersistence(keepSignedIn: boolean): Promise<void> {
-  // iOS PWA에서는 indexedDB가 더 안정적
-  let persistence
-  if (keepSignedIn) {
-    persistence = isIOSPWA() ? indexedDBLocalPersistence : browserLocalPersistence
-  } else {
-    persistence = browserSessionPersistence
-  }
+  const persistence = keepSignedIn ? browserLocalPersistence : browserSessionPersistence
 
   try {
     await setPersistence(auth, persistence)
   } catch (error) {
     console.error('❌ [Firebase] Failed to set persistence:', error)
-    if (isIOSPWA()) {
-      try {
-        await setPersistence(auth, browserLocalPersistence)
-      } catch (fallbackError) {
-        console.error('❌ [Firebase] Fallback persistence also failed:', fallbackError)
-        throw fallbackError
-      }
-    } else {
-      throw error
-    }
+    throw error
   }
 }
 
