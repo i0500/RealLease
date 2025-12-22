@@ -8,31 +8,7 @@
     ],
     "rewrites": [
       {
-        "source": "/auth",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/auth/**",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/dashboard",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/dashboard/**",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/sheets/**",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/notifications",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/settings",
+        "source": "**",
         "destination": "/index.html"
       }
     ]
