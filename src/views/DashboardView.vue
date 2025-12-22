@@ -595,60 +595,62 @@ function getPriorityColor(priority: string) {
         </div>
       </section>
 
-      <!-- Recent Contracts Section -->
-      <section class="dashboard-section">
-        <div class="section-header">
-          <div class="section-title-group">
-            <n-icon size="20" color="#8b5cf6">
-              <DocumentIcon />
-            </n-icon>
-            <h2 class="section-title">최근 계약</h2>
+      <!-- Recent Contracts & Sales Grid (PC: side by side) -->
+      <div class="recent-grid">
+        <!-- Recent Contracts Section -->
+        <section class="dashboard-section">
+          <div class="section-header">
+            <div class="section-title-group">
+              <n-icon size="20" color="#8b5cf6">
+                <DocumentIcon />
+              </n-icon>
+              <h2 class="section-title">최근 계약</h2>
+            </div>
+            <n-button text type="primary" @click="navigateToContracts()">
+              전체보기 &rarr;
+            </n-button>
           </div>
-          <n-button text type="primary" @click="navigateToContracts()">
-            전체보기 &rarr;
-          </n-button>
-        </div>
 
-        <div class="contracts-card">
-          <div v-if="recentContracts.length > 0" class="contract-list">
-            <div
-              v-for="contract in recentContracts"
-              :key="contract.id"
-              class="contract-item"
-              @click="handleContractClick(contract)"
-            >
-              <div class="contract-main">
-                <div class="contract-location">
-                  <span class="location-text">{{ contract.building }}동 {{ contract.unit }}호</span>
-                  <n-tag
-                    :type="contract.tenantName ? 'success' : 'default'"
-                    size="small"
-                  >
-                    {{ contract.tenantName ? '계약중' : '공실' }}
-                  </n-tag>
+          <div class="contracts-card">
+            <div v-if="recentContracts.length > 0" class="contract-list">
+              <div
+                v-for="contract in recentContracts"
+                :key="contract.id"
+                class="contract-item"
+                @click="handleContractClick(contract)"
+              >
+                <div class="contract-main">
+                  <div class="contract-location">
+                    <span class="location-text">{{ contract.building }}동 {{ contract.unit }}호</span>
+                    <n-tag
+                      :type="contract.tenantName ? 'success' : 'default'"
+                      size="small"
+                    >
+                      {{ contract.tenantName ? '계약중' : '공실' }}
+                    </n-tag>
+                  </div>
+                  <div class="contract-details">
+                    <span class="tenant-name">{{ contract.tenantName || '공실' }}</span>
+                    <span v-if="contract.contractType" class="contract-type">{{ contract.contractType }}</span>
+                    <span v-if="contract.deposit > 0" class="contract-amount">
+                      {{ formatCurrency(contract.deposit) }}
+                      <span v-if="contract.monthlyRent > 0"> / {{ (contract.monthlyRent / 1000).toLocaleString() }}천</span>
+                    </span>
+                  </div>
                 </div>
-                <div class="contract-details">
-                  <span class="tenant-name">{{ contract.tenantName || '공실' }}</span>
-                  <span v-if="contract.contractType" class="contract-type">{{ contract.contractType }}</span>
-                  <span v-if="contract.deposit > 0" class="contract-amount">
-                    {{ formatCurrency(contract.deposit) }}
-                    <span v-if="contract.monthlyRent > 0"> / {{ (contract.monthlyRent / 1000).toLocaleString() }}천</span>
-                  </span>
+                <div v-if="contract.startDate || contract.endDate" class="contract-dates">
+                  <span v-if="contract.startDate">{{ formatDate(contract.startDate, 'yyyy.MM.dd') }}</span>
+                  <span v-if="contract.startDate && contract.endDate" class="date-separator">~</span>
+                  <span v-if="contract.endDate">{{ formatDate(contract.endDate, 'yyyy.MM.dd') }}</span>
                 </div>
-              </div>
-              <div v-if="contract.startDate || contract.endDate" class="contract-dates">
-                <span v-if="contract.startDate">{{ formatDate(contract.startDate, 'yyyy.MM.dd') }}</span>
-                <span v-if="contract.startDate && contract.endDate" class="date-separator">~</span>
-                <span v-if="contract.endDate">{{ formatDate(contract.endDate, 'yyyy.MM.dd') }}</span>
               </div>
             </div>
+            <n-empty v-else description="계약이 없습니다" class="py-8" />
           </div>
-          <n-empty v-else description="계약이 없습니다" class="py-8" />
-        </div>
-      </section>
+        </section>
 
-      <!-- Recent Sales Section -->
-      <section v-if="saleStats.total > 0" class="dashboard-section">
+        <!-- Recent Sales Section -->
+        <section v-if="saleStats.total > 0" class="dashboard-section">
         <div class="section-header">
           <div class="section-title-group">
             <n-icon size="20" color="#10b981">
@@ -694,6 +696,7 @@ function getPriorityColor(priority: string) {
           </div>
         </div>
       </section>
+    </div>
     </div>
 
     <!-- 계약 상세보기 모달 -->
@@ -1041,6 +1044,24 @@ function getPriorityColor(priority: string) {
   }
   .kpi-grid-3 {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Recent Grid (PC: side by side) */
+.recent-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+@media (min-width: 717px) {
+  .recent-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .recent-grid .dashboard-section {
+    margin-bottom: 0;
   }
 }
 
