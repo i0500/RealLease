@@ -559,7 +559,7 @@ function resetForm() {
   <div class="contracts-view">
     <div class="header mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold" style="color: #2c3e50;">임대차 현황</h1>
+        <h1 class="text-2xl font-bold" style="color: #2c3e50;">임대 관리</h1>
         <n-space>
           <n-button type="primary" @click="handleAdd">
             <template #icon>➕</template>

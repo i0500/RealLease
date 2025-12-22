@@ -513,7 +513,7 @@ async function handleSubmit() {
   <div class="sales-view">
     <div class="header mb-6">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold" style="color: #2c3e50;">매도현황</h1>
+        <h1 class="text-2xl font-bold" style="color: #2c3e50;">매도 관리</h1>
         <n-space>
           <n-button @click="openAddModal" type="primary">
             <template #icon>
@@ -532,7 +532,7 @@ async function handleSubmit() {
 
       <!-- No sheet message -->
       <n-alert v-if="!sheetsStore.currentSaleSheet" type="warning" class="mb-4">
-        매도현황 시트가 연결되지 않았습니다. 설정에서 시트를 연결해주세요.
+        매도 관리 시트가 연결되지 않았습니다. 설정에서 시트를 연결해주세요.
       </n-alert>
 
       <!-- Search and filters -->
@@ -828,7 +828,7 @@ async function handleSubmit() {
             <h2 class="text-2xl font-bold" style="color: #2c3e50;">
               {{ viewingSaleContract?.building }}동 {{ viewingSaleContract?.unit.split('-')[1] || viewingSaleContract?.unit.split('-')[0] }}호
             </h2>
-            <p class="text-sm text-gray-600 mt-1">매도현황 상세 정보</p>
+            <p class="text-sm text-gray-600 mt-1">매도 계약 상세 정보</p>
           </div>
           <n-tag v-if="viewingSaleContract" :type="viewingSaleContract.status === 'completed' ? 'success' : 'info'" size="large">
             {{ viewingSaleContract.status === 'completed' ? '종결' : '진행중' }}

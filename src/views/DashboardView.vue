@@ -359,10 +359,10 @@ function getPriorityColor(priority: string) {
             </n-icon>
           </div>
           <div class="header-text">
-            <h1 class="header-title">Dashboard</h1>
-            <p class="header-subtitle" v-if="sheetsStore.currentSheet">
+            <h1 class="header-title" v-if="sheetsStore.currentSheet">
               {{ sheetsStore.currentSheet.name }}
-            </p>
+            </h1>
+            <h1 class="header-title" v-else>RealLease</h1>
           </div>
         </div>
         <div class="header-right" v-if="sheetsStore.currentSheet">
@@ -426,7 +426,7 @@ function getPriorityColor(priority: string) {
             <n-icon size="20" color="#3b82f6">
               <HomeIcon />
             </n-icon>
-            <h2 class="section-title">임대차 현황</h2>
+            <h2 class="section-title">임대 관리</h2>
           </div>
           <n-button text type="primary" @click="navigateToContracts()">
             전체보기 &rarr;
@@ -497,7 +497,7 @@ function getPriorityColor(priority: string) {
             <n-icon size="20" color="#10b981">
               <TrendingIcon />
             </n-icon>
-            <h2 class="section-title">매도현황</h2>
+            <h2 class="section-title">매도 관리</h2>
           </div>
           <n-button text type="primary" @click="navigateToSales()">
             전체보기 &rarr;

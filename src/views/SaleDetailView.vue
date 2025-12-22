@@ -260,7 +260,7 @@ async function handleDelete() {
             <h1 class="text-2xl font-bold" style="color: #2c3e50;">
               {{ saleContract.building }}동 {{ saleContract.unit.split('-')[1] || saleContract.unit.split('-')[0] }}호
             </h1>
-            <p class="text-sm text-gray-600 mt-1">매도현황 상세 정보</p>
+            <p class="text-sm text-gray-600 mt-1">매도 계약 상세 정보</p>
           </div>
         </div>
         <n-tag :type="statusTag.type as any" size="large">

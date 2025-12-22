@@ -222,21 +222,21 @@ const menuOptions = computed<MenuOption[]>(() => {
     sheetGroups.forEach((sheets: SheetConfig[], groupName: string) => {
       const children: MenuOption[] = []
 
-      // ✅ 임대차 현황 메뉴 (sheetType === 'rental' 인 시트)
+      // ✅ 임대 관리 메뉴 (sheetType === 'rental' 인 시트)
       const rentalSheet = sheets.find(s => s.sheetType === 'rental')
       if (rentalSheet) {
         children.push({
-          label: '임대차 현황',
+          label: '임대 관리',
           key: `sheet-${rentalSheet.id}-rental-contracts`,
           icon: renderIcon(DocumentTextOutline)
         })
       }
 
-      // ✅ 매도현황 메뉴 (sheetType === 'sale' 인 시트)
+      // ✅ 매도 관리 메뉴 (sheetType === 'sale' 인 시트)
       const saleSheet = sheets.find(s => s.sheetType === 'sale')
       if (saleSheet) {
         children.push({
-          label: '매도현황',
+          label: '매도 관리',
           key: `sheet-${saleSheet.id}-sales`,
           icon: renderIcon(DocumentTextOutline)
         })
@@ -382,7 +382,7 @@ async function handleMenuSelect(key: string) {
           RealLease
         </h1>
         <p class="text-xs mt-1" style="color: #95a5a6;">
-          임대차 관리 시스템
+          부동산 임대 관리
         </p>
       </div>
       <n-menu
@@ -426,7 +426,7 @@ async function handleMenuSelect(key: string) {
           <!-- 제목 및 연결 상태 -->
           <div class="flex-1 min-w-0">
             <h2 class="text-base md:text-lg font-semibold truncate" style="color: #2c3e50;">
-              임대차 관리 시스템
+              RealLease
             </h2>
             <div class="flex items-center gap-2 mt-1">
               <n-icon :size="14" :style="{ color: connectionStatus.type === 'success' ? '#18a058' : '#f0a020' }">
@@ -523,7 +523,7 @@ async function handleMenuSelect(key: string) {
 
             <!-- 시트 그룹의 하위 메뉴 (sheetType에 따라) -->
             <div class="pl-6 space-y-1">
-              <!-- ✅ 임대차 현황 (sheetType === 'rental' 인 시트만) -->
+              <!-- ✅ 임대 관리 (sheetType === 'rental' 인 시트만) -->
               <template v-if="sheets.find(s => s.sheetType === 'rental')">
                 <n-button
                   block
@@ -536,11 +536,11 @@ async function handleMenuSelect(key: string) {
                   <template #icon>
                     <n-icon><DocumentTextOutline /></n-icon>
                   </template>
-                  임대차 현황
+                  임대 관리
                 </n-button>
               </template>
 
-              <!-- ✅ 매도현황 (sheetType === 'sale' 인 시트만) -->
+              <!-- ✅ 매도 관리 (sheetType === 'sale' 인 시트만) -->
               <template v-if="sheets.find(s => s.sheetType === 'sale')">
                 <n-button
                   block
@@ -553,7 +553,7 @@ async function handleMenuSelect(key: string) {
                   <template #icon>
                     <n-icon><DocumentTextOutline /></n-icon>
                   </template>
-                  매도현황
+                  매도 관리
                 </n-button>
               </template>
             </div>

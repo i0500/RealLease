@@ -50,7 +50,7 @@ async function handleSignIn() {
       <div class="branding-content">
         <div class="logo-section">
           <h1 class="logo-text">RealLease</h1>
-          <p class="logo-subtitle">임대차 관리 시스템</p>
+          <p class="logo-subtitle">부동산 임대 관리</p>
         </div>
 
         <div class="features-section">
