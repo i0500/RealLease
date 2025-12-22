@@ -3,7 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { NCard, NButton, NAlert, NIcon, NDivider, NCheckbox } from 'naive-ui'
-import { LogoGoogle, LockClosedOutline, ShieldCheckmarkOutline } from '@vicons/ionicons5'
+import { LogoGoogle, LockClosedOutline, ShieldCheckmarkOutline, PhonePortraitOutline } from '@vicons/ionicons5'
+import { isIOSPWA, isIOS } from '@/utils/pwaUtils'
 
 const router = useRouter()
 const route = useRoute()
@@ -12,6 +13,10 @@ const authStore = useAuthStore()
 const isSigningIn = ref(false)
 const error = ref<string | null>(null)
 const keepSignedIn = ref(true) // 기본값: 로그인 상태 유지
+
+// iOS PWA 환경 감지
+const isIOSPWAEnv = ref(false)
+const isIOSEnv = ref(false)
 
 // 토큰 만료로 인한 자동 로그아웃 메시지
 const expiredMessage = computed(() => {
@@ -22,6 +27,14 @@ onMounted(() => {
   // 만료 메시지가 있으면 에러로 표시
   if (expiredMessage.value) {
     error.value = expiredMessage.value
+  }
+
+  // iOS PWA 환경 감지
+  isIOSPWAEnv.value = isIOSPWA()
+  isIOSEnv.value = isIOS()
+
+  if (isIOSPWAEnv.value) {
+    console.log('📱 [AuthView] iOS PWA 환경 감지됨 - redirect 방식 로그인 사용')
   }
 })
 
@@ -124,6 +137,17 @@ async function handleSignIn() {
           <n-divider class="my-6">
             <span class="text-xs text-gray-400">안내</span>
           </n-divider>
+
+          <!-- iOS PWA 안내 -->
+          <div v-if="isIOSPWAEnv" class="ios-pwa-notice">
+            <n-icon size="18" class="notice-icon">
+              <PhonePortraitOutline />
+            </n-icon>
+            <div class="notice-text">
+              <p class="notice-title">iOS 앱 모드</p>
+              <p class="notice-desc">로그인 시 Safari로 이동 후 자동으로 돌아옵니다</p>
+            </div>
+          </div>
 
           <div class="info-section">
             <p class="info-text">
@@ -271,6 +295,40 @@ async function handleSignIn() {
   height: 48px;
   font-size: 1rem;
   font-weight: 500;
+}
+
+/* iOS PWA Notice */
+.ios-pwa-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #fff3e0;
+  padding: 0.875rem 1rem;
+  border-radius: 6px;
+  border-left: 3px solid #ff9800;
+  margin-bottom: 1rem;
+}
+
+.ios-pwa-notice .notice-icon {
+  color: #ff9800;
+  flex-shrink: 0;
+}
+
+.ios-pwa-notice .notice-text {
+  flex: 1;
+}
+
+.ios-pwa-notice .notice-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e65100;
+  margin-bottom: 0.125rem;
+}
+
+.ios-pwa-notice .notice-desc {
+  font-size: 0.75rem;
+  color: #f57c00;
+  line-height: 1.4;
 }
 
 .info-section {

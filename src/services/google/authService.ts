@@ -7,6 +7,8 @@
 
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -14,6 +16,7 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
+import { isIOSPWA, isPopupBlocked } from '@/utils/pwaUtils'
 
 // 토큰 갱신 버퍼 시간 (5분 전에 갱신 시도)
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
@@ -36,6 +39,53 @@ export class AuthService {
 
     this.initializeAuthListener()
     this.loadGoogleAccessToken()
+    // iOS PWA에서 redirect 로그인 결과 체크
+    this.checkRedirectResult()
+  }
+
+  /**
+   * Redirect 로그인 결과 확인 (iOS PWA용)
+   * 앱 시작 시 호출되어 redirect 방식 로그인 결과를 처리
+   */
+  private async checkRedirectResult(): Promise<void> {
+    try {
+      console.log('🔄 [AuthService] Checking redirect result...')
+      const result = await getRedirectResult(auth)
+
+      if (result) {
+        console.log('✅ [AuthService] Redirect sign-in successful:', {
+          email: result.user.email,
+          uid: result.user.uid
+        })
+
+        this.currentUser = result.user
+
+        // Google OAuth Credentials에서 Access Token 추출
+        const credential = GoogleAuthProvider.credentialFromResult(result)
+        if (credential && credential.accessToken) {
+          this.googleAccessToken = credential.accessToken
+
+          // 저장된 keepSignedIn 설정 복원
+          const keepSignedIn = localStorage.getItem('pending_keep_signed_in') !== 'false'
+          localStorage.removeItem('pending_keep_signed_in')
+
+          // tokeninfo API로 만료 시간 확인
+          const tokenInfo = await this.getTokenInfo(credential.accessToken)
+          const expiresIn = tokenInfo?.expires_in || 3600
+
+          this.saveGoogleAccessToken(credential.accessToken, keepSignedIn, expiresIn)
+          console.log('✅ [AuthService] Redirect login token saved')
+
+          // 🔍 DEBUG: 토큰 권한 확인
+          this.debugTokenScopes(credential.accessToken)
+        }
+      } else {
+        console.log('ℹ️ [AuthService] No redirect result (normal browser load)')
+      }
+    } catch (error: any) {
+      console.error('❌ [AuthService] Redirect result error:', error)
+      // redirect 결과 오류는 무시 (일반적인 앱 로드에서는 결과가 없음)
+    }
   }
 
   /**
@@ -311,17 +361,32 @@ export class AuthService {
   }
 
   /**
-   * Google 로그인 (팝업 방식)
+   * Google 로그인 (환경에 따라 팝업/리디렉트 방식 자동 선택)
    * @param keepSignedIn - true: localStorage (영구 보관), false: sessionStorage (세션만)
+   * @returns Promise<void> - 팝업 방식일 때만 즉시 완료, 리디렉트 방식은 페이지 이동
    */
   async signIn(keepSignedIn: boolean = true): Promise<void> {
     try {
       console.log(`🔑 [AuthService] Starting Google sign-in (keepSignedIn: ${keepSignedIn})...`)
+      console.log(`📱 [AuthService] Environment: iOS PWA=${isIOSPWA()}, Popup blocked=${isPopupBlocked()}`)
 
       // 로그인 상태 유지 설정
       await setAuthPersistence(keepSignedIn)
 
-      // 팝업 방식으로 로그인 (COOP 경고는 콘솔에만 표시되며 기능에 영향 없음)
+      // iOS PWA에서는 redirect 방식 사용 (팝업이 차단됨)
+      if (isPopupBlocked()) {
+        console.log('🔄 [AuthService] Using signInWithRedirect (iOS PWA detected)...')
+
+        // keepSignedIn 설정을 localStorage에 임시 저장 (redirect 후 복원용)
+        localStorage.setItem('pending_keep_signed_in', String(keepSignedIn))
+
+        // redirect 방식으로 로그인 (페이지가 이동됨)
+        await signInWithRedirect(auth, googleProvider)
+        // 이 이후 코드는 실행되지 않음 (페이지 이동)
+        return
+      }
+
+      // 일반 브라우저에서는 팝업 방식 사용
       console.log('🔄 [AuthService] Using signInWithPopup...')
       const result = await signInWithPopup(auth, googleProvider)
 
@@ -357,9 +422,12 @@ export class AuthService {
         throw new Error('로그인이 취소되었습니다')
       }
 
-      // 팝업이 차단된 경우
+      // 팝업이 차단된 경우 - redirect 방식으로 재시도
       if (error.code === 'auth/popup-blocked') {
-        throw new Error('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.')
+        console.log('⚠️ [AuthService] Popup blocked, trying redirect...')
+        localStorage.setItem('pending_keep_signed_in', String(keepSignedIn))
+        await signInWithRedirect(auth, googleProvider)
+        return
       }
 
       // 네트워크 오류
@@ -369,6 +437,20 @@ export class AuthService {
 
       throw new Error('로그인에 실패했습니다. 다시 시도해주세요.')
     }
+  }
+
+  /**
+   * iOS PWA 환경인지 확인
+   */
+  isIOSPWA(): boolean {
+    return isIOSPWA()
+  }
+
+  /**
+   * 팝업이 차단되는 환경인지 확인
+   */
+  isPopupBlocked(): boolean {
+    return isPopupBlocked()
   }
 
   /**
