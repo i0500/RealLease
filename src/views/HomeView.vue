@@ -394,8 +394,9 @@ async function handleMenuSelect(key: string) {
     </n-layout-sider>
 
     <n-layout style="height: 100vh; display: flex; flex-direction: column;">
-      <!-- 모바일/데스크톱 헤더 -->
+      <!-- 모바일 헤더 (PC에서는 사이드바에 정보가 있으므로 숨김) -->
       <n-layout-header
+        v-if="isMobile"
         bordered
         class="px-4 py-3"
         style="background-color: #ffffff; border-bottom: 1px solid #e1e8ed; flex-shrink: 0;"

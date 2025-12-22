@@ -349,8 +349,8 @@ function getPriorityColor(priority: string) {
 
 <template>
   <div class="dashboard-container">
-    <!-- Header Section - 모바일에서만 표시 -->
-    <header class="dashboard-header mobile-only">
+    <!-- Header Section - 네이비 배너 (입주율 표시) -->
+    <header class="dashboard-header">
       <div class="header-content">
         <div class="header-left">
           <div class="header-icon">
@@ -861,13 +861,6 @@ function getPriorityColor(priority: string) {
   margin: 0 0 1.5rem 0;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(44, 62, 80, 0.25);
-}
-
-/* PC에서는 대시보드 헤더 숨김 (717px 이상) */
-@media (min-width: 717px) {
-  .dashboard-header.mobile-only {
-    display: none;
-  }
 }
 
 .header-content {
