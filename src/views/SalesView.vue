@@ -519,13 +519,13 @@ async function handleSubmit() {
             <template #icon>
               <n-icon><AddIcon /></n-icon>
             </template>
-            신규 등록
+            계약 추가
           </n-button>
           <n-button @click="() => router.push('/')" secondary>
             <template #icon>
               <n-icon><HomeIcon /></n-icon>
             </template>
-            <span class="ml-1">홈</span>
+            메인 화면
           </n-button>
         </n-space>
       </div>
