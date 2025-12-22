@@ -10,16 +10,23 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
+  reauthenticateWithPopup,
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
+
+// 토큰 갱신 버퍼 시간 (5분 전에 갱신 시도)
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
 
 export class AuthService {
   private currentUser: FirebaseUser | null = null
   private authStateListener: (() => void) | null = null
   private googleAccessToken: string | null = null
+  private tokenExpiryTime: number | null = null // 토큰 만료 시간 (Unix timestamp)
+  private tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null
   private authReady: Promise<void>
   private authReadyResolve!: () => void
+  private keepSignedInPreference: boolean = true // 로그인 상태 유지 설정
 
   constructor() {
     // Firebase Auth 초기화 완료를 기다릴 Promise 생성
@@ -77,13 +84,31 @@ export class AuthService {
   /**
    * 저장된 Google Access Token 로드 및 검증
    * readonly 권한만 있는 오래된 토큰은 자동 삭제
+   * 만료 시간 확인 및 갱신 타이머 설정
    */
   private loadGoogleAccessToken(): void {
     // localStorage 우선, 없으면 sessionStorage 체크
     const localToken = localStorage.getItem('google_access_token')
+    const localExpiry = localStorage.getItem('token_expiry_time')
+    const localKeepSignedIn = localStorage.getItem('keep_signed_in')
+
     if (localToken) {
       this.googleAccessToken = localToken
+      this.keepSignedInPreference = localKeepSignedIn !== 'false'
       console.log('🔑 [AuthService] Google Access Token loaded from localStorage')
+
+      // 만료 시간 복원 및 갱신 타이머 설정
+      if (localExpiry) {
+        this.tokenExpiryTime = parseInt(localExpiry, 10)
+        const remainingMs = this.tokenExpiryTime - Date.now()
+
+        if (remainingMs > 0) {
+          console.log(`⏰ [AuthService] Token expires in ${Math.round(remainingMs / 1000 / 60)} minutes`)
+          this.scheduleTokenRefresh(remainingMs)
+        } else {
+          console.warn('⚠️ [AuthService] Token already expired, will refresh on next API call')
+        }
+      }
 
       // 🔍 토큰 권한 검증 (readonly면 삭제)
       this.verifyAndCleanupToken(localToken, 'localStorage')
@@ -91,9 +116,26 @@ export class AuthService {
     }
 
     const sessionToken = sessionStorage.getItem('google_access_token')
+    const sessionExpiry = sessionStorage.getItem('token_expiry_time')
+    const sessionKeepSignedIn = sessionStorage.getItem('keep_signed_in')
+
     if (sessionToken) {
       this.googleAccessToken = sessionToken
+      this.keepSignedInPreference = sessionKeepSignedIn !== 'false'
       console.log('🔑 [AuthService] Google Access Token loaded from sessionStorage')
+
+      // 만료 시간 복원 및 갱신 타이머 설정
+      if (sessionExpiry) {
+        this.tokenExpiryTime = parseInt(sessionExpiry, 10)
+        const remainingMs = this.tokenExpiryTime - Date.now()
+
+        if (remainingMs > 0) {
+          console.log(`⏰ [AuthService] Token expires in ${Math.round(remainingMs / 1000 / 60)} minutes`)
+          this.scheduleTokenRefresh(remainingMs)
+        } else {
+          console.warn('⚠️ [AuthService] Token already expired, will refresh on next API call')
+        }
+      }
 
       // 🔍 토큰 권한 검증 (readonly면 삭제)
       this.verifyAndCleanupToken(sessionToken, 'sessionStorage')
@@ -102,29 +144,170 @@ export class AuthService {
   }
 
   /**
-   * Google Access Token 저장
+   * Google Access Token 저장 (만료 시간 포함)
    * @param token - Google OAuth Access Token
    * @param keepSignedIn - localStorage vs sessionStorage 선택
+   * @param expiresIn - 토큰 만료 시간 (초)
    */
-  private saveGoogleAccessToken(token: string, keepSignedIn: boolean): void {
+  private saveGoogleAccessToken(token: string, keepSignedIn: boolean, expiresIn?: number): void {
     const storage = keepSignedIn ? localStorage : sessionStorage
     storage.setItem('google_access_token', token)
+
+    // 로그인 상태 유지 설정 저장
+    this.keepSignedInPreference = keepSignedIn
+    storage.setItem('keep_signed_in', String(keepSignedIn))
 
     // 반대쪽 storage에서 제거 (중복 방지)
     const otherStorage = keepSignedIn ? sessionStorage : localStorage
     otherStorage.removeItem('google_access_token')
+    otherStorage.removeItem('token_expiry_time')
+    otherStorage.removeItem('keep_signed_in')
+
+    // 만료 시간 저장 및 갱신 타이머 설정
+    if (expiresIn) {
+      const expiryTime = Date.now() + (expiresIn * 1000)
+      this.tokenExpiryTime = expiryTime
+      storage.setItem('token_expiry_time', String(expiryTime))
+      console.log(`⏰ [AuthService] Token expires at: ${new Date(expiryTime).toLocaleString()}`)
+
+      // 토큰 갱신 타이머 설정
+      this.scheduleTokenRefresh(expiresIn * 1000)
+    }
 
     console.log(`💾 [AuthService] Google Access Token saved to ${keepSignedIn ? 'localStorage' : 'sessionStorage'}`)
   }
 
   /**
-   * Google Access Token 제거
+   * Google Access Token 및 관련 데이터 제거
    */
   private clearGoogleAccessToken(): void {
+    // 토큰 갱신 타이머 취소
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer)
+      this.tokenRefreshTimer = null
+    }
+
+    // localStorage 정리
     localStorage.removeItem('google_access_token')
+    localStorage.removeItem('token_expiry_time')
+    localStorage.removeItem('keep_signed_in')
+
+    // sessionStorage 정리
     sessionStorage.removeItem('google_access_token')
+    sessionStorage.removeItem('token_expiry_time')
+    sessionStorage.removeItem('keep_signed_in')
+
+    // 메모리 정리
     this.googleAccessToken = null
+    this.tokenExpiryTime = null
     console.log('🗑️ [AuthService] Google Access Token cleared')
+  }
+
+  /**
+   * 토큰 갱신 타이머 설정
+   * 만료 5분 전에 자동으로 토큰 갱신 시도
+   */
+  private scheduleTokenRefresh(remainingMs: number): void {
+    // 기존 타이머 취소
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer)
+    }
+
+    // 갱신 시점 계산 (만료 5분 전, 최소 10초 후)
+    const refreshInMs = Math.max(remainingMs - TOKEN_REFRESH_BUFFER_MS, 10000)
+
+    console.log(`🔄 [AuthService] Scheduling token refresh in ${Math.round(refreshInMs / 1000 / 60)} minutes`)
+
+    this.tokenRefreshTimer = setTimeout(() => {
+      console.log('⏰ [AuthService] Token refresh timer triggered')
+      this.refreshAccessToken()
+    }, refreshInMs)
+  }
+
+  /**
+   * Access Token 자동 갱신
+   * Firebase 재인증을 통해 새로운 OAuth Access Token 획득
+   */
+  async refreshAccessToken(): Promise<boolean> {
+    if (!this.currentUser) {
+      console.warn('⚠️ [AuthService] Cannot refresh token: no user signed in')
+      return false
+    }
+
+    try {
+      console.log('🔄 [AuthService] Refreshing Google Access Token...')
+
+      // Firebase 재인증으로 새 OAuth 토큰 획득
+      const result = await reauthenticateWithPopup(this.currentUser, googleProvider)
+
+      const credential = GoogleAuthProvider.credentialFromResult(result)
+      if (credential && credential.accessToken) {
+        this.googleAccessToken = credential.accessToken
+
+        // tokeninfo API로 만료 시간 확인
+        const tokenInfo = await this.getTokenInfo(credential.accessToken)
+        const expiresIn = tokenInfo?.expires_in || 3600 // 기본 1시간
+
+        this.saveGoogleAccessToken(credential.accessToken, this.keepSignedInPreference, expiresIn)
+        console.log('✅ [AuthService] Token refreshed successfully')
+        return true
+      } else {
+        console.warn('⚠️ [AuthService] No access token in refresh result')
+        return false
+      }
+    } catch (error: any) {
+      console.error('❌ [AuthService] Token refresh failed:', error)
+
+      // 사용자가 팝업을 닫은 경우 - 조용히 실패
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.log('ℹ️ [AuthService] User closed refresh popup, will retry later')
+        // 5분 후 다시 시도
+        this.scheduleTokenRefresh(TOKEN_REFRESH_BUFFER_MS)
+        return false
+      }
+
+      // 인증 오류 - 재로그인 필요
+      if (error.code === 'auth/user-mismatch' || error.code === 'auth/requires-recent-login') {
+        console.warn('⚠️ [AuthService] Reauthentication required, signing out')
+        await this.signOut()
+        return false
+      }
+
+      return false
+    }
+  }
+
+  /**
+   * Google tokeninfo API 호출
+   */
+  private async getTokenInfo(accessToken: string): Promise<{ expires_in?: number; scope?: string } | null> {
+    try {
+      const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
+      if (response.ok) {
+        return await response.json()
+      }
+      return null
+    } catch (error) {
+      console.error('❌ [AuthService] Failed to get token info:', error)
+      return null
+    }
+  }
+
+  /**
+   * 토큰이 만료되었거나 곧 만료되는지 확인
+   */
+  isTokenExpiringSoon(): boolean {
+    if (!this.tokenExpiryTime) return true
+    const remainingMs = this.tokenExpiryTime - Date.now()
+    return remainingMs < TOKEN_REFRESH_BUFFER_MS
+  }
+
+  /**
+   * 토큰이 이미 만료되었는지 확인
+   */
+  isTokenExpired(): boolean {
+    if (!this.tokenExpiryTime) return true
+    return this.tokenExpiryTime <= Date.now()
   }
 
   /**
@@ -153,7 +336,12 @@ export class AuthService {
       const credential = GoogleAuthProvider.credentialFromResult(result)
       if (credential && credential.accessToken) {
         this.googleAccessToken = credential.accessToken
-        this.saveGoogleAccessToken(credential.accessToken, keepSignedIn)
+
+        // tokeninfo API로 만료 시간 확인
+        const tokenInfo = await this.getTokenInfo(credential.accessToken)
+        const expiresIn = tokenInfo?.expires_in || 3600 // 기본 1시간
+
+        this.saveGoogleAccessToken(credential.accessToken, keepSignedIn, expiresIn)
         console.log('✅ [AuthService] Google OAuth Access Token obtained')
 
         // 🔍 DEBUG: 토큰이 어떤 권한을 가지고 있는지 확인
@@ -216,12 +404,29 @@ export class AuthService {
 
   /**
    * Google Sheets API용 Access Token 조회
+   * 토큰이 만료되었거나 곧 만료될 경우 자동 갱신 시도
    * Google OAuth Access Token을 반환합니다 (Firebase ID Token이 아님!)
    */
   async getAccessToken(): Promise<string | null> {
     if (!this.googleAccessToken) {
       console.log('ℹ️ [AuthService] No Google Access Token available')
       return null
+    }
+
+    // 토큰이 만료되었거나 곧 만료될 경우 갱신 시도
+    if (this.isTokenExpired()) {
+      console.log('⚠️ [AuthService] Token expired, attempting refresh...')
+      const refreshed = await this.refreshAccessToken()
+      if (!refreshed) {
+        console.warn('⚠️ [AuthService] Token refresh failed, token may be invalid')
+        // 갱신 실패해도 기존 토큰 반환 (API 호출 시 401 에러로 처리)
+      }
+    } else if (this.isTokenExpiringSoon()) {
+      // 만료 임박 시 백그라운드에서 갱신 (비동기, 기다리지 않음)
+      console.log('ℹ️ [AuthService] Token expiring soon, scheduling background refresh...')
+      this.refreshAccessToken().catch(err => {
+        console.warn('⚠️ [AuthService] Background token refresh failed:', err)
+      })
     }
 
     console.log('🔑 [AuthService] Returning Google OAuth Access Token')
@@ -321,9 +526,16 @@ export class AuthService {
    * 리스너 정리 (앱 종료 시)
    */
   destroy(): void {
+    // 인증 상태 리스너 정리
     if (this.authStateListener) {
       this.authStateListener()
       this.authStateListener = null
+    }
+
+    // 토큰 갱신 타이머 정리
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer)
+      this.tokenRefreshTimer = null
     }
   }
 
