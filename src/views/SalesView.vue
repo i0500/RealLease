@@ -28,7 +28,7 @@ import {
   useMessage,
   useDialog
 } from 'naive-ui'
-import { HomeOutline as HomeIcon, AddOutline as AddIcon } from '@vicons/ionicons5'
+import { HomeOutline as HomeIcon } from '@vicons/ionicons5'
 
 const router = useRouter()
 const route = useRoute()
@@ -515,11 +515,10 @@ async function handleSubmit() {
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-bold" style="color: #2c3e50;">매도 관리</h1>
         <n-space>
-          <n-button @click="openAddModal" type="primary">
-            <template #icon>
-              <n-icon><AddIcon /></n-icon>
-            </template>
-            계약 추가
+          <n-button type="primary" @click="openAddModal">
+            <template #icon>➕</template>
+            <span class="hidden sm:inline">계약 추가</span>
+            <span class="sm:hidden">추가</span>
           </n-button>
           <n-button @click="() => router.push('/')" secondary>
             <template #icon>
@@ -542,7 +541,9 @@ async function handleSubmit() {
           placeholder="동-호, 계약자, 구분으로 검색..."
           clearable
           style="width: 300px"
-        />
+        >
+          <template #prefix>🔍</template>
+        </n-input>
 
         <!-- 상태 필터 -->
         <n-select
@@ -946,8 +947,6 @@ async function handleSubmit() {
 <style scoped>
 .sales-view {
   padding: 1rem;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 /* PC & Galaxy Fold Unfolded Layout */
