@@ -53,13 +53,10 @@ export const useAuthStore = defineStore('auth', () => {
 
       // Redirect 로그인 성공 시 콜백 등록
       authService.setOnRedirectLoginSuccess((firebaseUser) => {
-        console.log('🔄 [AuthStore] Redirect login success callback received')
-        const userInfo = {
+        user.value = {
           email: firebaseUser.email || 'user@example.com',
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'
         }
-        user.value = userInfo
-        console.log('✅ [AuthStore] User state updated from redirect login:', userInfo)
       })
 
       // ✅ Firebase Auth 초기화 완료 대기 (중요!)
@@ -72,13 +69,11 @@ export const useAuthStore = defineStore('auth', () => {
       // Auth 서비스 초기화 (레거시 호환)
       await authService.initialize(clientId)
 
-      // 🔧 FIX: redirect 로그인이 처리된 경우, 저장된 사용자 정보 다시 로드
+      // redirect 로그인이 처리된 경우, 저장된 사용자 정보 다시 로드
       if (authService.wasRedirectLoginProcessed()) {
-        console.log('🔄 [AuthStore] Redirect login was processed, reloading user from storage')
         const savedUser = loadUserFromStorage()
         if (savedUser) {
           user.value = savedUser
-          console.log('✅ [AuthStore] User restored from storage after redirect:', savedUser)
         }
       }
 
@@ -248,7 +243,6 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function setUser(userData: User | null) {
     user.value = userData
-    console.log('✅ [AuthStore] User set directly:', userData)
   }
 
   return {

@@ -31,25 +31,18 @@ let auth: Auth
 let googleProvider: GoogleAuthProvider
 
 try {
-  console.log('🔥 [Firebase] Initializing Firebase app...')
   app = initializeApp(firebaseConfig)
   auth = getAuth(app)
   googleProvider = new GoogleAuthProvider()
 
-  // Google provider configuration
-  // Full read/write access to Google Sheets (required for updating rental contracts)
   googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets')
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email')
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile')
 
-  // Force consent screen to re-prompt for new permissions
-  // This ensures users grant the updated 'spreadsheets' scope (not just readonly)
   googleProvider.setCustomParameters({
-    prompt: 'consent',  // Always show consent screen
-    access_type: 'offline'  // Request refresh token
+    prompt: 'consent',
+    access_type: 'offline'
   })
-
-  console.log('✅ [Firebase] Firebase initialized successfully')
 } catch (error) {
   console.error('❌ [Firebase] Failed to initialize Firebase:', error)
   throw error
@@ -79,23 +72,13 @@ export async function setAuthPersistence(keepSignedIn: boolean): Promise<void> {
     persistence = browserSessionPersistence
   }
 
-  const persistenceType = keepSignedIn
-    ? (isIOSPWA() ? 'INDEXED_DB' : 'LOCAL')
-    : 'SESSION'
-
-  console.log(`🔐 [Firebase] Setting auth persistence: ${persistenceType} (iOS PWA: ${isIOSPWA()})`)
-
   try {
     await setPersistence(auth, persistence)
-    console.log(`✅ [Firebase] Auth persistence set to ${persistenceType}`)
   } catch (error) {
     console.error('❌ [Firebase] Failed to set persistence:', error)
-    // Fallback: browserLocalPersistence 시도
     if (isIOSPWA()) {
-      console.log('🔄 [Firebase] Trying fallback to browserLocalPersistence...')
       try {
         await setPersistence(auth, browserLocalPersistence)
-        console.log('✅ [Firebase] Fallback persistence set successfully')
       } catch (fallbackError) {
         console.error('❌ [Firebase] Fallback persistence also failed:', fallbackError)
         throw fallbackError

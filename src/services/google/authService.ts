@@ -16,7 +16,7 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
-import { isIOS, isIOSPWA, isPopupBlocked } from '@/utils/pwaUtils'
+import { isIOSPWA, isPopupBlocked } from '@/utils/pwaUtils'
 
 // 토큰 갱신 버퍼 시간 (5분 전에 갱신 시도)
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
@@ -50,31 +50,14 @@ export class AuthService {
 
   /**
    * 비동기 초기화 - auth listener 먼저 설정 후 redirect 결과 확인
-   *
-   * 🔧 FIX v2: 순서 변경 + 강화된 디버깅
    * authReady는 redirect 결과 확인 + onAuthStateChanged 첫 콜백 모두 완료 후 resolve
    */
   private async initializeAuth(): Promise<void> {
-    console.log('🚀 [AuthService] initializeAuth START - v2')
-
-    // 1. 저장된 토큰 먼저 로드
     this.loadGoogleAccessToken()
-
-    // 2. 🔧 FIX: Auth state listener 먼저 설정 (Firebase 이벤트를 놓치지 않도록)
-    console.log('👂 [AuthService] Setting up auth listener FIRST')
     this.initializeAuthListener()
-
-    // 3. redirect 결과 확인 (iOS/Safari용)
-    console.log('🔍 [AuthService] Now checking redirect result...')
     await this.checkRedirectResult()
-
-    // ✅ redirect 결과 확인 완료 표시
     this.redirectCheckComplete = true
-    console.log('✅ [AuthService] Redirect check complete')
-
-    // 두 조건 모두 완료되었는지 확인하고 authReady resolve
     this.tryResolveAuthReady()
-    console.log('🏁 [AuthService] initializeAuth END')
   }
 
   /**
@@ -85,10 +68,7 @@ export class AuthService {
 
   private tryResolveAuthReady(): void {
     if (this.redirectCheckComplete && this.authStateFirstCallbackDone) {
-      console.log('✅ [AuthService] Both conditions met, resolving authReady')
       this.authReadyResolve()
-    } else {
-      console.log(`⏳ [AuthService] Waiting for auth ready: redirect=${this.redirectCheckComplete}, authState=${this.authStateFirstCallbackDone}`)
     }
   }
 
@@ -98,11 +78,9 @@ export class AuthService {
    */
   setOnRedirectLoginSuccess(callback: (user: FirebaseUser) => void): void {
     this.onRedirectLoginSuccess = callback
-    console.log('🔄 [AuthService] Redirect callback registered')
 
     // 대기 중인 redirect 결과가 있으면 즉시 처리
     if (this.redirectResultPending && this.pendingRedirectResult) {
-      console.log('🔄 [AuthService] Processing pending redirect result...')
       this.processPendingRedirectResult()
     }
   }
@@ -120,9 +98,7 @@ export class AuthService {
     this.redirectResultPending = false
 
     try {
-      // 콜백 호출 (auth store에 알림)
       this.onRedirectLoginSuccess(result.user)
-      console.log('✅ [AuthService] Pending redirect result processed, callback invoked')
     } catch (error) {
       console.error('❌ [AuthService] Error processing pending redirect:', error)
     }
@@ -136,66 +112,44 @@ export class AuthService {
    */
   private async checkRedirectResult(): Promise<boolean> {
     try {
-      console.log('🔄 [AuthService] Checking redirect result...')
       const result = await getRedirectResult(auth)
 
       if (result) {
-        console.log('✅ [AuthService] Redirect sign-in successful:', {
-          email: result.user.email,
-          uid: result.user.uid
-        })
-
         this.currentUser = result.user
         this.redirectLoginProcessed = true
 
-        // Google OAuth Credentials에서 Access Token 추출
         const credential = GoogleAuthProvider.credentialFromResult(result)
         if (credential && credential.accessToken) {
           this.googleAccessToken = credential.accessToken
 
-          // 저장된 keepSignedIn 설정 복원
           const keepSignedIn = localStorage.getItem('pending_keep_signed_in') !== 'false'
           localStorage.removeItem('pending_keep_signed_in')
 
-          // tokeninfo API로 만료 시간 확인
           const tokenInfo = await this.getTokenInfo(credential.accessToken)
           const expiresIn = tokenInfo?.expires_in || 3600
 
           this.saveGoogleAccessToken(credential.accessToken, keepSignedIn, expiresIn)
-          console.log('✅ [AuthService] Redirect login token saved')
 
-          // 사용자 정보를 localStorage에 저장 (auth store가 읽을 수 있도록)
           const userInfo = {
             email: result.user.email || 'user@example.com',
             name: result.user.displayName || result.user.email?.split('@')[0] || 'User'
           }
           const storage = keepSignedIn ? localStorage : sessionStorage
           storage.setItem('reallease_user', JSON.stringify(userInfo))
-          console.log('✅ [AuthService] User info saved to storage:', userInfo)
 
-          // 🔍 DEBUG: 토큰 권한 확인
-          this.debugTokenScopes(credential.accessToken)
-
-          // 콜백 호출 (auth store에 알림) - 콜백이 없으면 대기
           if (this.onRedirectLoginSuccess) {
-            console.log('🔄 [AuthService] Invoking redirect callback immediately')
             this.onRedirectLoginSuccess(result.user)
           } else {
-            // 콜백이 아직 등록되지 않음 - 결과를 저장해두고 나중에 처리
-            console.log('⏳ [AuthService] Callback not registered yet, saving result for later')
             this.redirectResultPending = true
             this.pendingRedirectResult = result
           }
         }
 
         return true
-      } else {
-        console.log('ℹ️ [AuthService] No redirect result (normal browser load)')
-        return false
       }
+      return false
     } catch (error: any) {
       console.error('❌ [AuthService] Redirect result error:', error)
-      // redirect 결과 오류는 무시 (일반적인 앱 로드에서는 결과가 없음)
       return false
     }
   }
@@ -222,34 +176,20 @@ export class AuthService {
    * 🔧 FIX: 첫 콜백에서 authStateFirstCallbackDone 설정 후 tryResolveAuthReady 호출
    */
   private initializeAuthListener(): void {
-    console.log('🔐 [AuthService] Initializing auth state listener...')
-
     let isFirstCall = true
 
     this.authStateListener = onAuthStateChanged(auth, (user) => {
       this.currentUser = user
 
       if (user) {
-        console.log('✅ [AuthService] User signed in:', {
-          email: user.email,
-          uid: user.uid,
-          displayName: user.displayName
-        })
-
-        // 로그인 상태 복원 시 저장된 Access Token 로드
         this.loadGoogleAccessToken()
       } else {
-        console.log('🚪 [AuthService] User signed out')
         this.googleAccessToken = null
       }
 
-      // 🔧 FIX: 첫 콜백에서 authStateFirstCallbackDone 표시 + tryResolveAuthReady 호출
       if (isFirstCall) {
         isFirstCall = false
         this.authStateFirstCallbackDone = true
-        console.log('✅ [AuthService] Auth state first callback done')
-
-        // 두 조건 모두 완료되었는지 확인하고 authReady resolve
         this.tryResolveAuthReady()
       }
     })
@@ -261,7 +201,6 @@ export class AuthService {
    * 만료 시간 확인 및 갱신 타이머 설정
    */
   private loadGoogleAccessToken(): void {
-    // localStorage 우선, 없으면 sessionStorage 체크
     const localToken = localStorage.getItem('google_access_token')
     const localExpiry = localStorage.getItem('token_expiry_time')
     const localKeepSignedIn = localStorage.getItem('keep_signed_in')
@@ -269,22 +208,16 @@ export class AuthService {
     if (localToken) {
       this.googleAccessToken = localToken
       this.keepSignedInPreference = localKeepSignedIn !== 'false'
-      console.log('🔑 [AuthService] Google Access Token loaded from localStorage')
 
-      // 만료 시간 복원 및 갱신 타이머 설정
       if (localExpiry) {
         this.tokenExpiryTime = parseInt(localExpiry, 10)
         const remainingMs = this.tokenExpiryTime - Date.now()
 
         if (remainingMs > 0) {
-          console.log(`⏰ [AuthService] Token expires in ${Math.round(remainingMs / 1000 / 60)} minutes`)
           this.scheduleTokenRefresh(remainingMs)
-        } else {
-          console.warn('⚠️ [AuthService] Token already expired, will refresh on next API call')
         }
       }
 
-      // 🔍 토큰 권한 검증 (readonly면 삭제)
       this.verifyAndCleanupToken(localToken, 'localStorage')
       return
     }
@@ -296,22 +229,16 @@ export class AuthService {
     if (sessionToken) {
       this.googleAccessToken = sessionToken
       this.keepSignedInPreference = sessionKeepSignedIn !== 'false'
-      console.log('🔑 [AuthService] Google Access Token loaded from sessionStorage')
 
-      // 만료 시간 복원 및 갱신 타이머 설정
       if (sessionExpiry) {
         this.tokenExpiryTime = parseInt(sessionExpiry, 10)
         const remainingMs = this.tokenExpiryTime - Date.now()
 
         if (remainingMs > 0) {
-          console.log(`⏰ [AuthService] Token expires in ${Math.round(remainingMs / 1000 / 60)} minutes`)
           this.scheduleTokenRefresh(remainingMs)
-        } else {
-          console.warn('⚠️ [AuthService] Token already expired, will refresh on next API call')
         }
       }
 
-      // 🔍 토큰 권한 검증 (readonly면 삭제)
       this.verifyAndCleanupToken(sessionToken, 'sessionStorage')
       return
     }
@@ -337,18 +264,12 @@ export class AuthService {
     otherStorage.removeItem('token_expiry_time')
     otherStorage.removeItem('keep_signed_in')
 
-    // 만료 시간 저장 및 갱신 타이머 설정
     if (expiresIn) {
       const expiryTime = Date.now() + (expiresIn * 1000)
       this.tokenExpiryTime = expiryTime
       storage.setItem('token_expiry_time', String(expiryTime))
-      console.log(`⏰ [AuthService] Token expires at: ${new Date(expiryTime).toLocaleString()}`)
-
-      // 토큰 갱신 타이머 설정
       this.scheduleTokenRefresh(expiresIn * 1000)
     }
-
-    console.log(`💾 [AuthService] Google Access Token saved to ${keepSignedIn ? 'localStorage' : 'sessionStorage'}`)
   }
 
   /**
@@ -371,10 +292,8 @@ export class AuthService {
     sessionStorage.removeItem('token_expiry_time')
     sessionStorage.removeItem('keep_signed_in')
 
-    // 메모리 정리
     this.googleAccessToken = null
     this.tokenExpiryTime = null
-    console.log('🗑️ [AuthService] Google Access Token cleared')
   }
 
   /**
@@ -383,20 +302,13 @@ export class AuthService {
    * 실제 갱신은 API 호출 실패 시 또는 사용자 액션 시 수행
    */
   private scheduleTokenRefresh(remainingMs: number): void {
-    // 기존 타이머 취소
     if (this.tokenRefreshTimer) {
       clearTimeout(this.tokenRefreshTimer)
     }
 
-    // 갱신 시점 계산 (만료 5분 전, 최소 10초 후)
     const refreshInMs = Math.max(remainingMs - TOKEN_REFRESH_BUFFER_MS, 10000)
 
-    console.log(`🔄 [AuthService] Token will need refresh in ${Math.round(refreshInMs / 1000 / 60)} minutes (no auto-popup)`)
-
     this.tokenRefreshTimer = setTimeout(() => {
-      console.log('⏰ [AuthService] Token refresh needed - will refresh on next API call or user action')
-      // 🔧 FIX: 자동 팝업 대신 플래그만 설정
-      // 실제 갱신은 getAccessToken() 호출 시 또는 API 호출 실패 시 수행
       this.tokenRefreshNeeded = true
     }, refreshInMs)
   }
@@ -408,37 +320,23 @@ export class AuthService {
    */
   async refreshAccessToken(silent: boolean = false): Promise<boolean> {
     if (!this.currentUser) {
-      console.warn('⚠️ [AuthService] Cannot refresh token: no user signed in')
       return false
     }
 
-    // 팝업이 차단되는 환경에서는 silent 모드로 강제
     if (isPopupBlocked()) {
       silent = true
-      console.log('ℹ️ [AuthService] Popup blocked environment, forcing silent mode')
     }
 
-    // Silent 모드에서는 팝업 없이 기존 토큰 사용 시도
     if (silent) {
-      console.log('🔄 [AuthService] Silent token refresh - checking current token validity...')
-
-      // 현재 토큰이 아직 유효한지 확인
       if (this.googleAccessToken && !this.isTokenExpired()) {
-        console.log('✅ [AuthService] Current token still valid')
         this.tokenRefreshNeeded = false
         return true
       }
-
-      // 토큰이 만료된 경우 - 재로그인 필요 플래그 설정
-      console.log('⚠️ [AuthService] Token expired, re-login required')
       this.tokenRefreshNeeded = true
       return false
     }
 
     try {
-      console.log('🔄 [AuthService] Refreshing Google Access Token with popup...')
-
-      // Firebase 재인증으로 새 OAuth 토큰 획득
       const result = await reauthenticateWithPopup(this.currentUser, googleProvider)
 
       const credential = GoogleAuthProvider.credentialFromResult(result)
@@ -446,37 +344,22 @@ export class AuthService {
         this.googleAccessToken = credential.accessToken
         this.tokenRefreshNeeded = false
 
-        // tokeninfo API로 만료 시간 확인
         const tokenInfo = await this.getTokenInfo(credential.accessToken)
-        const expiresIn = tokenInfo?.expires_in || 3600 // 기본 1시간
+        const expiresIn = tokenInfo?.expires_in || 3600
 
         this.saveGoogleAccessToken(credential.accessToken, this.keepSignedInPreference, expiresIn)
-        console.log('✅ [AuthService] Token refreshed successfully')
         return true
-      } else {
-        console.warn('⚠️ [AuthService] No access token in refresh result')
-        return false
       }
+      return false
     } catch (error: any) {
       console.error('❌ [AuthService] Token refresh failed:', error)
 
-      // 사용자가 팝업을 닫은 경우 - 조용히 실패, 나중에 재시도 플래그
-      if (error.code === 'auth/popup-closed-by-user') {
-        console.log('ℹ️ [AuthService] User closed refresh popup')
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/popup-blocked') {
         this.tokenRefreshNeeded = true
         return false
       }
 
-      // 팝업 차단된 경우
-      if (error.code === 'auth/popup-blocked') {
-        console.log('⚠️ [AuthService] Popup blocked, marking refresh needed')
-        this.tokenRefreshNeeded = true
-        return false
-      }
-
-      // 인증 오류 - 재로그인 필요
       if (error.code === 'auth/user-mismatch' || error.code === 'auth/requires-recent-login') {
-        console.warn('⚠️ [AuthService] Reauthentication required, signing out')
         await this.signOut()
         return false
       }
@@ -497,8 +380,7 @@ export class AuthService {
    * API 호출 실패 후 또는 설정 화면에서 호출
    */
   async requestReauthentication(): Promise<boolean> {
-    console.log('🔐 [AuthService] Manual reauthentication requested')
-    return this.refreshAccessToken(false) // 팝업 사용
+    return this.refreshAccessToken(false)
   }
 
   /**
@@ -541,80 +423,39 @@ export class AuthService {
    */
   async signIn(keepSignedIn: boolean = true): Promise<void> {
     try {
-      console.log(`🔑 [AuthService] ========== SIGN IN START ==========`)
-      console.log(`🔑 [AuthService] keepSignedIn: ${keepSignedIn}`)
-      console.log(`📱 [AuthService] isIOS: ${isIOS()}`)
-      console.log(`📱 [AuthService] isIOSPWA: ${isIOSPWA()}`)
-      console.log(`📱 [AuthService] isPopupBlocked: ${isPopupBlocked()}`)
-      console.log(`📱 [AuthService] UserAgent: ${navigator.userAgent.substring(0, 100)}`)
-
-      // 로그인 상태 유지 설정
-      console.log('🔐 [AuthService] Setting auth persistence...')
       await setAuthPersistence(keepSignedIn)
-      console.log('✅ [AuthService] Auth persistence set')
 
-      // iOS에서는 redirect 방식 사용 (Safari ITP가 팝업 차단)
       if (isPopupBlocked()) {
-        console.log('🔄 [AuthService] Using signInWithRedirect (iOS detected)...')
-
-        // keepSignedIn 설정을 localStorage에 임시 저장 (redirect 후 복원용)
         localStorage.setItem('pending_keep_signed_in', String(keepSignedIn))
-
-        // redirect 방식으로 로그인 (페이지가 이동됨)
-        console.log('➡️ [AuthService] Calling signInWithRedirect NOW...')
         await signInWithRedirect(auth, googleProvider)
-        // 이 이후 코드는 실행되지 않음 (페이지 이동)
-        console.log('❓ [AuthService] This should NOT appear after redirect')
         return
       }
 
-      // 일반 브라우저에서는 팝업 방식 사용
-      console.log('🔄 [AuthService] Using signInWithPopup (Desktop/Android)...')
-      console.log('⏳ [AuthService] Opening popup...')
       const result = await signInWithPopup(auth, googleProvider)
-      console.log('✅ [AuthService] Popup returned with result')
-
       this.currentUser = result.user
-      console.log('✅ [AuthService] Popup sign-in successful:', {
-        email: result.user.email,
-        uid: result.user.uid,
-        displayName: result.user.displayName
-      })
 
-      // Google OAuth Credentials에서 Access Token 추출
       const credential = GoogleAuthProvider.credentialFromResult(result)
       if (credential && credential.accessToken) {
         this.googleAccessToken = credential.accessToken
 
-        // tokeninfo API로 만료 시간 확인
         const tokenInfo = await this.getTokenInfo(credential.accessToken)
-        const expiresIn = tokenInfo?.expires_in || 3600 // 기본 1시간
+        const expiresIn = tokenInfo?.expires_in || 3600
 
         this.saveGoogleAccessToken(credential.accessToken, keepSignedIn, expiresIn)
-        console.log('✅ [AuthService] Google OAuth Access Token obtained')
-
-        // 🔍 DEBUG: 토큰이 어떤 권한을 가지고 있는지 확인
-        this.debugTokenScopes(credential.accessToken)
-      } else {
-        console.warn('⚠️ [AuthService] No Google Access Token in result')
       }
     } catch (error: any) {
       console.error('❌ [AuthService] Sign-in failed:', error)
 
-      // 사용자가 팝업을 닫은 경우
       if (error.code === 'auth/popup-closed-by-user') {
         throw new Error('로그인이 취소되었습니다')
       }
 
-      // 팝업이 차단된 경우 - redirect 방식으로 재시도
       if (error.code === 'auth/popup-blocked') {
-        console.log('⚠️ [AuthService] Popup blocked, trying redirect...')
         localStorage.setItem('pending_keep_signed_in', String(keepSignedIn))
         await signInWithRedirect(auth, googleProvider)
         return
       }
 
-      // 네트워크 오류
       if (error.code === 'auth/network-request-failed') {
         throw new Error('네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.')
       }
@@ -642,11 +483,9 @@ export class AuthService {
    */
   async signOut(): Promise<void> {
     try {
-      console.log('🚪 [AuthService] Signing out...')
       await firebaseSignOut(auth)
       this.currentUser = null
       this.clearGoogleAccessToken()
-      console.log('✅ [AuthService] Sign-out successful')
     } catch (error) {
       console.error('❌ [AuthService] Sign-out failed:', error)
       throw new Error('로그아웃에 실패했습니다')
@@ -658,7 +497,6 @@ export class AuthService {
    */
   async getUserInfo(): Promise<{ email: string; name: string } | null> {
     if (!this.currentUser) {
-      console.log('ℹ️ [AuthService] No user signed in')
       return null
     }
 
@@ -675,26 +513,18 @@ export class AuthService {
    */
   async getAccessToken(): Promise<string | null> {
     if (!this.googleAccessToken) {
-      console.log('ℹ️ [AuthService] No Google Access Token available')
       return null
     }
 
-    // 토큰이 만료된 경우 - silent 갱신 시도 (팝업 없음)
     if (this.isTokenExpired()) {
-      console.log('⚠️ [AuthService] Token expired, attempting silent refresh...')
-      const refreshed = await this.refreshAccessToken(true) // silent mode
+      const refreshed = await this.refreshAccessToken(true)
       if (!refreshed) {
-        console.warn('⚠️ [AuthService] Silent refresh failed, token may need re-login')
-        // 갱신 실패 시 null 반환하여 API 호출 시 재로그인 유도
         return null
       }
     } else if (this.isTokenExpiringSoon()) {
-      // 만료 임박 시 플래그만 설정 (팝업 없음)
-      console.log('ℹ️ [AuthService] Token expiring soon, marking refresh needed')
       this.tokenRefreshNeeded = true
     }
 
-    console.log('🔑 [AuthService] Returning Google OAuth Access Token')
     return this.googleAccessToken
   }
 
@@ -719,76 +549,32 @@ export class AuthService {
    * Firebase Auth 세션은 유지하고, OAuth 토큰만 삭제
    * 실제 API 호출 시점에 재인증 요청
    */
-  private async verifyAndCleanupToken(accessToken: string, storageType: 'localStorage' | 'sessionStorage'): Promise<void> {
+  private async verifyAndCleanupToken(accessToken: string, _storageType: 'localStorage' | 'sessionStorage'): Promise<void> {
     try {
       const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
       if (!response.ok) {
-        console.warn(`⚠️ [AuthService] ${storageType} 토큰 만료/검증 실패 - 토큰만 삭제 (로그인 유지)`)
         this.clearGoogleAccessToken()
-        this.tokenRefreshNeeded = true // API 호출 시 재인증 필요 표시
-        // 🔧 FIX: signOut() 호출 제거 - Firebase 세션은 유지!
+        this.tokenRefreshNeeded = true
         return
       }
 
       const tokenInfo = await response.json()
       const scope = tokenInfo.scope || ''
 
-      // scope는 공백으로 구분된 문자열: "https://www.googleapis.com/auth/spreadsheets https://..."
       const hasFullSpreadsheets = scope.includes('auth/spreadsheets ') || scope.endsWith('auth/spreadsheets')
       const hasReadonly = scope.includes('spreadsheets.readonly')
 
-      console.log(`🔍 [AuthService] ${storageType} 토큰 검증:`, {
-        hasFullSpreadsheets,
-        hasReadonly,
-        scope: scope.substring(0, 200) + '...'
-      })
-
-      // readonly 권한만 있고 write 권한이 없는 경우
       if (hasReadonly && !hasFullSpreadsheets) {
-        console.warn(`⚠️ [AuthService] ${storageType}에 readonly 토큰 발견 - 토큰 삭제 (로그인 유지)`)
         this.clearGoogleAccessToken()
         this.tokenRefreshNeeded = true
-        // 🔧 FIX: signOut() 및 alert 제거 - API 호출 시 재인증 유도
-      } else if (hasFullSpreadsheets) {
-        console.log(`✅ [AuthService] ${storageType} 토큰에 write 권한 확인됨!`)
-      } else {
-        console.warn(`⚠️ [AuthService] ${storageType} 토큰에 spreadsheets 권한 없음 - 토큰 삭제 (로그인 유지)`)
+      } else if (!hasFullSpreadsheets) {
         this.clearGoogleAccessToken()
         this.tokenRefreshNeeded = true
-        // 🔧 FIX: signOut() 제거
       }
     } catch (error) {
-      console.error(`❌ [AuthService] ${storageType} 토큰 검증 중 오류:`, error)
-      // 🔧 FIX: 검증 실패해도 로그아웃하지 않음 - 토큰만 삭제
+      console.error('❌ [AuthService] Token verification error:', error)
       this.clearGoogleAccessToken()
       this.tokenRefreshNeeded = true
-    }
-  }
-
-  /**
-   * 🔍 DEBUG: OAuth 토큰이 어떤 scope를 가지고 있는지 확인
-   * Google TokenInfo API를 호출하여 실제 부여된 권한 확인
-   */
-  private async debugTokenScopes(accessToken: string): Promise<void> {
-    try {
-      const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`)
-      const tokenInfo = await response.json()
-
-      console.log('🔍 [AuthService DEBUG] 토큰 정보:', {
-        scope: tokenInfo.scope,
-        expires_in: tokenInfo.expires_in,
-        audience: tokenInfo.audience
-      })
-
-      // scope가 spreadsheets.readonly만 있는지 확인
-      if (tokenInfo.scope && tokenInfo.scope.includes('spreadsheets.readonly')) {
-        console.warn('⚠️ [AuthService DEBUG] 토큰이 readonly 권한만 보유!')
-      }
-      if (tokenInfo.scope && tokenInfo.scope.includes('spreadsheets') && !tokenInfo.scope.includes('.readonly')) {
-        console.log('✅ [AuthService DEBUG] 토큰이 write 권한 보유!')
-      }
-    } catch (error) {
-      console.error('❌ [AuthService DEBUG] 토큰 정보 조회 실패:', error)
     }
   }
 
@@ -813,7 +599,6 @@ export class AuthService {
    * 레거시 호환: initialize 메서드 (Firebase는 자동 초기화되므로 아무것도 하지 않음)
    */
   async initialize(_clientId: string): Promise<void> {
-    console.log('ℹ️ [AuthService] initialize() called (Firebase auto-initializes, no action needed)')
     return Promise.resolve()
   }
 
@@ -821,7 +606,6 @@ export class AuthService {
    * 레거시 호환: loadGoogleIdentityServices (Firebase는 스크립트 로딩 불필요)
    */
   loadGoogleIdentityServices(): Promise<void> {
-    console.log('ℹ️ [AuthService] loadGoogleIdentityServices() called (not needed with Firebase)')
     return Promise.resolve()
   }
 }

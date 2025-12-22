@@ -82,16 +82,12 @@ router.beforeEach(async (to, _from, next) => {
 
   // redirect 로그인 후 store가 아직 업데이트되지 않은 경우 처리
   if (isFirebaseAuthenticated && !isStoreAuthenticated) {
-    console.log('🔄 [Router] Firebase authenticated but store not updated, loading from storage...')
-    // localStorage에서 사용자 정보 직접 로드
     try {
       const userData = localStorage.getItem('reallease_user') || sessionStorage.getItem('reallease_user')
       if (userData) {
         const user = JSON.parse(userData)
-        // 🔧 FIX: store의 user 값 업데이트 (setUser 함수 사용)
         authStore.setUser(user)
         isStoreAuthenticated = true
-        console.log('✅ [Router] User loaded from storage and store updated:', user)
       }
     } catch (err) {
       console.error('❌ [Router] Failed to load user from storage:', err)
@@ -100,27 +96,20 @@ router.beforeEach(async (to, _from, next) => {
 
   // 인증이 필요한 페이지인 경우 토큰 검증
   if (to.meta.requiresAuth) {
-    // 개발 모드가 아니고, 사용자 정보는 있지만 OAuth 토큰이 없는 경우
     if (!isDevMode && isStoreAuthenticated && !isFirebaseAuthenticated) {
-      console.warn('⚠️ [Router] OAuth 토큰 만료, 자동 로그아웃 처리')
       await authStore.handleTokenExpired()
       next({ name: 'auth', query: { expired: 'true' } })
       return
     }
 
-    // 🔧 FIX: Firebase 인증 상태 OR store 인증 상태로 확인
-    // redirect 로그인 직후에는 Firebase는 인증되었지만 store는 아직 업데이트 안됨
     if (!isFirebaseAuthenticated && !isStoreAuthenticated) {
-      console.log('🚫 [Router] Not authenticated, redirecting to auth')
       next({ name: 'auth' })
       return
     }
   }
 
   // 로그인 페이지인데 이미 인증된 경우 → 대시보드로
-  // 🔧 FIX: Firebase 인증 상태도 확인
   if (to.name === 'auth' && (isStoreAuthenticated || isFirebaseAuthenticated)) {
-    console.log('✅ [Router] Already authenticated, redirecting to dashboard')
     next({ name: 'dashboard' })
     return
   }
