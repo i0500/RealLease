@@ -377,13 +377,11 @@ async function handleMenuSelect(key: string) {
       @update:collapsed="handleCollapse"
       style="background-color: #2c3e50; height: 100vh;"
     >
-      <div class="px-4 py-6" style="background-color: #1a252f;">
-        <h1 class="text-xl font-bold" style="color: #ffffff; letter-spacing: 0.5px;">
-          RealLease
-        </h1>
-        <p class="text-xs mt-1" style="color: #95a5a6;">
-          부동산 임대 관리
-        </p>
+      <div class="sidebar-brand" :class="{ 'collapsed': sidebarCollapsed }">
+        <div class="brand-logo">
+          <span class="logo-full" v-if="!sidebarCollapsed">RealLease</span>
+          <span class="logo-collapsed" v-else>R</span>
+        </div>
       </div>
       <n-menu
         :options="menuOptions"
@@ -586,3 +584,46 @@ async function handleMenuSelect(key: string) {
     </n-drawer>
   </n-layout>
 </template>
+
+<style scoped>
+/* Sidebar Brand Styles */
+.sidebar-brand {
+  padding: 1.5rem 1rem;
+  background-color: #1a252f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.sidebar-brand.collapsed {
+  padding: 1.5rem 0.5rem;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-full {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.logo-collapsed {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>
