@@ -243,6 +243,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * 사용자 정보 직접 설정 (router에서 redirect 로그인 처리용)
+   */
+  function setUser(userData: User | null) {
+    user.value = userData
+    console.log('✅ [AuthStore] User set directly:', userData)
+  }
+
   return {
     user,
     isInitialized,
@@ -253,6 +261,7 @@ export const useAuthStore = defineStore('auth', () => {
     signIn,
     signOut,
     clearError,
-    handleTokenExpired
+    handleTokenExpired,
+    setUser
   }
 })

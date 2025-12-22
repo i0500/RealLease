@@ -34,9 +34,13 @@ import {
   DocumentTextOutline as DocumentIcon,
   NotificationsOutline as NotificationIcon,
   TimeOutline as TimeIcon,
-  InformationCircleOutline as InfoIcon
+  InformationCircleOutline as InfoIcon,
+  BugOutline as BugIcon,
+  CopyOutline as CopyIcon,
+  TrashOutline as TrashIcon
 } from '@vicons/ionicons5'
 import { sheetsService } from '@/services/google/sheetsService'
+import { debugLogger, type LogEntry } from '@/utils/debugLogger'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -86,6 +90,19 @@ const contractExpiryNoticeDays = ref(90)
 const hugExpiryNoticeDays = ref(90)
 const pushNotificationTime = ref('10:00')
 const enablePushNotifications = ref(true)
+
+// Debug logger state
+const debugLoggerEnabled = ref(debugLogger.isLoggerEnabled())
+const debugLogs = ref<LogEntry[]>([])
+const showDebugPanel = ref(false)
+
+// Help modal navigation
+function scrollToHelpSection(sectionId: string) {
+  const element = document.getElementById(sectionId)
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
 
 // Options for period selection (1~6개월)
 const periodOptions = [
@@ -441,6 +458,56 @@ function handleResetApp() {
     }
   })
 }
+
+// Debug Logger Functions
+function toggleDebugLogger() {
+  if (debugLoggerEnabled.value) {
+    debugLogger.enable()
+    message.success('디버그 로거 활성화')
+  } else {
+    debugLogger.disable()
+    message.info('디버그 로거 비활성화')
+  }
+}
+
+function loadDebugLogs() {
+  debugLogs.value = debugLogger.getRecentLogs(200)
+  showDebugPanel.value = true
+}
+
+function clearDebugLogs() {
+  debugLogger.clear()
+  debugLogs.value = []
+  message.success('로그가 삭제되었습니다')
+}
+
+function copyDebugLogs() {
+  const logText = debugLogger.exportLogs()
+  navigator.clipboard.writeText(logText).then(() => {
+    message.success('로그가 클립보드에 복사되었습니다')
+  }).catch(() => {
+    message.error('클립보드 복사 실패')
+  })
+}
+
+function getLogLevelClass(level: string): string {
+  switch (level) {
+    case 'error': return 'log-error'
+    case 'warn': return 'log-warn'
+    case 'info': return 'log-info'
+    case 'debug': return 'log-debug'
+    default: return 'log-log'
+  }
+}
+
+function formatLogTime(date: Date): string {
+  return date.toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
 </script>
 
 <template>
@@ -652,6 +719,29 @@ function handleResetApp() {
                   앱 데이터 초기화
                 </n-button>
               </div>
+
+              <!-- Debug Section -->
+              <div class="debug-section">
+                <div class="debug-header">
+                  <div class="debug-title-row">
+                    <n-icon size="16" color="#8b5cf6"><BugIcon /></n-icon>
+                    <span class="debug-title">개발자 도구</span>
+                  </div>
+                  <span class="debug-desc">iOS PWA 등에서 콘솔 로그 확인</span>
+                </div>
+                <div class="debug-controls">
+                  <div class="debug-toggle">
+                    <span class="toggle-label">디버그 로거</span>
+                    <n-switch v-model:value="debugLoggerEnabled" @update:value="toggleDebugLogger" size="small" />
+                  </div>
+                  <n-button size="small" @click="loadDebugLogs" :disabled="!debugLoggerEnabled">
+                    <template #icon>
+                      <n-icon><BugIcon /></n-icon>
+                    </template>
+                    로그 보기
+                  </n-button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -771,56 +861,65 @@ function handleResetApp() {
       </div>
     </div>
 
-    <!-- Add Sheet Modal -->
+    <!-- Add Sheet Modal - Enterprise Style -->
     <n-modal
       v-model:show="showAddSheetModal"
       preset="card"
+      class="enterprise-modal"
       style="width: 600px; max-width: 95vw"
       :content-style="{ padding: 0 }"
       :header-style="{ display: 'none' }"
     >
-      <div class="sheet-modal">
+      <div class="enterprise-sheet-modal">
         <!-- Modal Header -->
-        <div class="sheet-modal-header add">
-          <div class="modal-header-icon">➕</div>
-          <div class="modal-header-text">
-            <h2>기존 시트 등록</h2>
-            <p>구글 스프레드시트를 연결합니다</p>
+        <div class="enterprise-modal-header existing">
+          <div class="modal-header-left">
+            <div class="modal-icon-wrap">
+              <n-icon size="22" color="#fff"><AddIcon /></n-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h2>기존 시트 연결</h2>
+              <p>구글 스프레드시트 URL을 등록합니다</p>
+            </div>
           </div>
+          <button class="modal-close-btn" @click="showAddSheetModal = false">×</button>
         </div>
 
         <!-- Form Content -->
-        <div class="sheet-modal-body">
+        <div class="enterprise-modal-body">
           <!-- Step 1: Sheet Name -->
-          <div class="modal-form-group">
-            <label class="form-group-label">
-              <span class="label-step">1</span>
-              <span class="label-text">현장명 (시트 이름)</span>
-            </label>
+          <div class="enterprise-form-group">
+            <div class="form-step-header">
+              <span class="step-badge">1</span>
+              <span class="step-title">현장명</span>
+              <span class="step-required">필수</span>
+            </div>
             <n-input
               v-model:value="sheetForm.name"
               placeholder="예: 아르테 오피스텔"
               size="large"
+              class="enterprise-input"
             />
-            <span class="form-hint">관리할 건물/현장의 이름을 입력하세요</span>
+            <p class="form-description">관리할 건물 또는 현장의 이름을 입력하세요</p>
           </div>
 
           <!-- Step 2: Sheet URL -->
-          <div class="modal-form-group">
-            <label class="form-group-label">
-              <span class="label-step">2</span>
-              <span class="label-text">구글 시트 URL</span>
-            </label>
+          <div class="enterprise-form-group">
+            <div class="form-step-header">
+              <span class="step-badge">2</span>
+              <span class="step-title">구글 시트 URL</span>
+              <span class="step-required">필수</span>
+            </div>
             <n-input
               v-model:value="sheetForm.sheetUrl"
               type="textarea"
               :autosize="{ minRows: 2, maxRows: 3 }"
               placeholder="https://docs.google.com/spreadsheets/d/..."
               size="large"
+              class="enterprise-input"
             />
             <n-button
-              class="fetch-tabs-btn"
-              type="primary"
+              class="action-button-full"
               :loading="loadingTabs"
               :disabled="!sheetForm.sheetUrl"
               @click="fetchAvailableTabs"
@@ -833,27 +932,28 @@ function handleResetApp() {
           </div>
 
           <!-- Step 3: Tab Selection (shown after fetching) -->
-          <div v-if="availableTabs.length > 0" class="modal-form-group">
-            <label class="form-group-label">
-              <span class="label-step">3</span>
-              <span class="label-text">등록할 탭 선택</span>
-            </label>
-            <div class="tabs-found-badge">
-              ✅ {{ availableTabs.length }}개의 탭을 찾았습니다
+          <div v-if="availableTabs.length > 0" class="enterprise-form-group">
+            <div class="form-step-header">
+              <span class="step-badge">3</span>
+              <span class="step-title">등록할 탭 선택</span>
             </div>
-            <div class="tab-selection-list">
+            <div class="tabs-success-badge">
+              <n-icon size="16" color="#10b981"><RefreshIcon /></n-icon>
+              <span>{{ availableTabs.length }}개의 탭을 찾았습니다</span>
+            </div>
+            <div class="tabs-selection-area">
               <n-checkbox-group v-model:value="selectedTabs">
-                <div class="tab-checkbox-grid">
+                <div class="tabs-grid">
                   <div
                     v-for="tab in availableTabs"
                     :key="tab.gid"
-                    class="tab-checkbox-item"
-                    :class="{ selected: selectedTabs.includes(tab.title) }"
+                    class="tab-select-card"
+                    :class="{ active: selectedTabs.includes(tab.title) }"
                   >
                     <n-checkbox :value="tab.title">
-                      <div class="tab-checkbox-content">
-                        <span class="tab-name">{{ tab.title }}</span>
-                        <span class="tab-gid">gid: {{ tab.gid }}</span>
+                      <div class="tab-card-content">
+                        <span class="tab-card-name">{{ tab.title }}</span>
+                        <span class="tab-card-id">ID: {{ tab.gid }}</span>
                       </div>
                     </n-checkbox>
                   </div>
@@ -862,23 +962,25 @@ function handleResetApp() {
             </div>
           </div>
 
-          <!-- Info Box -->
-          <div class="modal-info-box">
-            <div class="info-box-header">
-              <span class="info-box-icon">💡</span>
-              <span>시트 등록 안내</span>
+          <!-- Info Notice -->
+          <div class="enterprise-notice">
+            <div class="notice-header">
+              <n-icon size="18" color="#3b82f6"><InfoIcon /></n-icon>
+              <span>시트 등록 전 확인사항</span>
             </div>
-            <ul class="info-box-list">
-              <li>구글 시트 상단 주소창의 URL을 전체 복사하세요</li>
-              <li>시트가 "링크가 있는 모든 사용자"로 공유되어야 합니다</li>
+            <ul class="notice-list">
+              <li>구글 시트 주소창의 전체 URL을 복사해주세요</li>
+              <li>시트 공유 설정: <strong>링크가 있는 모든 사용자</strong></li>
               <li>탭 이름에 따라 임대차/매도 유형이 자동 분류됩니다</li>
             </ul>
           </div>
         </div>
 
         <!-- Modal Footer -->
-        <div class="sheet-modal-footer">
-          <n-button size="large" @click="showAddSheetModal = false">취소</n-button>
+        <div class="enterprise-modal-footer">
+          <n-button size="large" @click="showAddSheetModal = false">
+            취소
+          </n-button>
           <n-button type="primary" size="large" @click="handleSaveSheet">
             시트 등록
           </n-button>
@@ -886,294 +988,274 @@ function handleResetApp() {
       </div>
     </n-modal>
 
-    <!-- Help Guide Modal -->
+    <!-- Help Guide Modal - Enterprise Style -->
     <n-modal
       v-model:show="showHelpGuide"
       preset="card"
-      style="width: 750px; max-width: 90vw; max-height: 85vh"
+      class="help-modal-enterprise"
+      style="width: 720px; max-width: 92vw; max-height: 88vh"
       :content-style="{ overflowY: 'auto', padding: 0 }"
       :header-style="{ display: 'none' }"
     >
-      <div class="help-modal">
-        <!-- Modal Header -->
-        <div class="help-modal-header">
-          <div class="help-header-icon">📚</div>
-          <div class="help-header-text">
-            <h2>시트 등록 가이드</h2>
-            <p>구글 시트 연결 방법을 안내합니다</p>
+      <div class="guide-container">
+        <!-- Compact Header -->
+        <div class="guide-header">
+          <div class="guide-header-content">
+            <h2>시트 연결 가이드</h2>
+            <p>RealLease에 구글 시트를 연결하는 방법</p>
           </div>
+          <button class="guide-close" @click="showHelpGuide = false">×</button>
         </div>
 
-        <!-- Quick Choice Section -->
-        <div class="help-choice-section">
-          <div class="help-choice-card existing">
-            <div class="choice-icon">📋</div>
-            <div class="choice-content">
-              <strong>기존 시트가 있는 경우</strong>
-              <span>구글 시트 또는 엑셀 파일을 연결합니다</span>
-            </div>
-          </div>
-          <div class="help-choice-card new">
-            <div class="choice-icon">🆕</div>
-            <div class="choice-content">
-              <strong>처음 시작하는 경우</strong>
-              <span>앱에서 새 시트를 자동 생성합니다</span>
-            </div>
-          </div>
+        <!-- Navigation Tabs -->
+        <div class="guide-nav">
+          <button class="guide-nav-btn" @click="scrollToHelpSection('section-existing')">
+            <span class="nav-icon">📋</span>
+            <span class="nav-text">기존 시트 연결</span>
+          </button>
+          <button class="guide-nav-btn" @click="scrollToHelpSection('section-new')">
+            <span class="nav-icon">✨</span>
+            <span class="nav-text">새 시트 만들기</span>
+          </button>
+          <button class="guide-nav-btn" @click="scrollToHelpSection('section-faq')">
+            <span class="nav-icon">💬</span>
+            <span class="nav-text">FAQ</span>
+          </button>
         </div>
 
-        <!-- Existing Sheet Registration -->
-        <div class="help-section">
-          <div class="help-section-header existing">
-            <span class="section-badge">기존 시트 등록</span>
-          </div>
+        <!-- Content Area -->
+        <div class="guide-content">
+          <!-- Section: Existing Sheet -->
+          <section id="section-existing" class="guide-section">
+            <div class="section-header">
+              <span class="section-marker"></span>
+              <h3>기존 시트 연결하기</h3>
+            </div>
 
-          <!-- Step 1: URL 복사 및 등록 (가장 먼저!) -->
-          <div class="help-step">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <h4>구글 시트 URL 복사하기</h4>
-              <div class="step-body">
-                <p>이미 구글 시트가 있다면 바로 등록할 수 있습니다:</p>
-                <ol class="step-list">
-                  <li>구글 시트를 열고 <strong>상단 주소창의 URL을 전체 복사</strong>합니다</li>
-                  <li>RealLease 앱에서 <strong>"시트 추가"</strong> 버튼을 클릭합니다</li>
-                  <li><strong>"시트 이름"</strong>에 현장명을 입력합니다 (예: 아르테 오피스텔)</li>
-                  <li><strong>"시트 URL"</strong>에 복사한 링크를 붙여넣습니다</li>
-                </ol>
-                <div class="step-tip info">
-                  <span class="tip-icon">💡</span>
-                  <span>URL 예시: <code>https://docs.google.com/spreadsheets/d/1ABC...</code></span>
+            <div class="steps-container">
+              <div class="step-card">
+                <div class="step-indicator">1</div>
+                <div class="step-body">
+                  <h4>시트 URL 복사</h4>
+                  <p>구글 시트를 열고 브라우저 주소창에서 전체 URL을 복사합니다.</p>
+                  <code class="url-example">https://docs.google.com/spreadsheets/d/1ABC...</code>
+                </div>
+              </div>
+
+              <div class="step-card">
+                <div class="step-indicator">2</div>
+                <div class="step-body">
+                  <h4>공유 설정</h4>
+                  <p>시트 우측 상단 <strong>공유</strong> 버튼 → <strong>링크가 있는 모든 사용자</strong> 선택</p>
+                  <div class="inline-tip warning">
+                    공유 설정 없이는 데이터를 불러올 수 없습니다
+                  </div>
+                </div>
+              </div>
+
+              <div class="step-card">
+                <div class="step-indicator">3</div>
+                <div class="step-body">
+                  <h4>앱에서 등록</h4>
+                  <p><strong>시트 추가</strong> 버튼 클릭 → 현장명 입력 → URL 붙여넣기 → 탭 선택</p>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Step 2: 공유 설정 -->
-          <div class="help-step">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <h4>시트 공유 설정하기</h4>
-              <div class="step-body">
-                <p>앱에서 데이터를 읽으려면 공유 설정이 필요합니다:</p>
-                <ol class="step-list">
-                  <li>구글 시트 오른쪽 상단의 <strong>"공유"</strong> 버튼 클릭</li>
-                  <li>"일반 액세스" 섹션에서 <strong>"링크가 있는 모든 사용자"</strong> 선택</li>
-                  <li>권한을 <strong>"뷰어"</strong> 또는 <strong>"편집자"</strong>로 설정</li>
-                  <li><strong>"완료"</strong> 버튼 클릭</li>
-                </ol>
-                <div class="step-tip warning">
-                  <span class="tip-icon">⚠️</span>
-                  <span>공유 설정이 없으면 앱에서 데이터를 불러올 수 없습니다</span>
-                </div>
+            <div class="info-callout">
+              <div class="callout-icon">📁</div>
+              <div class="callout-content">
+                <strong>엑셀 파일 사용 시</strong>
+                <p>구글 드라이브에 업로드 → 스프레드시트로 열기 → 변환된 URL 복사</p>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Step 3: 탭 선택 -->
-          <div class="help-step">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <h4>탭 선택 및 등록 완료</h4>
-              <div class="step-body">
-                <ol class="step-list">
-                  <li><strong>"탭 목록 불러오기"</strong> 버튼을 클릭합니다</li>
-                  <li>스프레드시트의 모든 탭이 자동으로 조회됩니다</li>
-                  <li>등록할 탭을 <strong>체크박스로 선택</strong>합니다</li>
-                  <li><strong>"추가"</strong> 버튼을 클릭하면 완료!</li>
-                </ol>
-                <div class="step-tip success">
-                  <span class="tip-icon">✨</span>
-                  <span>탭 이름에 따라 임대차/매도현황이 자동 분류됩니다</span>
-                </div>
+          <!-- Section: New Sheet -->
+          <section id="section-new" class="guide-section">
+            <div class="section-header">
+              <span class="section-marker new"></span>
+              <h3>새 시트 만들기</h3>
+            </div>
+
+            <div class="new-sheet-flow">
+              <div class="flow-step">
+                <span class="flow-num">1</span>
+                <span><strong>새 시트</strong> 버튼 클릭</span>
+              </div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step">
+                <span class="flow-num">2</span>
+                <span>현장명 입력</span>
+              </div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step">
+                <span class="flow-num">3</span>
+                <span>탭 유형 선택</span>
+              </div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step">
+                <span class="flow-num">4</span>
+                <span>생성 완료!</span>
               </div>
             </div>
-          </div>
 
-          <!-- Excel file case -->
-          <div class="help-note">
-            <div class="note-header">
-              <span class="note-icon">📁</span>
-              <strong>엑셀 파일(.xlsx)을 사용하는 경우</strong>
+            <div class="auto-features">
+              <div class="feature-chip">📊 헤더 자동 생성</div>
+              <div class="feature-chip">🎨 스타일 적용</div>
+              <div class="feature-chip">🔗 앱 자동 연결</div>
+              <div class="feature-chip">🌐 공유 설정 완료</div>
             </div>
-            <div class="note-body">
-              <ol class="step-list compact">
-                <li><a href="https://drive.google.com" target="_blank">구글 드라이브</a>에 엑셀 파일을 업로드합니다</li>
-                <li>파일을 더블클릭 → <strong>"Google 스프레드시트로 열기"</strong> 선택</li>
-                <li>변환된 시트의 URL을 복사하여 위 1단계부터 진행합니다</li>
-              </ol>
+          </section>
+
+          <!-- Section: FAQ -->
+          <section id="section-faq" class="guide-section">
+            <div class="section-header">
+              <span class="section-marker faq"></span>
+              <h3>자주 묻는 질문</h3>
             </div>
-          </div>
+
+            <div class="faq-container">
+              <div class="faq-row">
+                <div class="faq-question">탭 목록 불러오기가 실패해요</div>
+                <div class="faq-answer">시트 공유 설정을 확인 후 잠시 기다린 뒤 다시 시도하세요.</div>
+              </div>
+              <div class="faq-row">
+                <div class="faq-question">여러 탭을 등록했는데 어떻게 전환하나요?</div>
+                <div class="faq-answer">사이드바에서 시트 그룹을 클릭하면 하위 탭이 표시됩니다.</div>
+              </div>
+              <div class="faq-row">
+                <div class="faq-question">데이터가 표시되지 않아요</div>
+                <div class="faq-answer">시트 목록에서 새로고침 버튼을 클릭하여 동기화하세요.</div>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <!-- New Sheet Creation -->
-        <div class="help-section">
-          <div class="help-section-header new">
-            <span class="section-badge">새 시트 생성</span>
-          </div>
-
-          <div class="help-step compact">
-            <div class="step-content full">
-              <h4>🆕 데이터 없이 처음 시작할 때</h4>
-              <div class="step-body">
-                <p>앱에서 직접 새 구글 시트를 생성할 수 있습니다:</p>
-                <ol class="step-list">
-                  <li>설정 화면에서 <strong>"새 시트"</strong> 버튼 클릭</li>
-                  <li>현장명 입력 (예: 아르테 오피스텔)</li>
-                  <li>필요한 탭 선택:
-                    <ul class="sub-list">
-                      <li>📋 <strong>임대차현황</strong>: 임대차 계약 관리</li>
-                      <li>🏠 <strong>매도현황</strong>: 매도 계약 관리</li>
-                    </ul>
-                  </li>
-                  <li><strong>"시트 생성"</strong> 버튼 클릭</li>
-                </ol>
-                <div class="step-tip success">
-                  <span class="tip-icon">✨</span>
-                  <span>헤더 자동 생성 + 스타일 적용 + 앱 자동 등록까지 한번에!</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- FAQ Section -->
-        <div class="help-section faq">
-          <div class="help-section-header faq">
-            <span class="section-badge">자주 묻는 질문</span>
-          </div>
-
-          <div class="faq-list">
-            <div class="faq-item">
-              <div class="faq-q">Q: 탭 목록 불러오기가 실패해요</div>
-              <div class="faq-a">시트 공유 설정을 확인하고, 설정 후 잠시 기다린 뒤 다시 시도하세요.</div>
-            </div>
-            <div class="faq-item">
-              <div class="faq-q">Q: 여러 탭을 등록했는데 어떻게 전환하나요?</div>
-              <div class="faq-a">대시보드에서 시트 그룹 선택 시 해당 탭들이 자동 표시됩니다.</div>
-            </div>
-            <div class="faq-item">
-              <div class="faq-q">Q: 데이터가 표시되지 않아요</div>
-              <div class="faq-a">시트 목록에서 "동기화" 버튼을 클릭하여 최신 데이터를 불러오세요.</div>
-            </div>
-          </div>
+        <!-- Footer -->
+        <div class="guide-footer">
+          <n-button type="primary" @click="showHelpGuide = false">확인</n-button>
         </div>
       </div>
-
-      <template #footer>
-        <div class="help-modal-footer">
-          <n-button type="primary" size="large" @click="showHelpGuide = false">
-            확인
-          </n-button>
-        </div>
-      </template>
     </n-modal>
 
-    <!-- Create New Sheet Modal -->
+    <!-- Create New Sheet Modal - Enterprise Style -->
     <n-modal
       v-model:show="showCreateSheetModal"
       preset="card"
+      class="enterprise-modal"
       style="width: 520px; max-width: 95vw"
       :content-style="{ padding: 0 }"
       :header-style="{ display: 'none' }"
     >
-      <div class="sheet-modal">
+      <div class="enterprise-sheet-modal">
         <!-- Modal Header -->
-        <div class="sheet-modal-header create">
-          <div class="modal-header-icon">🆕</div>
-          <div class="modal-header-text">
-            <h2>새 시트 생성</h2>
-            <p>구글 스프레드시트를 새로 만듭니다</p>
+        <div class="enterprise-modal-header create">
+          <div class="modal-header-left">
+            <div class="modal-icon-wrap">
+              <n-icon size="22" color="#fff"><CreateIcon /></n-icon>
+            </div>
+            <div class="modal-title-wrap">
+              <h2>새 시트 생성</h2>
+              <p>템플릿 기반 스프레드시트 생성</p>
+            </div>
           </div>
+          <button class="modal-close-btn" @click="showCreateSheetModal = false">×</button>
         </div>
 
         <!-- Form Content -->
-        <div class="sheet-modal-body">
+        <div class="enterprise-modal-body">
           <!-- Site Name -->
-          <div class="modal-form-group">
-            <label class="form-group-label">
-              <span class="label-step">1</span>
-              <span class="label-text">현장명</span>
-            </label>
+          <div class="enterprise-form-group">
+            <div class="form-step-header">
+              <span class="step-badge">1</span>
+              <span class="step-title">현장명</span>
+              <span class="step-required">필수</span>
+            </div>
             <n-input
               v-model:value="createSheetForm.name"
               placeholder="예: 아르테 오피스텔"
               size="large"
+              class="enterprise-input"
             />
-            <span class="form-hint">관리할 건물/현장의 이름을 입력하세요</span>
+            <p class="form-description">관리할 건물 또는 현장의 이름을 입력하세요</p>
           </div>
 
           <!-- Tab Selection -->
-          <div class="modal-form-group">
-            <label class="form-group-label">
-              <span class="label-step">2</span>
-              <span class="label-text">생성할 탭 선택</span>
-            </label>
-            <div class="create-tab-options">
+          <div class="enterprise-form-group">
+            <div class="form-step-header">
+              <span class="step-badge">2</span>
+              <span class="step-title">탭 유형 선택</span>
+            </div>
+            <div class="tab-type-cards">
               <div
-                class="create-tab-option"
-                :class="{ selected: createSheetForm.createRental }"
+                class="tab-type-card"
+                :class="{ active: createSheetForm.createRental }"
                 @click="createSheetForm.createRental = !createSheetForm.createRental"
               >
-                <div class="tab-option-check">
+                <div class="tab-type-check">
                   <n-checkbox v-model:checked="createSheetForm.createRental" />
                 </div>
-                <div class="tab-option-content">
-                  <div class="tab-option-icon">📋</div>
-                  <div class="tab-option-text">
+                <div class="tab-type-info">
+                  <div class="tab-type-icon rental">
+                    <n-icon size="20" color="#10b981"><DocumentIcon /></n-icon>
+                  </div>
+                  <div class="tab-type-text">
                     <strong>임대차현황</strong>
-                    <span>임대차 계약 관리</span>
+                    <span>임대차 계약 관리용 시트</span>
                   </div>
                 </div>
               </div>
               <div
-                class="create-tab-option"
-                :class="{ selected: createSheetForm.createSale }"
+                class="tab-type-card"
+                :class="{ active: createSheetForm.createSale }"
                 @click="createSheetForm.createSale = !createSheetForm.createSale"
               >
-                <div class="tab-option-check">
+                <div class="tab-type-check">
                   <n-checkbox v-model:checked="createSheetForm.createSale" />
                 </div>
-                <div class="tab-option-content">
-                  <div class="tab-option-icon">🏠</div>
-                  <div class="tab-option-text">
+                <div class="tab-type-info">
+                  <div class="tab-type-icon sale">
+                    <n-icon size="20" color="#3b82f6"><HomeIcon /></n-icon>
+                  </div>
+                  <div class="tab-type-text">
                     <strong>매도현황</strong>
-                    <span>매도 계약 관리</span>
+                    <span>매도 계약 관리용 시트</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- What's included -->
-          <div class="modal-feature-box">
-            <div class="feature-box-header">
-              <span class="feature-box-icon">✨</span>
-              <span>자동으로 설정되는 항목</span>
+          <!-- Auto Features -->
+          <div class="auto-config-box">
+            <div class="auto-config-header">
+              <n-icon size="18" color="#10b981"><SettingsIcon /></n-icon>
+              <span>자동 설정 항목</span>
             </div>
-            <div class="feature-box-grid">
-              <div class="feature-item">
-                <span class="feature-icon">📊</span>
-                <span>헤더 자동 생성</span>
+            <div class="auto-config-grid">
+              <div class="auto-config-item">
+                <span class="config-dot"></span>
+                <span>헤더 컬럼 자동 구성</span>
               </div>
-              <div class="feature-item">
-                <span class="feature-icon">🎨</span>
-                <span>스타일 자동 적용</span>
+              <div class="auto-config-item">
+                <span class="config-dot"></span>
+                <span>셀 스타일 적용</span>
               </div>
-              <div class="feature-item">
-                <span class="feature-icon">🔗</span>
+              <div class="auto-config-item">
+                <span class="config-dot"></span>
                 <span>앱 자동 연결</span>
               </div>
-              <div class="feature-item">
-                <span class="feature-icon">🌐</span>
-                <span>공유 설정 완료</span>
+              <div class="auto-config-item">
+                <span class="config-dot"></span>
+                <span>공유 권한 설정</span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Modal Footer -->
-        <div class="sheet-modal-footer">
+        <div class="enterprise-modal-footer">
           <n-button size="large" @click="showCreateSheetModal = false" :disabled="isCreatingSheet">
             취소
           </n-button>
@@ -1187,6 +1269,59 @@ function handleResetApp() {
           </n-button>
         </div>
       </div>
+    </n-modal>
+
+    <!-- Debug Log Modal -->
+    <n-modal
+      v-model:show="showDebugPanel"
+      preset="card"
+      title="디버그 로그"
+      class="debug-modal"
+      :style="{ width: '90vw', maxWidth: '800px', maxHeight: '80vh' }"
+    >
+      <div class="debug-modal-content">
+        <div class="debug-modal-header">
+          <div class="debug-log-count">
+            총 {{ debugLogs.length }}개 로그
+          </div>
+          <div class="debug-modal-actions">
+            <n-button size="small" @click="copyDebugLogs">
+              <template #icon>
+                <n-icon><CopyIcon /></n-icon>
+              </template>
+              복사
+            </n-button>
+            <n-button size="small" type="error" @click="clearDebugLogs">
+              <template #icon>
+                <n-icon><TrashIcon /></n-icon>
+              </template>
+              삭제
+            </n-button>
+          </div>
+        </div>
+        <div class="debug-log-container">
+          <div v-if="debugLogs.length === 0" class="debug-empty">
+            로그가 없습니다. 앱을 사용하면 로그가 기록됩니다.
+          </div>
+          <div v-else class="debug-log-list">
+            <div
+              v-for="(log, index) in debugLogs.slice().reverse()"
+              :key="index"
+              class="debug-log-entry"
+              :class="getLogLevelClass(log.level)"
+            >
+              <div class="log-header">
+                <span class="log-time">{{ formatLogTime(log.timestamp) }}</span>
+                <span class="log-level">{{ log.level.toUpperCase() }}</span>
+              </div>
+              <div class="log-message">{{ log.message }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <n-button type="primary" @click="showDebugPanel = false">닫기</n-button>
+      </template>
     </n-modal>
   </div>
 </template>
@@ -2520,6 +2655,978 @@ function handleResetApp() {
 
   .feature-box-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Debug Section Styles */
+.debug-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.debug-header {
+  margin-bottom: 0.75rem;
+}
+
+.debug-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.debug-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.debug-desc {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.debug-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.debug-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toggle-label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+/* Debug Modal Styles */
+.debug-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.debug-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.debug-log-count {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.debug-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.debug-log-container {
+  max-height: 50vh;
+  overflow-y: auto;
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.debug-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 2rem;
+  font-size: 0.875rem;
+}
+
+.debug-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.debug-log-entry {
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.75rem;
+}
+
+.log-header {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.log-time {
+  color: #6b7280;
+}
+
+.log-level {
+  font-weight: 600;
+  padding: 0 0.25rem;
+  border-radius: 2px;
+}
+
+.log-message {
+  color: #d4d4d4;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* Log level colors */
+.log-log {
+  background: rgba(75, 85, 99, 0.2);
+}
+.log-log .log-level {
+  color: #9ca3af;
+}
+
+.log-info {
+  background: rgba(59, 130, 246, 0.15);
+}
+.log-info .log-level {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.log-warn {
+  background: rgba(245, 158, 11, 0.15);
+}
+.log-warn .log-level {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.log-error {
+  background: rgba(239, 68, 68, 0.15);
+}
+.log-error .log-level {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.log-debug {
+  background: rgba(139, 92, 246, 0.15);
+}
+.log-debug .log-level {
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.2);
+}
+
+/* =====================================================
+   ENTERPRISE HELP MODAL STYLES
+   ===================================================== */
+.guide-container {
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  max-height: 82vh;
+}
+
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-bottom: 1px solid #475569;
+}
+
+.guide-header-content h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.guide-header-content p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.guide-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.guide-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Navigation Tabs */
+.guide-nav {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.guide-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex: 1;
+  justify-content: center;
+}
+
+.guide-nav-btn:hover {
+  border-color: #3b82f6;
+  color: #2563eb;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.nav-icon {
+  font-size: 1rem;
+}
+
+.nav-text {
+  white-space: nowrap;
+}
+
+/* Content Area */
+.guide-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.guide-section {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.guide-section:last-child {
+  border-bottom: none;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-marker {
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.section-marker.new {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.section-marker.faq {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+/* Steps Container */
+.steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.step-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.step-indicator {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-body {
+  flex: 1;
+}
+
+.step-body h4 {
+  margin: 0 0 0.375rem 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.step-body p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.url-example {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #1e293b;
+  color: #94a3b8;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  overflow-x: auto;
+}
+
+.inline-tip {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.inline-tip.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* Info Callout */
+.info-callout {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 10px;
+  margin-top: 1rem;
+}
+
+.callout-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.callout-content strong {
+  display: block;
+  font-size: 0.875rem;
+  color: #1e40af;
+  margin-bottom: 0.25rem;
+}
+
+.callout-content p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #3b82f6;
+}
+
+/* New Sheet Flow */
+.new-sheet-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.flow-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.flow-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flow-arrow {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Auto Features */
+.auto-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  justify-content: center;
+}
+
+.feature-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #86efac;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #166534;
+}
+
+/* FAQ Container */
+.faq-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.faq-row {
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.faq-question {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.375rem;
+}
+
+.faq-question::before {
+  content: 'Q. ';
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.faq-answer {
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.5;
+  padding-left: 1.5rem;
+}
+
+.faq-answer::before {
+  content: 'A. ';
+  margin-left: -1.5rem;
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* Guide Footer */
+.guide-footer {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Mobile Responsive for Help Modal */
+@media (max-width: 600px) {
+  .guide-header {
+    padding: 1rem;
+  }
+
+  .guide-header-content h2 {
+    font-size: 1.125rem;
+  }
+
+  .guide-nav {
+    flex-direction: column;
+    padding: 0.75rem 1rem;
+    gap: 0.375rem;
+  }
+
+  .guide-nav-btn {
+    justify-content: flex-start;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .guide-section {
+    padding: 1.25rem 1rem;
+  }
+
+  .step-card {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .step-indicator {
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+  }
+
+  .new-sheet-flow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flow-arrow {
+    transform: rotate(90deg);
+    text-align: center;
+  }
+
+  .flow-step {
+    justify-content: center;
+  }
+
+  .auto-features {
+    justify-content: flex-start;
+  }
+}
+
+/* =====================================================
+   ENTERPRISE SHEET MODALS STYLES
+   ===================================================== */
+.enterprise-sheet-modal {
+  background: #fff;
+}
+
+.enterprise-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+}
+
+.enterprise-modal-header.existing {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.enterprise-modal-header.create {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-title-wrap h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.modal-title-wrap p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.modal-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.enterprise-modal-body {
+  padding: 1.5rem;
+}
+
+.enterprise-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.enterprise-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.step-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.step-required {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+}
+
+.enterprise-input {
+  margin-bottom: 0.25rem;
+}
+
+.form-description {
+  margin: 0.375rem 0 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.action-button-full {
+  width: 100%;
+  margin-top: 0.75rem;
+  background: #1e293b !important;
+  border-color: #1e293b !important;
+  color: #fff !important;
+}
+
+.action-button-full:hover {
+  background: #334155 !important;
+  border-color: #334155 !important;
+}
+
+.action-button-full:disabled {
+  background: #94a3b8 !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Tabs Success Badge */
+.tabs-success-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #059669;
+}
+
+.tabs-selection-area {
+  max-height: 180px;
+  overflow-y: auto;
+  border-radius: 8px;
+}
+
+.tabs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tab-select-card {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  transition: all 0.15s ease;
+}
+
+.tab-select-card.active {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.tab-card-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: 0.25rem;
+}
+
+.tab-card-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.tab-card-id {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Enterprise Notice */
+.enterprise-notice {
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-top: 1.5rem;
+}
+
+.notice-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.notice-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  font-size: 0.8125rem;
+  color: #475569;
+  line-height: 1.8;
+}
+
+.notice-list strong {
+  color: #1e293b;
+}
+
+/* Tab Type Cards (Create Modal) */
+.tab-type-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tab-type-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-type-card:hover {
+  border-color: #cbd5e1;
+}
+
+.tab-type-card.active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.tab-type-check {
+  flex-shrink: 0;
+}
+
+.tab-type-info {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex: 1;
+}
+
+.tab-type-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-type-icon.rental {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.tab-type-icon.sale {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.tab-type-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.tab-type-text strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.tab-type-text span {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* Auto Config Box */
+.auto-config-box {
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: 10px;
+  margin-top: 1.5rem;
+}
+
+.auto-config-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #166534;
+}
+
+.auto-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.auto-config-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #15803d;
+}
+
+.config-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+}
+
+/* Enterprise Modal Footer */
+.enterprise-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Mobile Responsive for Enterprise Modals */
+@media (max-width: 600px) {
+  .enterprise-modal-header {
+    padding: 1rem;
+  }
+
+  .modal-icon-wrap {
+    width: 40px;
+    height: 40px;
+  }
+
+  .modal-title-wrap h2 {
+    font-size: 1.125rem;
+  }
+
+  .enterprise-modal-body {
+    padding: 1.25rem 1rem;
+  }
+
+  .tab-type-card {
+    padding: 0.875rem;
+  }
+
+  .tab-type-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .auto-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .enterprise-modal-footer {
+    padding: 0.875rem 1rem;
   }
 }
 

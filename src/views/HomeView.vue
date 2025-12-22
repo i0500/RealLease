@@ -221,12 +221,27 @@ const menuOptions = computed<MenuOption[]>(() => {
     // 각 그룹을 parent로, sheetType에 따라 children 생성
     sheetGroups.forEach((sheets: SheetConfig[], groupName: string) => {
       const children: MenuOption[] = []
+      const currentRouteName = route.name as string
+      const currentSheetId = route.params.sheetId as string
 
       // ✅ 임대 관리 메뉴 (sheetType === 'rental' 인 시트)
       const rentalSheet = sheets.find(s => s.sheetType === 'rental')
       if (rentalSheet) {
+        const isRentalActive = currentRouteName === 'rental-contracts' && currentSheetId === rentalSheet.id
         children.push({
-          label: '임대 관리',
+          label: () => h(
+            'span',
+            {
+              class: isRentalActive ? 'submenu-active' : '',
+              style: isRentalActive
+                ? 'color: #4ade80; font-weight: 600; display: flex; align-items: center; gap: 6px;'
+                : 'display: flex; align-items: center; gap: 6px;'
+            },
+            [
+              '임대 관리',
+              isRentalActive ? h('span', { style: 'font-size: 10px;' }, '●') : null
+            ]
+          ),
           key: `sheet-${rentalSheet.id}-rental-contracts`,
           icon: renderIcon(DocumentTextOutline)
         })
@@ -235,8 +250,21 @@ const menuOptions = computed<MenuOption[]>(() => {
       // ✅ 매도 관리 메뉴 (sheetType === 'sale' 인 시트)
       const saleSheet = sheets.find(s => s.sheetType === 'sale')
       if (saleSheet) {
+        const isSaleActive = (currentRouteName === 'sales' || currentRouteName === 'sale-detail') && currentSheetId === saleSheet.id
         children.push({
-          label: '매도 관리',
+          label: () => h(
+            'span',
+            {
+              class: isSaleActive ? 'submenu-active' : '',
+              style: isSaleActive
+                ? 'color: #4ade80; font-weight: 600; display: flex; align-items: center; gap: 6px;'
+                : 'display: flex; align-items: center; gap: 6px;'
+            },
+            [
+              '매도 관리',
+              isSaleActive ? h('span', { style: 'font-size: 10px;' }, '●') : null
+            ]
+          ),
           key: `sheet-${saleSheet.id}-sales`,
           icon: renderIcon(DocumentTextOutline)
         })
@@ -245,13 +273,8 @@ const menuOptions = computed<MenuOption[]>(() => {
       // 그룹 메뉴 추가 (첫 번째 시트의 ID를 대표로 사용)
       const firstSheet = sheets[0]
       if (firstSheet) {
-        // 🔧 FIX: PC에서 시트 parent 클릭 시 선택되도록 커스텀 렌더링
-        // NMenu는 children이 있는 parent 아이템 클릭 시 update:value를 발생시키지 않음
-        // 따라서 label에 클릭 핸들러를 직접 연결하여 시트 선택 처리
         const sheetId = firstSheet.id
         const isSelected = sheets.some(s => s.id === sheetsStore.currentSheetId)
-
-        // 현재 그룹의 rental/sale 시트 ID 찾기
         const groupRentalSheet = sheets.find(s => s.sheetType === 'rental')
         const groupSaleSheet = sheets.find(s => s.sheetType === 'sale')
 
@@ -259,44 +282,35 @@ const menuOptions = computed<MenuOption[]>(() => {
           label: () => h(
             'span',
             {
-              style: 'cursor: pointer; display: flex; align-items: center; width: 100%; gap: 8px;',
+              style: `cursor: pointer; display: flex; align-items: center; width: 100%; gap: 8px; ${isSelected ? 'color: #4ade80; font-weight: 600;' : ''}`,
               onClick: (e: Event) => {
-                e.stopPropagation() // 메뉴 확장/축소 이벤트와 분리
+                e.stopPropagation()
                 sheetsStore.setCurrentSheet(sheetId)
                 const sheet = sheetsStore.sheets.find(s => s.id === sheetId)
                 if (sheet) {
                   message.success(`"${sheet.name}" 파일을 선택했습니다`)
-
-                  // 현재 페이지가 임대차현황 또는 매도현황이면 해당 페이지 유지하며 시트 변경
                   const currentRouteName = route.name as string
                   if (currentRouteName === 'rental-contracts' && groupRentalSheet) {
-                    router.push({
-                      name: 'rental-contracts',
-                      params: { sheetId: groupRentalSheet.id }
-                    })
+                    router.push({ name: 'rental-contracts', params: { sheetId: groupRentalSheet.id } })
                   } else if ((currentRouteName === 'sales' || currentRouteName === 'sale-detail') && groupSaleSheet) {
-                    router.push({
-                      name: 'sales',
-                      params: { sheetId: groupSaleSheet.id }
-                    })
+                    router.push({ name: 'sales', params: { sheetId: groupSaleSheet.id } })
                   } else {
-                    // 그 외의 경우 대시보드로 이동
                     router.push({ name: 'dashboard' })
                   }
                 }
               }
             },
             [
-              groupName,
-              isSelected
-                ? h('span', {
-                    style: 'color: #18a058; font-weight: bold; font-size: 14px; margin-left: 4px;'
-                  }, '✓')
-                : null
+              h('span', { style: 'flex: 1;' }, groupName),
+              isSelected ? h('span', {
+                style: 'background: #22c55e; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 500;'
+              }, '선택됨') : null
             ]
           ),
           key: `sheet-${firstSheet.id}`,
-          icon: renderIcon(SheetIcon),
+          icon: () => h(NIcon, {
+            style: isSelected ? 'color: #4ade80;' : undefined
+          }, { default: () => h(SheetIcon) }),
           children: children.length > 0 ? children : undefined
         })
       }

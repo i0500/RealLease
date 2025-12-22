@@ -78,7 +78,7 @@ router.beforeEach(async (to, _from, next) => {
   // authStore.user는 앱 시작 시점의 localStorage 값이므로, redirect 후에는 outdated 상태
   // authService.isAuthenticated()를 사용하여 실제 Firebase 인증 상태 확인
   const isFirebaseAuthenticated = authService.isAuthenticated()
-  const isStoreAuthenticated = authStore.isAuthenticated
+  let isStoreAuthenticated = authStore.isAuthenticated
 
   // redirect 로그인 후 store가 아직 업데이트되지 않은 경우 처리
   if (isFirebaseAuthenticated && !isStoreAuthenticated) {
@@ -88,8 +88,10 @@ router.beforeEach(async (to, _from, next) => {
       const userData = localStorage.getItem('reallease_user') || sessionStorage.getItem('reallease_user')
       if (userData) {
         const user = JSON.parse(userData)
-        // store의 user 값 직접 업데이트 (초기화 전이므로 store 메서드 사용 불가)
-        console.log('✅ [Router] User loaded from storage:', user)
+        // 🔧 FIX: store의 user 값 업데이트 (setUser 함수 사용)
+        authStore.setUser(user)
+        isStoreAuthenticated = true
+        console.log('✅ [Router] User loaded from storage and store updated:', user)
       }
     } catch (err) {
       console.error('❌ [Router] Failed to load user from storage:', err)

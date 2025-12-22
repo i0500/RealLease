@@ -32,6 +32,9 @@ export class AuthService {
   private keepSignedInPreference: boolean = true // 로그인 상태 유지 설정
   private redirectLoginProcessed: boolean = false // redirect 로그인 처리 완료 여부
   private onRedirectLoginSuccess: ((user: FirebaseUser) => void) | null = null // redirect 로그인 성공 콜백
+  private redirectResultPending: boolean = false // redirect 결과가 대기 중인지 여부
+  private pendingRedirectResult: any = null // 대기 중인 redirect 결과
+  private tokenRefreshNeeded: boolean = false // 토큰 갱신 필요 플래그 (팝업 대신 API 실패 시 처리)
 
   constructor() {
     // Firebase Auth 초기화 완료를 기다릴 Promise 생성
@@ -45,12 +48,13 @@ export class AuthService {
 
   /**
    * 비동기 초기화 - redirect 결과 확인 후 auth listener 설정
+   * iOS PWA: redirect 결과는 저장해두고 콜백 등록 후 처리
    */
   private async initializeAuth(): Promise<void> {
     // 1. 저장된 토큰 먼저 로드
     this.loadGoogleAccessToken()
 
-    // 2. iOS PWA redirect 결과 확인 (먼저 처리해야 함!)
+    // 2. iOS PWA redirect 결과 확인 (결과만 저장, 콜백은 나중에 처리)
     await this.checkRedirectResult()
 
     // 3. Auth state listener 설정
@@ -59,14 +63,44 @@ export class AuthService {
 
   /**
    * Redirect 로그인 성공 시 호출될 콜백 등록
+   * 콜백 등록 시 대기 중인 redirect 결과가 있으면 즉시 처리
    */
   setOnRedirectLoginSuccess(callback: (user: FirebaseUser) => void): void {
     this.onRedirectLoginSuccess = callback
+    console.log('🔄 [AuthService] Redirect callback registered')
+
+    // 대기 중인 redirect 결과가 있으면 즉시 처리
+    if (this.redirectResultPending && this.pendingRedirectResult) {
+      console.log('🔄 [AuthService] Processing pending redirect result...')
+      this.processPendingRedirectResult()
+    }
+  }
+
+  /**
+   * 대기 중인 redirect 결과 처리
+   */
+  private async processPendingRedirectResult(): Promise<void> {
+    if (!this.pendingRedirectResult || !this.onRedirectLoginSuccess) {
+      return
+    }
+
+    const result = this.pendingRedirectResult
+    this.pendingRedirectResult = null
+    this.redirectResultPending = false
+
+    try {
+      // 콜백 호출 (auth store에 알림)
+      this.onRedirectLoginSuccess(result.user)
+      console.log('✅ [AuthService] Pending redirect result processed, callback invoked')
+    } catch (error) {
+      console.error('❌ [AuthService] Error processing pending redirect:', error)
+    }
   }
 
   /**
    * Redirect 로그인 결과 확인 (iOS PWA용)
    * 앱 시작 시 호출되어 redirect 방식 로그인 결과를 처리
+   * 콜백이 등록되지 않은 경우 결과를 저장해두고 나중에 처리
    * @returns true if redirect login was successful
    */
   private async checkRedirectResult(): Promise<boolean> {
@@ -111,9 +145,15 @@ export class AuthService {
           // 🔍 DEBUG: 토큰 권한 확인
           this.debugTokenScopes(credential.accessToken)
 
-          // 콜백 호출 (auth store에 알림)
+          // 콜백 호출 (auth store에 알림) - 콜백이 없으면 대기
           if (this.onRedirectLoginSuccess) {
+            console.log('🔄 [AuthService] Invoking redirect callback immediately')
             this.onRedirectLoginSuccess(result.user)
+          } else {
+            // 콜백이 아직 등록되지 않음 - 결과를 저장해두고 나중에 처리
+            console.log('⏳ [AuthService] Callback not registered yet, saving result for later')
+            this.redirectResultPending = true
+            this.pendingRedirectResult = result
           }
         }
 
@@ -303,7 +343,8 @@ export class AuthService {
 
   /**
    * 토큰 갱신 타이머 설정
-   * 만료 5분 전에 자동으로 토큰 갱신 시도
+   * 만료 5분 전에 갱신 필요 플래그 설정 (자동 팝업 대신)
+   * 실제 갱신은 API 호출 실패 시 또는 사용자 액션 시 수행
    */
   private scheduleTokenRefresh(remainingMs: number): void {
     // 기존 타이머 취소
@@ -314,26 +355,52 @@ export class AuthService {
     // 갱신 시점 계산 (만료 5분 전, 최소 10초 후)
     const refreshInMs = Math.max(remainingMs - TOKEN_REFRESH_BUFFER_MS, 10000)
 
-    console.log(`🔄 [AuthService] Scheduling token refresh in ${Math.round(refreshInMs / 1000 / 60)} minutes`)
+    console.log(`🔄 [AuthService] Token will need refresh in ${Math.round(refreshInMs / 1000 / 60)} minutes (no auto-popup)`)
 
     this.tokenRefreshTimer = setTimeout(() => {
-      console.log('⏰ [AuthService] Token refresh timer triggered')
-      this.refreshAccessToken()
+      console.log('⏰ [AuthService] Token refresh needed - will refresh on next API call or user action')
+      // 🔧 FIX: 자동 팝업 대신 플래그만 설정
+      // 실제 갱신은 getAccessToken() 호출 시 또는 API 호출 실패 시 수행
+      this.tokenRefreshNeeded = true
     }, refreshInMs)
   }
 
   /**
    * Access Token 자동 갱신
    * Firebase 재인증을 통해 새로운 OAuth Access Token 획득
+   * @param silent - true면 팝업 없이 시도 (실패 시 false 반환), false면 팝업 사용
    */
-  async refreshAccessToken(): Promise<boolean> {
+  async refreshAccessToken(silent: boolean = false): Promise<boolean> {
     if (!this.currentUser) {
       console.warn('⚠️ [AuthService] Cannot refresh token: no user signed in')
       return false
     }
 
+    // 팝업이 차단되는 환경에서는 silent 모드로 강제
+    if (isPopupBlocked()) {
+      silent = true
+      console.log('ℹ️ [AuthService] Popup blocked environment, forcing silent mode')
+    }
+
+    // Silent 모드에서는 팝업 없이 기존 토큰 사용 시도
+    if (silent) {
+      console.log('🔄 [AuthService] Silent token refresh - checking current token validity...')
+
+      // 현재 토큰이 아직 유효한지 확인
+      if (this.googleAccessToken && !this.isTokenExpired()) {
+        console.log('✅ [AuthService] Current token still valid')
+        this.tokenRefreshNeeded = false
+        return true
+      }
+
+      // 토큰이 만료된 경우 - 재로그인 필요 플래그 설정
+      console.log('⚠️ [AuthService] Token expired, re-login required')
+      this.tokenRefreshNeeded = true
+      return false
+    }
+
     try {
-      console.log('🔄 [AuthService] Refreshing Google Access Token...')
+      console.log('🔄 [AuthService] Refreshing Google Access Token with popup...')
 
       // Firebase 재인증으로 새 OAuth 토큰 획득
       const result = await reauthenticateWithPopup(this.currentUser, googleProvider)
@@ -341,6 +408,7 @@ export class AuthService {
       const credential = GoogleAuthProvider.credentialFromResult(result)
       if (credential && credential.accessToken) {
         this.googleAccessToken = credential.accessToken
+        this.tokenRefreshNeeded = false
 
         // tokeninfo API로 만료 시간 확인
         const tokenInfo = await this.getTokenInfo(credential.accessToken)
@@ -356,11 +424,17 @@ export class AuthService {
     } catch (error: any) {
       console.error('❌ [AuthService] Token refresh failed:', error)
 
-      // 사용자가 팝업을 닫은 경우 - 조용히 실패
+      // 사용자가 팝업을 닫은 경우 - 조용히 실패, 나중에 재시도 플래그
       if (error.code === 'auth/popup-closed-by-user') {
-        console.log('ℹ️ [AuthService] User closed refresh popup, will retry later')
-        // 5분 후 다시 시도
-        this.scheduleTokenRefresh(TOKEN_REFRESH_BUFFER_MS)
+        console.log('ℹ️ [AuthService] User closed refresh popup')
+        this.tokenRefreshNeeded = true
+        return false
+      }
+
+      // 팝업 차단된 경우
+      if (error.code === 'auth/popup-blocked') {
+        console.log('⚠️ [AuthService] Popup blocked, marking refresh needed')
+        this.tokenRefreshNeeded = true
         return false
       }
 
@@ -373,6 +447,22 @@ export class AuthService {
 
       return false
     }
+  }
+
+  /**
+   * 토큰 갱신이 필요한지 확인
+   */
+  isTokenRefreshNeeded(): boolean {
+    return this.tokenRefreshNeeded || this.isTokenExpired()
+  }
+
+  /**
+   * 수동 재인증 요청 (사용자 액션 시 호출)
+   * API 호출 실패 후 또는 설정 화면에서 호출
+   */
+  async requestReauthentication(): Promise<boolean> {
+    console.log('🔐 [AuthService] Manual reauthentication requested')
+    return this.refreshAccessToken(false) // 팝업 사용
   }
 
   /**
@@ -534,7 +624,7 @@ export class AuthService {
 
   /**
    * Google Sheets API용 Access Token 조회
-   * 토큰이 만료되었거나 곧 만료될 경우 자동 갱신 시도
+   * 토큰이 만료되었거나 곧 만료될 경우 silent 갱신 시도 (팝업 없음)
    * Google OAuth Access Token을 반환합니다 (Firebase ID Token이 아님!)
    */
   async getAccessToken(): Promise<string | null> {
@@ -543,20 +633,19 @@ export class AuthService {
       return null
     }
 
-    // 토큰이 만료되었거나 곧 만료될 경우 갱신 시도
+    // 토큰이 만료된 경우 - silent 갱신 시도 (팝업 없음)
     if (this.isTokenExpired()) {
-      console.log('⚠️ [AuthService] Token expired, attempting refresh...')
-      const refreshed = await this.refreshAccessToken()
+      console.log('⚠️ [AuthService] Token expired, attempting silent refresh...')
+      const refreshed = await this.refreshAccessToken(true) // silent mode
       if (!refreshed) {
-        console.warn('⚠️ [AuthService] Token refresh failed, token may be invalid')
-        // 갱신 실패해도 기존 토큰 반환 (API 호출 시 401 에러로 처리)
+        console.warn('⚠️ [AuthService] Silent refresh failed, token may need re-login')
+        // 갱신 실패 시 null 반환하여 API 호출 시 재로그인 유도
+        return null
       }
     } else if (this.isTokenExpiringSoon()) {
-      // 만료 임박 시 백그라운드에서 갱신 (비동기, 기다리지 않음)
-      console.log('ℹ️ [AuthService] Token expiring soon, scheduling background refresh...')
-      this.refreshAccessToken().catch(err => {
-        console.warn('⚠️ [AuthService] Background token refresh failed:', err)
-      })
+      // 만료 임박 시 플래그만 설정 (팝업 없음)
+      console.log('ℹ️ [AuthService] Token expiring soon, marking refresh needed')
+      this.tokenRefreshNeeded = true
     }
 
     console.log('🔑 [AuthService] Returning Google OAuth Access Token')
