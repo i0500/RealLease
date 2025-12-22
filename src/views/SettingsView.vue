@@ -34,13 +34,9 @@ import {
   DocumentTextOutline as DocumentIcon,
   NotificationsOutline as NotificationIcon,
   TimeOutline as TimeIcon,
-  InformationCircleOutline as InfoIcon,
-  BugOutline as BugIcon,
-  CopyOutline as CopyIcon,
-  TrashOutline as TrashIcon
+  InformationCircleOutline as InfoIcon
 } from '@vicons/ionicons5'
 import { sheetsService } from '@/services/google/sheetsService'
-import { debugLogger, type LogEntry } from '@/utils/debugLogger'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -90,11 +86,6 @@ const contractExpiryNoticeDays = ref(90)
 const hugExpiryNoticeDays = ref(90)
 const pushNotificationTime = ref('10:00')
 const enablePushNotifications = ref(true)
-
-// Debug logger state
-const debugLoggerEnabled = ref(debugLogger.isLoggerEnabled())
-const debugLogs = ref<LogEntry[]>([])
-const showDebugPanel = ref(false)
 
 // Help modal navigation
 function scrollToHelpSection(sectionId: string) {
@@ -459,55 +450,6 @@ function handleResetApp() {
   })
 }
 
-// Debug Logger Functions
-function toggleDebugLogger() {
-  if (debugLoggerEnabled.value) {
-    debugLogger.enable()
-    message.success('디버그 로거 활성화')
-  } else {
-    debugLogger.disable()
-    message.info('디버그 로거 비활성화')
-  }
-}
-
-function loadDebugLogs() {
-  debugLogs.value = debugLogger.getRecentLogs(200)
-  showDebugPanel.value = true
-}
-
-function clearDebugLogs() {
-  debugLogger.clear()
-  debugLogs.value = []
-  message.success('로그가 삭제되었습니다')
-}
-
-function copyDebugLogs() {
-  const logText = debugLogger.exportLogs()
-  navigator.clipboard.writeText(logText).then(() => {
-    message.success('로그가 클립보드에 복사되었습니다')
-  }).catch(() => {
-    message.error('클립보드 복사 실패')
-  })
-}
-
-function getLogLevelClass(level: string): string {
-  switch (level) {
-    case 'error': return 'log-error'
-    case 'warn': return 'log-warn'
-    case 'info': return 'log-info'
-    case 'debug': return 'log-debug'
-    default: return 'log-log'
-  }
-}
-
-function formatLogTime(date: Date): string {
-  return date.toLocaleTimeString('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  })
-}
 </script>
 
 <template>
@@ -720,28 +662,6 @@ function formatLogTime(date: Date): string {
                 </n-button>
               </div>
 
-              <!-- Debug Section -->
-              <div class="debug-section">
-                <div class="debug-header">
-                  <div class="debug-title-row">
-                    <n-icon size="16" color="#8b5cf6"><BugIcon /></n-icon>
-                    <span class="debug-title">개발자 도구</span>
-                  </div>
-                  <span class="debug-desc">iOS PWA 등에서 콘솔 로그 확인</span>
-                </div>
-                <div class="debug-controls">
-                  <div class="debug-toggle">
-                    <span class="toggle-label">디버그 로거</span>
-                    <n-switch v-model:value="debugLoggerEnabled" @update:value="toggleDebugLogger" size="small" />
-                  </div>
-                  <n-button size="small" @click="loadDebugLogs" :disabled="!debugLoggerEnabled">
-                    <template #icon>
-                      <n-icon><BugIcon /></n-icon>
-                    </template>
-                    로그 보기
-                  </n-button>
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -1271,58 +1191,6 @@ function formatLogTime(date: Date): string {
       </div>
     </n-modal>
 
-    <!-- Debug Log Modal -->
-    <n-modal
-      v-model:show="showDebugPanel"
-      preset="card"
-      title="디버그 로그"
-      class="debug-modal"
-      :style="{ width: '90vw', maxWidth: '800px', maxHeight: '80vh' }"
-    >
-      <div class="debug-modal-content">
-        <div class="debug-modal-header">
-          <div class="debug-log-count">
-            총 {{ debugLogs.length }}개 로그
-          </div>
-          <div class="debug-modal-actions">
-            <n-button size="small" @click="copyDebugLogs">
-              <template #icon>
-                <n-icon><CopyIcon /></n-icon>
-              </template>
-              복사
-            </n-button>
-            <n-button size="small" type="error" @click="clearDebugLogs">
-              <template #icon>
-                <n-icon><TrashIcon /></n-icon>
-              </template>
-              삭제
-            </n-button>
-          </div>
-        </div>
-        <div class="debug-log-container">
-          <div v-if="debugLogs.length === 0" class="debug-empty">
-            로그가 없습니다. 앱을 사용하면 로그가 기록됩니다.
-          </div>
-          <div v-else class="debug-log-list">
-            <div
-              v-for="(log, index) in debugLogs.slice().reverse()"
-              :key="index"
-              class="debug-log-entry"
-              :class="getLogLevelClass(log.level)"
-            >
-              <div class="log-header">
-                <span class="log-time">{{ formatLogTime(log.timestamp) }}</span>
-                <span class="log-level">{{ log.level.toUpperCase() }}</span>
-              </div>
-              <div class="log-message">{{ log.message }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <n-button type="primary" @click="showDebugPanel = false">닫기</n-button>
-      </template>
-    </n-modal>
   </div>
 </template>
 
@@ -2656,165 +2524,6 @@ function formatLogTime(date: Date): string {
   .feature-box-grid {
     grid-template-columns: 1fr;
   }
-}
-
-/* Debug Section Styles */
-.debug-section {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.debug-header {
-  margin-bottom: 0.75rem;
-}
-
-.debug-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
-}
-
-.debug-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
-}
-
-.debug-desc {
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-.debug-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.debug-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.toggle-label {
-  font-size: 0.8rem;
-  color: #4b5563;
-}
-
-/* Debug Modal Styles */
-.debug-modal-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.debug-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.debug-log-count {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.debug-modal-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.debug-log-container {
-  max-height: 50vh;
-  overflow-y: auto;
-  background: #1e1e1e;
-  border-radius: 8px;
-  padding: 0.75rem;
-}
-
-.debug-empty {
-  text-align: center;
-  color: #9ca3af;
-  padding: 2rem;
-  font-size: 0.875rem;
-}
-
-.debug-log-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.debug-log-entry {
-  padding: 0.5rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
-}
-
-.log-header {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
-}
-
-.log-time {
-  color: #6b7280;
-}
-
-.log-level {
-  font-weight: 600;
-  padding: 0 0.25rem;
-  border-radius: 2px;
-}
-
-.log-message {
-  color: #d4d4d4;
-  word-break: break-all;
-  white-space: pre-wrap;
-}
-
-/* Log level colors */
-.log-log {
-  background: rgba(75, 85, 99, 0.2);
-}
-.log-log .log-level {
-  color: #9ca3af;
-}
-
-.log-info {
-  background: rgba(59, 130, 246, 0.15);
-}
-.log-info .log-level {
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.2);
-}
-
-.log-warn {
-  background: rgba(245, 158, 11, 0.15);
-}
-.log-warn .log-level {
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.2);
-}
-
-.log-error {
-  background: rgba(239, 68, 68, 0.15);
-}
-.log-error .log-level {
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.log-debug {
-  background: rgba(139, 92, 246, 0.15);
-}
-.log-debug .log-level {
-  color: #a78bfa;
-  background: rgba(139, 92, 246, 0.2);
 }
 
 /* =====================================================
