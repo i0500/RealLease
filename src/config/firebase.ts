@@ -39,7 +39,8 @@ try {
   googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile')
 
   googleProvider.setCustomParameters({
-    prompt: 'select_account'
+    prompt: 'consent',
+    access_type: 'offline'
   })
 } catch (error) {
   console.error('❌ [Firebase] Failed to initialize Firebase:', error)
