@@ -5,7 +5,7 @@ import type { User } from '@/types'
 import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
-  // 🔧 FIX: 페이지 새로고침 시 즉시 localStorage에서 사용자 정보 복원
+  // 페이지 새로고침 시 즉시 localStorage에서 사용자 정보 복원
   const savedUser = (() => {
     try {
       const userData = localStorage.getItem('reallease_user')
@@ -20,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isInitialized = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  const isReauthenticating = ref(false) // 재인증 시도 중 플래그
+  const isReauthenticating = ref(false)
 
   const isAuthenticated = computed(() => !!user.value)
 
@@ -33,7 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function initialize(clientId: string) {
+  async function initialize(_clientId: string) {
     try {
       isLoading.value = true
       error.value = null
@@ -42,7 +42,6 @@ export const useAuthStore = defineStore('auth', () => {
       const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
 
       if (isDevMode) {
-        // 개발 모드에서 저장된 사용자 정보 복원
         const savedUser = loadUserFromStorage()
         if (savedUser) {
           user.value = savedUser
@@ -51,31 +50,8 @@ export const useAuthStore = defineStore('auth', () => {
         return
       }
 
-      // Redirect 로그인 성공 시 콜백 등록
-      authService.setOnRedirectLoginSuccess((firebaseUser) => {
-        user.value = {
-          email: firebaseUser.email || 'user@example.com',
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User'
-        }
-      })
-
-      // ✅ Firebase Auth 초기화 완료 대기 (중요!)
-      // 이 시점에서 redirect 결과도 이미 처리됨
+      // Firebase Auth 초기화 완료 대기
       await authService.waitForAuth()
-
-      // Google Identity Services 로드 (레거시 호환)
-      await authService.loadGoogleIdentityServices()
-
-      // Auth 서비스 초기화 (레거시 호환)
-      await authService.initialize(clientId)
-
-      // redirect 로그인이 처리된 경우, 저장된 사용자 정보 다시 로드
-      if (authService.wasRedirectLoginProcessed()) {
-        const savedUser = loadUserFromStorage()
-        if (savedUser) {
-          user.value = savedUser
-        }
-      }
 
       // 기존 사용자 정보 확인 및 복원
       if (authService.isAuthenticated()) {
@@ -100,14 +76,12 @@ export const useAuthStore = defineStore('auth', () => {
       isLoading.value = true
       error.value = null
 
-      // keepSignedIn 설정 저장
       setKeepSignedIn(keepSignedIn)
 
       // 개발 모드 체크
       const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
 
       if (isDevMode) {
-        // 개발 모드에서는 더미 사용자 생성
         user.value = {
           email: 'test@reallease.dev',
           name: '테스트 사용자'
@@ -124,7 +98,6 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = userInfo
         saveUserToStorage(user.value, keepSignedIn)
       } else {
-        // fallback: 사용자 정보를 가져오지 못한 경우
         user.value = {
           email: 'user@example.com',
           name: 'User'
@@ -161,13 +134,12 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
   }
 
-  // 사용자 정보 저장/복원 (localStorage 또는 sessionStorage)
+  // 사용자 정보 저장/복원
   function saveUserToStorage(userData: User, persistent: boolean = true) {
     try {
       const storage = persistent ? localStorage : sessionStorage
       storage.setItem('reallease_user', JSON.stringify(userData))
 
-      // 다른 storage에서는 제거 (중복 저장 방지)
       const otherStorage = persistent ? sessionStorage : localStorage
       otherStorage.removeItem('reallease_user')
     } catch (err) {
@@ -177,7 +149,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   function loadUserFromStorage(): User | null {
     try {
-      // localStorage 우선, 없으면 sessionStorage 체크
       const localData = localStorage.getItem('reallease_user')
       if (localData) return JSON.parse(localData)
 
@@ -202,13 +173,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   /**
    * 토큰 만료 처리
-   * OAuth 토큰이 만료되었을 때 로그아웃 후 로그인 페이지로 리디렉션
-   *
-   * 자동 재인증 시도는 브라우저가 popup을 차단하므로 제거
-   * 대신 Firebase Auth가 자동으로 토큰을 갱신하도록 의존
    */
   async function handleTokenExpired() {
-    // 재인증 중복 시도 방지
     if (isReauthenticating.value) {
       return
     }
@@ -216,12 +182,10 @@ export const useAuthStore = defineStore('auth', () => {
     isReauthenticating.value = true
 
     try {
-      // 로그아웃 처리
       await authService.signOut()
       user.value = null
       clearUserFromStorage()
 
-      // 로그인 페이지로 리디렉션
       if (router.currentRoute.value.name !== 'auth') {
         await router.push({
           name: 'auth',
@@ -238,13 +202,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /**
-   * 사용자 정보 직접 설정 (router에서 redirect 로그인 처리용)
-   */
-  function setUser(userData: User | null) {
-    user.value = userData
-  }
-
   return {
     user,
     isInitialized,
@@ -255,7 +212,6 @@ export const useAuthStore = defineStore('auth', () => {
     signIn,
     signOut,
     clearError,
-    handleTokenExpired,
-    setUser
+    handleTokenExpired
   }
 })

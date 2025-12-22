@@ -67,41 +67,24 @@ router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
 
-  // ✅ Firebase Auth 초기화 완료 대기 (중요!)
-  // 페이지 새로고침 시 authService가 완전히 초기화될 때까지 기다림
-  // 이 시점에서 redirect 로그인 결과도 처리됨
+  // Firebase Auth 초기화 완료 대기
   if (!isDevMode) {
     await authService.waitForAuth()
   }
 
-  // 🔧 FIX: redirect 로그인이 처리된 경우, 저장된 사용자 정보로 인증 상태 확인
-  // authStore.user는 앱 시작 시점의 localStorage 값이므로, redirect 후에는 outdated 상태
-  // authService.isAuthenticated()를 사용하여 실제 Firebase 인증 상태 확인
   const isFirebaseAuthenticated = authService.isAuthenticated()
-  let isStoreAuthenticated = authStore.isAuthenticated
+  const isStoreAuthenticated = authStore.isAuthenticated
 
-  // redirect 로그인 후 store가 아직 업데이트되지 않은 경우 처리
-  if (isFirebaseAuthenticated && !isStoreAuthenticated) {
-    try {
-      const userData = localStorage.getItem('reallease_user') || sessionStorage.getItem('reallease_user')
-      if (userData) {
-        const user = JSON.parse(userData)
-        authStore.setUser(user)
-        isStoreAuthenticated = true
-      }
-    } catch (err) {
-      console.error('❌ [Router] Failed to load user from storage:', err)
-    }
-  }
-
-  // 인증이 필요한 페이지인 경우 토큰 검증
+  // 인증이 필요한 페이지
   if (to.meta.requiresAuth) {
+    // 토큰 만료 체크
     if (!isDevMode && isStoreAuthenticated && !isFirebaseAuthenticated) {
       await authStore.handleTokenExpired()
       next({ name: 'auth', query: { expired: 'true' } })
       return
     }
 
+    // 미인증 상태
     if (!isFirebaseAuthenticated && !isStoreAuthenticated) {
       next({ name: 'auth' })
       return

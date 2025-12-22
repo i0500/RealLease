@@ -1,14 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/assets/(.*)",
-      "destination": "/assets/$1"
-    },
-    {
-      "source": "/__/auth/(.*)",
-      "destination": "https://reallease-f4479.firebaseapp.com/__/auth/$1"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -28,16 +20,7 @@
       ]
     },
     {
-      "source": "/__/auth/(.*)",
-      "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        }
-      ]
-    },
-    {
-      "source": "/((?!__/auth/).*)",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
