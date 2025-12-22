@@ -16,7 +16,7 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, googleProvider, setAuthPersistence } from '@/config/firebase'
-import { isIOSPWA, isPopupBlocked } from '@/utils/pwaUtils'
+import { isIOS, isIOSPWA, isPopupBlocked } from '@/utils/pwaUtils'
 
 // 토큰 갱신 버퍼 시간 (5분 전에 갱신 시도)
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000
@@ -51,17 +51,21 @@ export class AuthService {
   /**
    * 비동기 초기화 - auth listener 먼저 설정 후 redirect 결과 확인
    *
-   * 🔧 FIX: 순서 변경 - listener를 먼저 등록해야 Firebase 이벤트를 놓치지 않음
+   * 🔧 FIX v2: 순서 변경 + 강화된 디버깅
    * authReady는 redirect 결과 확인 + onAuthStateChanged 첫 콜백 모두 완료 후 resolve
    */
   private async initializeAuth(): Promise<void> {
+    console.log('🚀 [AuthService] initializeAuth START - v2')
+
     // 1. 저장된 토큰 먼저 로드
     this.loadGoogleAccessToken()
 
-    // 2. 🔧 FIX: Auth state listener 먼저 설정 (Firebase 이벤트 놓치지 않도록)
+    // 2. 🔧 FIX: Auth state listener 먼저 설정 (Firebase 이벤트를 놓치지 않도록)
+    console.log('👂 [AuthService] Setting up auth listener FIRST')
     this.initializeAuthListener()
 
-    // 3. iOS PWA redirect 결과 확인 (결과만 저장, 콜백은 나중에 처리)
+    // 3. redirect 결과 확인 (iOS/Safari용)
+    console.log('🔍 [AuthService] Now checking redirect result...')
     await this.checkRedirectResult()
 
     // ✅ redirect 결과 확인 완료 표시
@@ -70,6 +74,7 @@ export class AuthService {
 
     // 두 조건 모두 완료되었는지 확인하고 authReady resolve
     this.tryResolveAuthReady()
+    console.log('🏁 [AuthService] initializeAuth END')
   }
 
   /**
@@ -536,28 +541,38 @@ export class AuthService {
    */
   async signIn(keepSignedIn: boolean = true): Promise<void> {
     try {
-      console.log(`🔑 [AuthService] Starting Google sign-in (keepSignedIn: ${keepSignedIn})...`)
-      console.log(`📱 [AuthService] Environment: iOS PWA=${isIOSPWA()}, Popup blocked=${isPopupBlocked()}`)
+      console.log(`🔑 [AuthService] ========== SIGN IN START ==========`)
+      console.log(`🔑 [AuthService] keepSignedIn: ${keepSignedIn}`)
+      console.log(`📱 [AuthService] isIOS: ${isIOS()}`)
+      console.log(`📱 [AuthService] isIOSPWA: ${isIOSPWA()}`)
+      console.log(`📱 [AuthService] isPopupBlocked: ${isPopupBlocked()}`)
+      console.log(`📱 [AuthService] UserAgent: ${navigator.userAgent.substring(0, 100)}`)
 
       // 로그인 상태 유지 설정
+      console.log('🔐 [AuthService] Setting auth persistence...')
       await setAuthPersistence(keepSignedIn)
+      console.log('✅ [AuthService] Auth persistence set')
 
-      // iOS PWA에서는 redirect 방식 사용 (팝업이 차단됨)
+      // iOS에서는 redirect 방식 사용 (Safari ITP가 팝업 차단)
       if (isPopupBlocked()) {
-        console.log('🔄 [AuthService] Using signInWithRedirect (iOS PWA detected)...')
+        console.log('🔄 [AuthService] Using signInWithRedirect (iOS detected)...')
 
         // keepSignedIn 설정을 localStorage에 임시 저장 (redirect 후 복원용)
         localStorage.setItem('pending_keep_signed_in', String(keepSignedIn))
 
         // redirect 방식으로 로그인 (페이지가 이동됨)
+        console.log('➡️ [AuthService] Calling signInWithRedirect NOW...')
         await signInWithRedirect(auth, googleProvider)
         // 이 이후 코드는 실행되지 않음 (페이지 이동)
+        console.log('❓ [AuthService] This should NOT appear after redirect')
         return
       }
 
       // 일반 브라우저에서는 팝업 방식 사용
-      console.log('🔄 [AuthService] Using signInWithPopup...')
+      console.log('🔄 [AuthService] Using signInWithPopup (Desktop/Android)...')
+      console.log('⏳ [AuthService] Opening popup...')
       const result = await signInWithPopup(auth, googleProvider)
+      console.log('✅ [AuthService] Popup returned with result')
 
       this.currentUser = result.user
       console.log('✅ [AuthService] Popup sign-in successful:', {
