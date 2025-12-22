@@ -273,12 +273,17 @@ export class AuthService {
 
   /**
    * Google 로그인 (팝업 방식)
+   * 주의: signInWithPopup은 사용자 클릭 직후 바로 호출되어야 팝업 차단을 피할 수 있음
    */
   async signIn(keepSignedIn: boolean = true): Promise<void> {
     try {
-      await setAuthPersistence(keepSignedIn)
-
+      // 팝업을 먼저 열어서 사용자 제스처 체인 유지
       const result = await signInWithPopup(auth, googleProvider)
+
+      // 로그인 성공 후 persistence 설정
+      setAuthPersistence(keepSignedIn).catch(err => {
+        console.warn('⚠️ [AuthService] Persistence 설정 실패:', err)
+      })
       this.currentUser = result.user
 
       const credential = GoogleAuthProvider.credentialFromResult(result)
