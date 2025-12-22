@@ -44,21 +44,24 @@ export class AuthService {
       this.authReadyResolve = resolve
     })
 
-    // 초기화 순서 중요: redirect 결과를 먼저 확인한 후 auth listener 설정
+    // 초기화 순서 중요: auth listener 먼저 설정 후 redirect 결과 확인
     this.initializeAuth()
   }
 
   /**
-   * 비동기 초기화 - redirect 결과 확인 후 auth listener 설정
-   * iOS PWA: redirect 결과는 저장해두고 콜백 등록 후 처리
+   * 비동기 초기화 - auth listener 먼저 설정 후 redirect 결과 확인
    *
-   * 🔧 FIX: authReady는 redirect 결과 확인 + onAuthStateChanged 첫 콜백 모두 완료 후 resolve
+   * 🔧 FIX: 순서 변경 - listener를 먼저 등록해야 Firebase 이벤트를 놓치지 않음
+   * authReady는 redirect 결과 확인 + onAuthStateChanged 첫 콜백 모두 완료 후 resolve
    */
   private async initializeAuth(): Promise<void> {
     // 1. 저장된 토큰 먼저 로드
     this.loadGoogleAccessToken()
 
-    // 2. iOS PWA redirect 결과 확인 (결과만 저장, 콜백은 나중에 처리)
+    // 2. 🔧 FIX: Auth state listener 먼저 설정 (Firebase 이벤트 놓치지 않도록)
+    this.initializeAuthListener()
+
+    // 3. iOS PWA redirect 결과 확인 (결과만 저장, 콜백은 나중에 처리)
     await this.checkRedirectResult()
 
     // ✅ redirect 결과 확인 완료 표시
@@ -67,9 +70,6 @@ export class AuthService {
 
     // 두 조건 모두 완료되었는지 확인하고 authReady resolve
     this.tryResolveAuthReady()
-
-    // 3. Auth state listener 설정
-    this.initializeAuthListener()
   }
 
   /**
