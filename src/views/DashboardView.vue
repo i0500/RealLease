@@ -1058,10 +1058,23 @@ function getPriorityColor(priority: string) {
   .recent-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
+    align-items: stretch;
   }
 
   .recent-grid .dashboard-section {
     margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-grid .contracts-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-grid .contract-list {
+    flex: 1;
   }
 }
 
