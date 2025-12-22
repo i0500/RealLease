@@ -30,6 +30,8 @@ export class AuthService {
   private authReady: Promise<void>
   private authReadyResolve!: () => void
   private keepSignedInPreference: boolean = true // 로그인 상태 유지 설정
+  private redirectLoginProcessed: boolean = false // redirect 로그인 처리 완료 여부
+  private onRedirectLoginSuccess: ((user: FirebaseUser) => void) | null = null // redirect 로그인 성공 콜백
 
   constructor() {
     // Firebase Auth 초기화 완료를 기다릴 Promise 생성
@@ -37,17 +39,37 @@ export class AuthService {
       this.authReadyResolve = resolve
     })
 
-    this.initializeAuthListener()
+    // 초기화 순서 중요: redirect 결과를 먼저 확인한 후 auth listener 설정
+    this.initializeAuth()
+  }
+
+  /**
+   * 비동기 초기화 - redirect 결과 확인 후 auth listener 설정
+   */
+  private async initializeAuth(): Promise<void> {
+    // 1. 저장된 토큰 먼저 로드
     this.loadGoogleAccessToken()
-    // iOS PWA에서 redirect 로그인 결과 체크
-    this.checkRedirectResult()
+
+    // 2. iOS PWA redirect 결과 확인 (먼저 처리해야 함!)
+    await this.checkRedirectResult()
+
+    // 3. Auth state listener 설정
+    this.initializeAuthListener()
+  }
+
+  /**
+   * Redirect 로그인 성공 시 호출될 콜백 등록
+   */
+  setOnRedirectLoginSuccess(callback: (user: FirebaseUser) => void): void {
+    this.onRedirectLoginSuccess = callback
   }
 
   /**
    * Redirect 로그인 결과 확인 (iOS PWA용)
    * 앱 시작 시 호출되어 redirect 방식 로그인 결과를 처리
+   * @returns true if redirect login was successful
    */
-  private async checkRedirectResult(): Promise<void> {
+  private async checkRedirectResult(): Promise<boolean> {
     try {
       console.log('🔄 [AuthService] Checking redirect result...')
       const result = await getRedirectResult(auth)
@@ -59,6 +81,7 @@ export class AuthService {
         })
 
         this.currentUser = result.user
+        this.redirectLoginProcessed = true
 
         // Google OAuth Credentials에서 Access Token 추출
         const credential = GoogleAuthProvider.credentialFromResult(result)
@@ -76,16 +99,41 @@ export class AuthService {
           this.saveGoogleAccessToken(credential.accessToken, keepSignedIn, expiresIn)
           console.log('✅ [AuthService] Redirect login token saved')
 
+          // 사용자 정보를 localStorage에 저장 (auth store가 읽을 수 있도록)
+          const userInfo = {
+            email: result.user.email || 'user@example.com',
+            name: result.user.displayName || result.user.email?.split('@')[0] || 'User'
+          }
+          const storage = keepSignedIn ? localStorage : sessionStorage
+          storage.setItem('reallease_user', JSON.stringify(userInfo))
+          console.log('✅ [AuthService] User info saved to storage:', userInfo)
+
           // 🔍 DEBUG: 토큰 권한 확인
           this.debugTokenScopes(credential.accessToken)
+
+          // 콜백 호출 (auth store에 알림)
+          if (this.onRedirectLoginSuccess) {
+            this.onRedirectLoginSuccess(result.user)
+          }
         }
+
+        return true
       } else {
         console.log('ℹ️ [AuthService] No redirect result (normal browser load)')
+        return false
       }
     } catch (error: any) {
       console.error('❌ [AuthService] Redirect result error:', error)
       // redirect 결과 오류는 무시 (일반적인 앱 로드에서는 결과가 없음)
+      return false
     }
+  }
+
+  /**
+   * Redirect 로그인이 처리되었는지 확인
+   */
+  wasRedirectLoginProcessed(): boolean {
+    return this.redirectLoginProcessed
   }
 
   /**

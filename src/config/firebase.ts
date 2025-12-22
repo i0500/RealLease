@@ -11,7 +11,8 @@ import {
   GoogleAuthProvider,
   setPersistence,
   browserLocalPersistence,
-  browserSessionPersistence
+  browserSessionPersistence,
+  indexedDBLocalPersistence
 } from 'firebase/auth'
 
 // Firebase configuration from environment variables
@@ -55,20 +56,53 @@ try {
 }
 
 /**
+ * iOS PWA 환경 감지
+ */
+function isIOSPWA(): boolean {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+  const isStandalone = (window.navigator as any).standalone === true
+  return isIOS && isStandalone
+}
+
+/**
  * Set authentication persistence
  * @param keepSignedIn - true: localStorage (persist), false: sessionStorage (session only)
+ *
+ * iOS PWA에서는 indexedDBLocalPersistence 사용 권장 (더 안정적)
  */
 export async function setAuthPersistence(keepSignedIn: boolean): Promise<void> {
-  const persistence = keepSignedIn ? browserLocalPersistence : browserSessionPersistence
+  // iOS PWA에서는 indexedDB가 더 안정적
+  let persistence
+  if (keepSignedIn) {
+    persistence = isIOSPWA() ? indexedDBLocalPersistence : browserLocalPersistence
+  } else {
+    persistence = browserSessionPersistence
+  }
 
-  console.log(`🔐 [Firebase] Setting auth persistence: ${keepSignedIn ? 'LOCAL' : 'SESSION'}`)
+  const persistenceType = keepSignedIn
+    ? (isIOSPWA() ? 'INDEXED_DB' : 'LOCAL')
+    : 'SESSION'
+
+  console.log(`🔐 [Firebase] Setting auth persistence: ${persistenceType} (iOS PWA: ${isIOSPWA()})`)
 
   try {
     await setPersistence(auth, persistence)
-    console.log(`✅ [Firebase] Auth persistence set to ${keepSignedIn ? 'LOCAL' : 'SESSION'}`)
+    console.log(`✅ [Firebase] Auth persistence set to ${persistenceType}`)
   } catch (error) {
     console.error('❌ [Firebase] Failed to set persistence:', error)
-    throw error
+    // Fallback: browserLocalPersistence 시도
+    if (isIOSPWA()) {
+      console.log('🔄 [Firebase] Trying fallback to browserLocalPersistence...')
+      try {
+        await setPersistence(auth, browserLocalPersistence)
+        console.log('✅ [Firebase] Fallback persistence set successfully')
+      } catch (fallbackError) {
+        console.error('❌ [Firebase] Fallback persistence also failed:', fallbackError)
+        throw fallbackError
+      }
+    } else {
+      throw error
+    }
   }
 }
 
