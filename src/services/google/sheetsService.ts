@@ -16,11 +16,18 @@ export class SheetsService {
     return false
   }
 
-  private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  private async fetchWithAuth(url: string, options: RequestInit = {}, isRetry: boolean = false): Promise<Response> {
     const token = await authService.getAccessToken()
     if (!token) {
-      console.warn('⚠️ [SheetsService] OAuth 토큰 없음, 자동 로그아웃 처리')
-      await authService.signOut()
+      // 토큰이 없으면 재인증 시도
+      if (!isRetry) {
+        console.log('🔄 [SheetsService] 토큰 없음, 자동 재인증 시도...')
+        const reauthed = await authService.requestReauthentication()
+        if (reauthed) {
+          return this.fetchWithAuth(url, options, true)
+        }
+      }
+      console.warn('⚠️ [SheetsService] 재인증 실패')
       throw new TokenExpiredError()
     }
 
@@ -38,8 +45,14 @@ export class SheetsService {
 
       // 401 Unauthorized - 토큰 만료
       if (response.status === 401) {
-        console.warn('⚠️ [SheetsService] 401 Unauthorized, 자동 로그아웃 처리')
-        await authService.signOut()
+        if (!isRetry) {
+          console.log('🔄 [SheetsService] 401 토큰 만료, 자동 재인증 시도...')
+          const reauthed = await authService.requestReauthentication()
+          if (reauthed) {
+            return this.fetchWithAuth(url, options, true)
+          }
+        }
+        console.warn('⚠️ [SheetsService] 재인증 실패')
         throw new TokenExpiredError()
       }
 
@@ -48,9 +61,14 @@ export class SheetsService {
         const errorMessage = error.error?.message || ''
         if (errorMessage.includes('insufficient authentication scopes') ||
             errorMessage.includes('Request had insufficient')) {
-          console.warn('⚠️ [SheetsService] 403 토큰 만료/권한 부족, 자동 로그아웃 처리')
-          console.warn('   Error:', errorMessage)
-          await authService.signOut()
+          if (!isRetry) {
+            console.log('🔄 [SheetsService] 403 권한 부족, 자동 재인증 시도...')
+            const reauthed = await authService.requestReauthentication()
+            if (reauthed) {
+              return this.fetchWithAuth(url, options, true)
+            }
+          }
+          console.warn('⚠️ [SheetsService] 재인증 실패')
           throw new TokenExpiredError()
         }
       }
